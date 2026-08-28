@@ -11,6 +11,7 @@ from .theme import ColorScheme, theme_manager
 from .i18n import lang_manager, Strings
 from .board_manager import BOARDS, BoardState, board_manager
 from .ai_config import ai_config
+from .ai_status import KINDS_OK, KINDS_WARN, ai_status
 
 _H = 26
 
@@ -29,6 +30,7 @@ class StatusBar(QWidget):
         board_manager.changed.connect(self._refresh)
         board_manager.state_changed.connect(self._refresh)
         ai_config.changed.connect(self._refresh)
+        ai_status.changed.connect(self._refresh)
 
     def _build(self):
         layout = QHBoxLayout(self)
@@ -72,9 +74,24 @@ class StatusBar(QWidget):
         """Re-reads board_manager and ai_config — independent of signal order."""
         # ── AI Model ─────────────────────────────────────────
         self._lbl_ia_val.setText(ai_config.display_name())
-        ok = theme_manager.current.signal_ok   # "it works" = phosphor (spec § 1)
-        self._dot_ia.setStyleSheet(f"color: {ok}; font-size: 8pt;")
-        self._set_glow(self._dot_ia, ok, True)   # phosphor glow (OK state)
+        # ⛔ La pastille etait VERTE EN DUR -- elle ne consultait rien et ne se
+        # trompait que quand on avait besoin d'elle (TODO #80). Elle lit
+        # desormais le dernier etat PUBLIE par l'onglet Modele IA, sans le
+        # moindre appel reseau ici : `is_server_running()` coute 2 030 ms
+        # serveur eteint, et _refresh tourne sur le fil graphique a chaque
+        # signal. None = pas encore d'information -> GRIS, jamais vert.
+        cur = theme_manager.current
+        kind = ai_status.state
+        if kind in KINDS_OK:
+            color, glow = cur.signal_ok, True
+        elif kind is None:
+            color, glow = cur.text_secondary, False
+        elif kind in KINDS_WARN:
+            color, glow = cur.signal_warn, False
+        else:
+            color, glow = cur.signal_error, False
+        self._dot_ia.setStyleSheet(f"color: {color}; font-size: 8pt;")
+        self._set_glow(self._dot_ia, color, glow)
 
         # ── Board ─────────────────────────────────────────────
         env   = board_manager.env
@@ -88,7 +105,12 @@ class StatusBar(QWidget):
             self._lbl_board_val.setText("—")
 
         if state == BoardState.CONNECTED:
-            color, glow = ok, True                                    # "it works"
+            # ⚠️ `cur` et non un `ok` defini plus haut : la variable a ete
+            # supprimee le 2026-08-28 avec le vert-en-dur de la pastille IA,
+            # et cette branche -- qui ne tourne que CARTE BRANCHEE -- la
+            # referencait encore. Un NameError dans un slot PyQt6 devient
+            # un abort NATIF (0xC0000409) sans la moindre trace Python.
+            color, glow = cur.signal_ok, True                         # "it works"
         elif state == BoardState.MANUAL:
             color, glow = theme_manager.current.signal_warn, False    # warning
         else:

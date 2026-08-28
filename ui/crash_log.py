@@ -32,7 +32,8 @@ import traceback
 from datetime import datetime, timezone
 from pathlib import Path
 
-CRASH_DIR = Path.home() / "Documents" / "Promptuino" / "crash-reports"
+from .paths import DATA_DIR
+CRASH_DIR = DATA_DIR / "crash-reports"
 
 _installed = False
 
@@ -72,7 +73,7 @@ def scrub_text(text: str) -> str:
 def build_report(exc_type: str, tb_text: str) -> str:
     stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     return "\n".join([
-        "PromptuinoUI crash report",
+        "Promptuino crash report",
         f"ts: {stamp}   exc: {exc_type}",
         f"python: {sys.version.split()[0]}   platform: {sys.platform}",
         "", "--- traceback ---", scrub_text(tb_text or ""),

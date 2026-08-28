@@ -40,6 +40,7 @@ from .statusbar import StatusBar
 from .board_manager import board_manager, detect_board, _KNOWN_DEVICES
 from .usb_watcher import USBWatcher
 from .session import session
+from .nudge_banner import NudgeBanner
 from .project_manager import project_manager, projects_root, TYPE_DIR_NAMES
 from .tutorial import TutorialOverlay, TutorialStep
 
@@ -189,7 +190,7 @@ class MainWindow(QMainWindow):
 
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("PromptuinoUI")
+        self.setWindowTitle("Promptuino")
         # Widened minimum (#4): wide enough for the editor (456px floor)
         # + the right journal/buttons column (380px) to fit without overflowing
         # on the right as long as at least one side panel (sidebar/chat) is collapsed.
@@ -215,6 +216,11 @@ class MainWindow(QMainWindow):
         # Position the collapse chevrons once the first layout pass is done (the
         # bar geometries are only valid after show/layout).
         QTimer.singleShot(0, self._position_collapse_handles)
+        # Mise a jour : APRES l'ouverture, jamais pendant. 4 s laissent
+        # la fenetre s'afficher et le projet se recharger d'abord ; un
+        # appel reseau au demarrage est ce qu'un poste lent fait payer
+        # le plus cher, pour une information qui n'est jamais urgente.
+        QTimer.singleShot(4000, self._start_update_check)
 
     # ── Menu bar ──────────────────────────────────────────────
 
@@ -444,6 +450,18 @@ class MainWindow(QMainWindow):
         self._topbar_sep.setFixedHeight(1)
         right_layout.addWidget(self._topbar_sep)
 
+        # ── Mise a jour disponible (TODO #77) ─────────────────────
+        # On PROPOSE, on n'installe jamais : une app scolaire qui se
+        # met a jour seule en pleine seance est une mauvaise surprise.
+        # Bandeau non bloquant, refermable -- pas une modale qui
+        # s'interpose entre l'eleve et son travail.
+        self._update_banner = NudgeBanner(variant="info")
+        self._update_banner.hide()
+        self._update_banner.action_requested.connect(
+            self._on_update_download)
+        self._update_banner.dismissed.connect(self._update_banner.hide)
+        right_layout.addWidget(self._update_banner)
+
         # ─── Chat panel (permanent vertical strip, between sidebar
         # and main stack) ────────────────────────────────────────────
         # The controller is instantiated with a None backend; it will be
@@ -637,7 +655,7 @@ class MainWindow(QMainWindow):
         self._chat_handle.hover_changed.connect(self._chat_view.set_title_linked_hover)
         self._chat_view.title_hover_changed.connect(self._chat_handle.set_linked_hover)
 
-        # ── Root: central area + status bar ───────────────────
+    # ── Root: central area + status bar ───────────────────
         self._root_widget = QWidget()
         root_layout = QVBoxLayout(self._root_widget)
         root_layout.setContentsMargins(0, 0, 0, 0)
@@ -666,6 +684,46 @@ class MainWindow(QMainWindow):
         self.apply_theme(theme_manager.current)
         # Initial sync of chat visibility with the current tab.
         self._refresh_chat_visibility()
+
+    # ── Mise a jour (TODO #77) ────────────────────────────────
+    def _start_update_check(self):
+        """Interroge GitHub en ARRIERE-PLAN, quelques secondes apres l'ouverture.
+
+        ⚠️ Jamais sur le fil graphique, et jamais avant que la fenetre soit
+        visible : un appel reseau au demarrage qui retarde l'affichage est
+        exactement ce qu'un poste d'etablissement lent fait payer le plus cher.
+
+        ⚠️ Le silence est un RESULTAT VALIDE. Hors ligne, quota d'API atteint,
+        aucune Release publiee, build de developpement : dans tous ces cas le
+        bandeau ne s'affiche pas et rien ne le signale. C'est la decision du
+        2026-08-28 -- au demarrage, on ne derange pas.
+        """
+        class _Worker(QThread):
+            trouve = pyqtSignal(object)
+
+            def run(self):
+                from .updates import check as check_updates
+                self.trouve.emit(check_updates())
+
+        self._update_worker = _Worker(self)
+        self._update_worker.trouve.connect(self._on_update_found)
+        self._update_worker.start()
+
+    def _on_update_found(self, tag):
+        if not tag:
+            return                      # silence : cf. _start_update_check
+        s = lang_manager.current
+        self._update_tag = tag
+        self._update_banner.show_nudge(
+            s.update_banner.format(v=str(tag).lstrip("v")), s.update_download)
+
+    def _on_update_download(self):
+        """Ouvre la page des Releases. On ne telecharge RIEN nous-memes."""
+        from PyQt6.QtGui import QDesktopServices
+        from PyQt6.QtCore import QUrl
+        from .updates import PAGE_RELEASES
+        QDesktopServices.openUrl(QUrl(PAGE_RELEASES))
+        self._update_banner.hide()
 
     # ── Theme ─────────────────────────────────────────────────
 
@@ -1082,9 +1140,9 @@ class MainWindow(QMainWindow):
         """Update the window title: "PromptuinoUI - Name" if a project is
         loaded, otherwise just "PromptuinoUI"."""
         if name:
-            self.setWindowTitle(f"PromptuinoUI - {name}")
+            self.setWindowTitle(f"Promptuino - {name}")
         else:
-            self.setWindowTitle("PromptuinoUI")
+            self.setWindowTitle("Promptuino")
 
     # ── Close guard ─────────────────────────────────────────────
     def closeEvent(self, event):

@@ -66,8 +66,8 @@ PROVIDERS: tuple[ProviderPreset, ...] = (
         "openrouter", "OpenRouter", "https://openrouter.ai/api/v1",
         "qwen/qwen-2.5-coder-32b-instruct", context_window_hint=128_000,
         key_url="https://openrouter.ai/keys",
-        extra_headers=MappingProxyType({"HTTP-Referer": "https://github.com/medkar/PromptuinoUI",
-                                       "X-Title": "PromptuinoUI"}),
+        extra_headers=MappingProxyType({"HTTP-Referer": "https://github.com/medkar/Promptuino",
+                                       "X-Title": "Promptuino"}),
     ),
 )
 

@@ -420,13 +420,13 @@ _DIALOG_LABELS: dict[str, dict[str, str]] = {
         "it": "Impossibile generare lo schema per questo codice.",
     },
     "too_many_dc_motors_banner": {
-        "fr": "⚠️ {count} moteurs DC détectés — PromptuinoUI se limite à 2 "
+        "fr": "⚠️ {count} moteurs DC détectés — Promptuino se limite à 2 "
               "moteurs DC max (voir détails à droite).",
-        "en": "⚠️ {count} DC motors detected — PromptuinoUI supports up to 2 "
+        "en": "⚠️ {count} DC motors detected — Promptuino supports up to 2 "
               "DC motors max (see details on the right).",
-        "es": "⚠️ {count} motores DC detectados — PromptuinoUI se limita a 2 "
+        "es": "⚠️ {count} motores DC detectados — Promptuino se limita a 2 "
               "motores DC como máximo (ver detalles a la derecha).",
-        "it": "⚠️ {count} motori DC rilevati — PromptuinoUI è limitato a 2 "
+        "it": "⚠️ {count} motori DC rilevati — Promptuino è limitato a 2 "
               "motori DC al massimo (vedere dettagli a destra).",
     },
     "wiring_experimental_banner": {

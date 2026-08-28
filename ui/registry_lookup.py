@@ -138,7 +138,8 @@ def detect_unknown_part_tokens(prompt: str) -> list[str]:
 _CACHE_VERSION = 1
 _CACHE_MAX_ENTRIES = 100
 # À côté de session.json (même dossier applicatif). Modifiable par les tests.
-_CACHE_PATH = Path.home() / "Documents" / "Promptuino" / "registry-cache.json"
+from .paths import DATA_DIR
+_CACHE_PATH = DATA_DIR / "registry-cache.json"
 
 # Test seam (TODO #39 task 5): the cache is a real file under the user's
 # Documents folder, and the "Composants" tab now reads it through

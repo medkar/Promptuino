@@ -95,7 +95,7 @@ def _apply_motor_drivers_and_battery(netlist: Netlist) -> None:
             code="too_many_dc_motors",
             severity=SEVERITY_WARNING,
             message=f"{len(dc_motors_with_ctrl)} moteurs DC detectes. "
-                    f"PromptuinoUI se limite a 2 moteurs DC max.",
+                    f"Promptuino se limite a 2 moteurs DC max.",
             refs=[m.ref for m in dc_motors_with_ctrl],
             params={"count": len(dc_motors_with_ctrl), "max_supported": 2},
         )

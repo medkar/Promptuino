@@ -1,5 +1,9 @@
 """Ollama backend — uses the local Ollama server (http://localhost:11434)."""
 import json
+import os
+import shutil
+import sys
+from pathlib import Path
 import threading
 import re
 import urllib.error
@@ -92,6 +96,38 @@ def _post_stream(path: str, payload: dict, timeout: int = _TIMEOUT_GEN):
                 yield json.loads(line)
             except json.JSONDecodeError:
                 continue
+
+
+def is_installed() -> bool:
+    """Ollama est-il installe sur cette machine ?
+
+    ⚠️ **`shutil.which` seul ne suffit pas.** Il lit le PATH DU PROCESSUS
+    COURANT, et un processus ne voit jamais un PATH modifie apres son propre
+    demarrage. Quelqu'un qui installe Ollama pendant que Promptuino est ouvert
+    -- exactement ce que le message << le telecharger >> l'invite a faire --
+    resterait donc invisible jusqu'au redemarrage de l'application.
+
+    On regarde aussi les emplacements d'installation par defaut, comme
+    `ui/arduino_cli.py::_candidate_paths()` le fait deja pour arduino-cli.
+
+    ⚠️ Cette fonction n'est consultee que lorsque le SERVEUR ne repond pas :
+    un Ollama qui tourne est detecte par HTTP, sans PATH ni fichier.
+    """
+    if shutil.which("ollama"):
+        return True
+    if sys.platform == "win32":
+        bases = [os.environ.get("LOCALAPPDATA", ""), os.environ.get("ProgramFiles", ""),
+                 os.environ.get("ProgramW6432", "")]
+        chemins = [Path(b) / "Programs" / "Ollama" / "ollama.exe" for b in bases if b]
+        chemins += [Path(b) / "Ollama" / "ollama.exe" for b in bases if b]
+    elif sys.platform == "darwin":
+        chemins = [Path("/usr/local/bin/ollama"),
+                   Path("/opt/homebrew/bin/ollama"),
+                   Path("/Applications/Ollama.app/Contents/Resources/ollama")]
+    else:
+        chemins = [Path("/usr/local/bin/ollama"), Path("/usr/bin/ollama"),
+                   Path.home() / ".local" / "bin" / "ollama"]
+    return any(p.is_file() for p in chemins)
 
 
 def is_server_running() -> bool:

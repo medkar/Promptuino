@@ -43,11 +43,16 @@ sent to the model or what is stored in the project.
 ## It runs on your machine
 
 Generation runs on a local model served by [Ollama](https://ollama.com), and
-`arduino-cli` ships inside the installer. **No account, no API key and no
-connection are needed** to generate, compile and upload.
+`arduino-cli` ships inside the installer. **No account and no API key are
+needed**, and nothing you write leaves your machine.
 
-One exception, once: the installer downloads the embedding model
-(~449 MB, see below). After that, everything works offline.
+⚠️ **Ollama is not bundled — install it separately**, then pull a model
+(`ollama pull gemma3:4b` or the model of your choice). Promptuino detects
+whether the server is running, but cannot install it for you.
+
+Two downloads happen once, then everything works offline: the model you
+pull through Ollama, and the embedding model the installer fetches
+(~449 MB, see below).
 
 A remote backend stays available for those who want one — the application
 speaks the OpenAI-compatible protocol and connects to Gemini, OpenAI,
@@ -172,11 +177,17 @@ est envoyé au modèle ni ce qui est enregistré dans le projet.
 
 La génération s'appuie sur un modèle local servi par
 [Ollama](https://ollama.com), et `arduino-cli` est embarqué dans l'installeur.
-**Aucun compte, aucune clé d'API et aucune connexion** ne sont nécessaires
-pour générer, compiler et téléverser.
+**Aucun compte ni clé d'API** ne sont nécessaires, et rien de ce que vous
+écrivez ne quitte votre machine.
 
-Une exception, une seule fois : l'installation télécharge le modèle
-d'embeddings (~449 Mo, voir ci-dessous). Ensuite, tout fonctionne hors ligne.
+⚠️ **Ollama n'est pas embarqué — il faut l'installer séparément**, puis
+récupérer un modèle (`ollama pull gemma3:4b`, ou celui de votre choix).
+Promptuino détecte si le serveur tourne, mais ne peut pas l'installer à
+votre place.
+
+Deux téléchargements ont lieu une fois pour toutes, ensuite tout fonctionne
+hors ligne : le modèle récupéré via Ollama, et le modèle d'embeddings que
+l'installation télécharge (~449 Mo, voir ci-dessous).
 
 Un backend distant reste possible pour qui le veut — l'application parle le
 protocole OpenAI-compatible et sait se connecter à Gemini, OpenAI, Anthropic,

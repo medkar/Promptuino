@@ -203,7 +203,7 @@ def build_system_prompt(
         "```cpp blocks``` to illustrate a concept). But for FULL programs "
         "or complete .ino sketches with setup()+loop(), redirect to the "
         f"\"{L('studio_prompt_label')}\" field.\n"
-        "- The user works in PromptuinoUI (this app), NOT Arduino IDE. "
+        "- The user works in Promptuino (this app), NOT Arduino IDE. "
         "Libraries auto-install when the code references them. "
         "Never suggest manual installation steps via Library Manager.\n"
         "- Do NOT use LaTeX or MathJax syntax ($$, \\(, etc.). "
@@ -222,7 +222,7 @@ def build_system_prompt(
     # App knowledge: lets the chat answer "how do I use the app" questions.
     sections.append(
         "# About Promptuino (this app)\n"
-        "PromptuinoUI is the desktop app the user is running. Use these facts "
+        "Promptuino is the desktop app the user is running. Use these facts "
         "to answer questions about how to use it. Quoted UI labels are in the "
         "user's language, exactly as shown on screen:\n"
         f"- Code is created from natural language: the user types a description "

@@ -3,11 +3,11 @@
 # Build (depuis la racine du repo) :
 #   pyinstaller build/promptuinoui.spec --noconfirm
 #
-# Produit : dist/PromptuinoUI/  (mode one-folder)
+# Produit : dist/Promptuino/  (mode one-folder)
 #
-# Le modele ONNX (~449 Mo) est EXCLU de l'installeur ; il sera telecharge
-# au 1er lancement via ui/onnx_setup.py. Configurer l'URL avant build :
-# ui/onnx_setup.py:ONNX_MODEL_URL.
+# Le modele ONNX (~449 Mo) est EXCLU du bundle ; il est telecharge depuis
+# Hugging Face, URL et empreinte dans ui/onnx_setup.py (renseignees le
+# 2026-08-28, revision epinglee).
 
 from pathlib import Path
 
@@ -18,22 +18,41 @@ SPEC_DIR = Path(SPECPATH).resolve()
 REPO_ROOT = SPEC_DIR.parent
 
 # ─── Data files (assets non-Python) ───────────────────────────────────────
-# Tout assets/ inclus le modele ONNX (~449 Mo) embarque pour zero edit /
-# zero download au 1er lancement. Installeur final ~500 Mo compresse.
+# Tout assets/ SAUF le modele ONNX (~449 Mo), telecharge a l'installation
+# depuis Hugging Face (TODO #74, cf. ui/onnx_setup.py).
+#
+# ⚠️ L'exclusion est EXPLICITE et pas implicite. Le fichier est gitignore,
+# donc il est absent en CI et le glob l'aurait saute tout seul -- mais present
+# sur le poste du developpeur, il aurait ete embarque. Le build local et le
+# build CI auraient alors produit deux installeurs differents, dont un de
+# 450 Mo, sans que rien ne le dise.
+#
+# (Ce fichier s'est contredit lui-meme jusqu'au 2026-08-28 : son en-tete
+# annoncait le modele EXCLU, ce commentaire-ci annoncait le modele EMBARQUE,
+# et le code faisait le second. C'est de la que venait l'ecart 60 Mo / 450 Mo
+# de BUILD.md.)
 # Format PyInstaller : list[(src, dest_dir_in_bundle)].
+_MODELE_ONNX = REPO_ROOT / "assets" / "rag" / "model" / "model.onnx"
 datas = []
 for path in (REPO_ROOT / "assets").rglob("*"):
-    if not path.is_file():
+    if not path.is_file() or path == _MODELE_ONNX:
         continue
     rel = path.relative_to(REPO_ROOT)
     datas.append((str(path), str(rel.parent)))
 
 # ─── Binaires embarques ───────────────────────────────────────────────────
-# arduino-cli.exe pose a la racine de l'app, retrouve par _candidate_paths()
-# dans ui/arduino_cli.py.
-binaries = [
-    (str(SPEC_DIR / "third_party" / "arduino-cli.exe"), "."),
-]
+# arduino-cli pose a la racine de l'app, retrouve par _candidate_paths()
+# dans ui/arduino_cli.py (qui gere deja le nom sans `.exe` hors Windows).
+# Le binaire est gitignore : le poste de dev le depose a la main, la CI le
+# telecharge. Absent, on n'echoue pas ici -- l'app le dira elle-meme, et un
+# build sans arduino-cli reste utile pour tester le reste.
+import sys as _sys
+
+_cli = SPEC_DIR / "third_party" / (
+    "arduino-cli.exe" if _sys.platform == "win32" else "arduino-cli")
+binaries = [(str(_cli), ".")] if _cli.is_file() else []
+if not binaries:
+    print(f"[spec] arduino-cli absent ({_cli}) : bundle SANS le binaire.")
 
 # ─── Modules a exclure (gain de taille / hygiene) ─────────────────────────
 # tkinter, matplotlib, etc. ne sont pas utilises par l'app.
@@ -112,7 +131,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name="PromptuinoUI",
+    name="Promptuino",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -123,7 +142,11 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=None,           # TODO: ajouter une icone .ico si dispo
+    # Sans icone dans l'exe, Windows affiche le pictogramme generique
+    # PARTOUT : barre des taches, Explorateur, et la liste << Applications
+    # installees >> (ou `UninstallDisplayIcon` pointe justement sur l'exe).
+    # Genere depuis le SVG du depot par `scripts/gen_app_icon.py`.
+    icon=str(REPO_ROOT / "assets" / "logo" / "promptuino.ico"),
 )
 
 coll = COLLECT(
@@ -134,5 +157,5 @@ coll = COLLECT(
     strip=False,
     upx=False,
     upx_exclude=[],
-    name="PromptuinoUI",
+    name="Promptuino",
 )

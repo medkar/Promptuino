@@ -1,7 +1,7 @@
 """
 PromptuinoUI workspace manager.
 
-Structure created in ~/Documents/PromptuinoUI_projects/ :
+Structure created in ~/Documents/Promptuino/projets/ :
   Arduino/
     libraries/   ← arduino-cli installs the libraries here
     projects/    ← saved .ino files

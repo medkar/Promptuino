@@ -364,27 +364,27 @@ DIALOG_LABELS: dict[str, dict[str, str]] = {
               "corrisponde a ciò che vuoi collegare:",
     },
     "motors_limit_warning": {
-        "fr": "⚠️ <b>{n} moteurs DC détectés.</b> PromptuinoUI se limite à "
+        "fr": "⚠️ <b>{n} moteurs DC détectés.</b> Promptuino se limite à "
               "<b>{limit} moteurs DC</b> maximum (tous les drivers "
               "catalogués sont des dual H-bridges, 1 chip = 2 moteurs). Les "
               "{limit} premiers sont pré-cochés ; tu peux en décocher pour "
               "en choisir d'autres. Les broches non retenues deviendront "
               "des sorties à reclasser individuellement plus bas dans "
               "cette modale.",
-        "en": "⚠️ <b>{n} DC motors detected.</b> PromptuinoUI limits you to "
+        "en": "⚠️ <b>{n} DC motors detected.</b> Promptuino limits you to "
               "<b>{limit} DC motors</b> maximum (every cataloged driver is "
               "a dual H-bridge, 1 chip = 2 motors). The first {limit} are "
               "pre-checked; you can uncheck some to pick different ones. "
               "Pins that aren't kept become individual outputs to "
               "reclassify further down in this dialog.",
-        "es": "⚠️ <b>Se detectaron {n} motores DC.</b> PromptuinoUI limita "
+        "es": "⚠️ <b>Se detectaron {n} motores DC.</b> Promptuino limita "
               "a <b>{limit} motores DC</b> como máximo (todos los drivers "
               "del catálogo son puente H dual, 1 chip = 2 motores). Los "
               "primeros {limit} están premarcados; puedes desmarcarlos "
               "para elegir otros. Los pines no conservados pasarán a ser "
               "salidas individuales para reclasificar más abajo en esta "
               "ventana.",
-        "it": "⚠️ <b>Rilevati {n} motori DC.</b> PromptuinoUI limita a "
+        "it": "⚠️ <b>Rilevati {n} motori DC.</b> Promptuino limita a "
               "<b>{limit} motori DC</b> al massimo (tutti i driver a "
               "catalogo sono ponti H doppi, 1 chip = 2 motori). I primi "
               "{limit} sono preselezionati; puoi deselezionarne alcuni per "

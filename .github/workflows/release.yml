@@ -1,0 +1,231 @@
+# Construit les installeurs et les attache a la Release du tag.
+#
+# ⚠️ CE FICHIER TOURNE DANS LE DEPOT PUBLIC (github.com/medkar/Promptuino),
+# ou les runners GitHub sont GRATUITS. Il vit malgre tout dans le depot PRIVE
+# et arrive ici par la liste blanche de `scripts/publish.py` : ce script efface
+# tout sauf `.git` avant de recopier, donc un workflow ajoute a la main dans le
+# depot public disparaitrait a la publication suivante.
+#
+# Declencheur : le tag `vX.Y.Z` pose par `publish.py`.
+#
+# Non couvert ici, volontairement (TODO #74) : macOS, qui demande l'Apple
+# Developer Program a 99 $/an pour signer et notariser. Un `.dmg` non signe
+# est bloque par Gatekeeper bien plus durement que SmartScreen ne bloque un
+# `.exe` -- inutilisable pour un enseignant, donc pas d'illusion de support.
+
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:        # permet un essai a blanc sans poser de tag
+
+permissions:
+  contents: write           # requis pour creer la Release et y attacher
+
+env:
+  PYTHON_VERSION: "3.12"
+  # Version epinglee : « latest » rendrait deux builds du meme tag
+  # non reproductibles.
+  ARDUINO_CLI_VERSION: "1.1.1"
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false      # un echec Linux ne doit pas priver du .exe Windows
+      matrix:
+        include:
+          - os: windows-latest
+            cible: windows
+          - os: ubuntu-latest
+            cible: linux
+          # macOS : build de VERIFICATION, pas livrable. Il repond a la
+          # seule question qu'on ne peut pas trancher sans Mac -- est-ce
+          # que PyQt6 + arduino-cli s'empaquettent la-bas ? Un vrai
+          # `.app`/`.dmg` demande un BUNDLE dans le spec ET l'Apple
+          # Developer Program (99 $/an) pour signer et notariser ; sans
+          # signature, Gatekeeper bloque, donc rien a distribuer.
+          # `macos-latest` = Apple Silicon ; l'Intel demanderait
+          # `macos-13` en plus.
+          - os: macos-latest
+            cible: macos
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Dependances Python
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller
+
+      # Le binaire est gitignore (il ne doit pas vivre dans un depot) : la CI
+      # le telecharge, le poste de dev le depose a la main. Le spec le prend
+      # dans build/third_party/ et ne casse pas s'il manque.
+      - name: arduino-cli (Windows)
+        if: matrix.cible == 'windows'
+        shell: pwsh
+        run: |
+          $v = "${{ env.ARDUINO_CLI_VERSION }}"
+          $url = "https://downloads.arduino.cc/arduino-cli/arduino-cli_${v}_Windows_64bit.zip"
+          New-Item -ItemType Directory -Force build\third_party | Out-Null
+          Invoke-WebRequest $url -OutFile cli.zip
+          Expand-Archive cli.zip -DestinationPath build\third_party -Force
+          build\third_party\arduino-cli.exe version
+
+      - name: arduino-cli (Linux)
+        if: matrix.cible == 'linux'
+        run: |
+          v="${{ env.ARDUINO_CLI_VERSION }}"
+          url="https://downloads.arduino.cc/arduino-cli/arduino-cli_${v}_Linux_64bit.tar.gz"
+          mkdir -p build/third_party
+          curl -fsSL "$url" | tar -xz -C build/third_party arduino-cli
+          chmod +x build/third_party/arduino-cli
+          build/third_party/arduino-cli version
+
+      - name: arduino-cli (macOS)
+        if: matrix.cible == 'macos'
+        run: |
+          v="${{ env.ARDUINO_CLI_VERSION }}"
+          url="https://downloads.arduino.cc/arduino-cli/arduino-cli_${v}_macOS_ARM64.tar.gz"
+          mkdir -p build/third_party
+          curl -fsSL "$url" | tar -xz -C build/third_party arduino-cli
+          chmod +x build/third_party/arduino-cli
+          build/third_party/arduino-cli version
+
+      # Dependances systeme de Qt sur un runner Ubuntu sans serveur graphique.
+      - name: Bibliotheques Qt (Linux)
+        if: matrix.cible == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libxkbcommon-x11-0 libxcb-cursor0 \
+            libxcb-icccm4 libxcb-keysyms1 libxcb-shape0 libgl1
+
+      # Garde-fou : la suite doit etre verte sur le code qu'on empaquette.
+      # Les tests qui exigent le modele ONNX (absent du depot) sont attendus
+      # rouges -- on ne les fait donc pas decider du build.
+      - name: Tests
+        continue-on-error: true
+        run: python scripts/run_all_tests.py -j 2
+
+      # La version affichee par l'app doit etre celle du BUILD, pas une
+      # chaine du depot que personne ne remonte -- sinon le verificateur de
+      # mise a jour (#77) compare a une valeur figee et se trompe toujours
+      # dans le meme sens.
+      - name: Version depuis le tag
+        shell: python
+        run: |
+          import os, pathlib, re
+          tag = os.environ["GITHUB_REF_NAME"]
+          if not tag.startswith("v"):
+              print(f"pas un tag de version ({tag!r}) : on garde la valeur du depot")
+              raise SystemExit(0)
+          p = pathlib.Path("ui/version.py")
+          src = p.read_text(encoding="utf-8")
+          neuf, n = re.subn(r'^APP_VERSION = ".*"$',
+                            f'APP_VERSION = "{tag[1:]}"', src, count=1,
+                            flags=re.MULTILINE)
+          assert n == 1, "ligne APP_VERSION introuvable dans ui/version.py"
+          p.write_text(neuf, encoding="utf-8")
+          print(f"APP_VERSION = {tag[1:]!r}")
+
+      - name: PyInstaller
+        run: pyinstaller build/promptuinoui.spec --noconfirm
+
+      # ── Windows : installeur Inno Setup ────────────────────────────────
+      - name: Installeur Inno Setup
+        if: matrix.cible == 'windows'
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $version = $tag -replace '^v', ''
+          if (-not $version) { $version = "0.0.0" }
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress }
+          & $iscc "/DMyAppVersion=$version" build\installer.iss
+          Get-ChildItem build\output
+
+      # ── Linux : archive du dossier PyInstaller ─────────────────────────
+      # Pas d'AppImage a cette etape : elle demande linuxdeploy, un fichier
+      # .desktop et une icone, et surtout un essai sur une VRAIE machine.
+      # Une archive est honnete -- elle n'a pas l'air d'un installeur.
+      - name: Archive Linux
+        if: matrix.cible == 'linux'
+        run: |
+          tag="${{ github.ref_name }}"
+          mkdir -p build/output
+          tar -czf "build/output/Promptuino-${tag}-linux-x86_64.tar.gz" \
+            -C dist Promptuino
+          ls -la build/output
+
+      # ── macOS : archive de VERIFICATION ────────────────────────────
+      # Le nom dit NON-SIGNE : quelqu'un qui la trouve doit savoir avant
+      # de la telecharger que Gatekeeper la refusera.
+      - name: Archive macOS (non signee)
+        if: matrix.cible == 'macos'
+        run: |
+          tag="${{ github.ref_name }}"
+          mkdir -p build/output
+          tar -czf "build/output/Promptuino-${tag}-macos-arm64-NON-SIGNE.tar.gz" \
+            -C dist Promptuino
+          ls -la build/output
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: promptuino-${{ matrix.cible }}
+          path: build/output/*
+          if-no-files-found: error
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artefacts
+
+      # ⚠️ `gh` (preinstalle sur les runners) plutot qu'une action tierce.
+      # Creer une Release demande `contents: write` : confier ce droit a du
+      # code tiers, sur un depot public, c'est une dependance de chaine
+      # d'approvisionnement qu'on n'a pas les moyens de verifier. Ici tout
+      # vient de GitHub.
+      - name: Release (brouillon)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # Ce job ne fait PAS de checkout -- il n'a besoin que des artefacts.
+          # Sans depot git sous la main, `gh` ne peut pas deviner sur quel
+          # depot creer la Release et echoue sur
+          # « fatal: not a git repository ». GH_REPO le lui dit, ce qui evite
+          # de cloner tout le depot pour une seule commande.
+          GH_REPO: ${{ github.repository }}
+        run: |
+          cat > notes.md <<'FIN'
+          ### Installeurs
+
+          - **Windows** — `Promptuino-Setup.exe`. Non signe : SmartScreen
+            affiche un avertissement, « Informations complementaires →
+            Executer quand meme » le passe.
+          - **Linux** — archive `.tar.gz` du dossier applicatif.
+            ⚠️ **Construite par la CI, jamais lancee sur une vraie machine.**
+            L'acces au port serie demande d'appartenir au groupe `dialout`.
+          - **macOS** — archive `NON-SIGNE`. ⚠️ **Ce n'est pas un
+            livrable** : Gatekeeper refusera de l'ouvrir. Elle existe pour
+            verifier que l'application se construit sur macOS, en
+            attendant une signature Developer ID.
+
+          Le modele d'embeddings (~448 Mio) n'est pas dans le paquet : il est
+          telecharge depuis Hugging Face au premier besoin.
+          FIN
+          find artefacts -type f -print
+          # --draft : rien n'est visible tant qu'un humain n'a pas relu.
+          gh release create "${{ github.ref_name }}" \
+            --draft --title "${{ github.ref_name }}" --notes-file notes.md \
+            $(find artefacts -type f)

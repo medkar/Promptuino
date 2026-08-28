@@ -29,7 +29,11 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 _CORPUS_PATH = _REPO_ROOT / "assets" / "rag" / "corpus.json"
 _EMBEDDINGS_PATH = _REPO_ROOT / "assets" / "rag" / "embeddings.npy"
 _MODEL_DIR = _REPO_ROOT / "assets" / "rag" / "model"
-_MODEL_PATH = _MODEL_DIR / "model.onnx"
+# ⚠️ Le tokenizer est versionne et embarque, donc toujours a cote du code.
+# Le MODELE, lui, peut avoir ete telecharge dans le dossier de
+# l'utilisateur : `Program Files` n'est pas inscriptible. Resolu a
+# l'appel, pas a l'import -- il peut apparaitre pendant la session.
+from .model_path import model_path as _model_path
 _TOKENIZER_PATH = _MODEL_DIR / "tokenizer.json"
 _MAX_SEQ_LEN = 128  # sentence-transformers default for this checkpoint
 
@@ -87,7 +91,8 @@ def _load_encoder() -> bool:
         if _session is not None and _tokenizer is not None:
             return True
         try:
-            if not _MODEL_PATH.exists() or not _TOKENIZER_PATH.exists():
+            _mp = _model_path()
+            if not _mp.exists() or not _TOKENIZER_PATH.exists():
                 return False
             import onnxruntime as ort
             from tokenizers import Tokenizer
@@ -96,7 +101,7 @@ def _load_encoder() -> bool:
             tokenizer.enable_padding()
             tokenizer.enable_truncation(max_length=_MAX_SEQ_LEN)
             session = ort.InferenceSession(
-                str(_MODEL_PATH), providers=["CPUExecutionProvider"]
+                str(_mp), providers=["CPUExecutionProvider"]
             )
             _session = session
             _tokenizer = tokenizer

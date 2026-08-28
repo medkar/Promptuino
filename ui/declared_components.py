@@ -8,7 +8,7 @@ Indexed by `#include` HEADER, not by pin net: a placeholder has EMPTY nets, so
 the historical `_wiring_resolutions` key ((fn_id, arduino net)) is unstable by
 construction for these components.
 
-File: ~/Documents/Promptuino/components.json (next to session.json).
+File: ~/Documents/Promptuino/data/components.json (next to session.json).
 Pure Python AT IMPORT TIME: no Qt, no ui.wiring — so the catalog can consult it
 without a cycle and tests can inject a registry deterministically. The promise
 is about the IMPORT, and that is what those two properties depend on: the
@@ -30,7 +30,8 @@ from pathlib import Path
 TYPE_PREFIX = "custom:"
 
 _SCHEMA_VERSION = 1
-_LIBRARY_PATH = Path.home() / "Documents" / "Promptuino" / "components.json"
+from .paths import DATA_DIR
+_LIBRARY_PATH = DATA_DIR / "components.json"
 
 # Pin counts the layout can actually draw — MUST mirror _GENERIC_BY_PIN_COUNT
 # in ui/wiring/layout/component_catalog.py (single row 2-8 plus odd 9/11/13,

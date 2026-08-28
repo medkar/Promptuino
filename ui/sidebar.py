@@ -26,7 +26,11 @@ LOGO_SIZE   = 56   # logo visible expanded AND collapsed -> we make it big
                    # (header 64 px -> ~4 px of top/bottom margin)
 HEADER_MARGIN_EXPANDED  = 12
 HEADER_MARGIN_COLLAPSED = (COLLAPSED_W - LOGO_SIZE) // 2   # centers the collapsed logo
-APP_VERSION = "v0.1.0"
+# La version vit dans `ui/version.py` : une seule source, reecrite par la
+# CI avec le tag. Ce ré-export garde les appelants historiques
+# (`about_dialog`) qui l'importaient d'ici.
+from .version import display_version
+APP_VERSION = display_version()
 
 # Nav tab: card + accent bar drawn with QPainter (Qt's QSS renders
 # border-radius + thick border-left poorly → smeared corners). cf. spec § 3 « A: paintEvent ».

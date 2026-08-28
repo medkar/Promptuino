@@ -49,7 +49,8 @@ from pathlib import Path
 # explicite, et non un champ glisse en douce.
 _SCHEMA_VERSION = 2
 _MIGRATABLE_VERSIONS = (1, 2)
-_LIBRARY_PATH = Path.home() / "Documents" / "Promptuino" / "component-libs.json"
+from .paths import DATA_DIR
+_LIBRARY_PATH = DATA_DIR / "component-libs.json"
 
 # Ce que porte le 3e etat, en clair : « ce composant ne demande AUCUNE
 # bibliotheque ». Ce n'est ni « je ne sais pas encore » (absent du magasin) ni

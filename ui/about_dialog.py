@@ -9,26 +9,29 @@ here consistent with it.
 """
 from pathlib import Path
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QPalette, QColor, QIcon
 from PyQt6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QLabel,
+    QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QScrollArea, QWidget, QFrame, QSizePolicy,
 )
 
 from .theme import ColorScheme, theme_manager, selection_bg
 from .i18n import lang_manager, Strings
 from .sidebar import APP_VERSION
+from .updates import PAGE_RELEASES, check as check_updates
 from . import icons as IC
 
 # Display name (the repo is "PromptuinoUI"; the product is "Promptuino").
 _APP_NAME = "Promptuino"
 _DEVELOPER = "Mehdi KARIM"
 _COPYRIGHT = "© 2026 Mehdi KARIM"
-# Links shown under the developer block — replace the placeholders with the
-# real URLs (public repository / Patreon page) when they go live.
-_SOURCE_URL = "[placeholder]"
-_PATREON_URL = "[placeholder]"
+# Links shown under the developer block.
+# Le depot public est en ligne depuis le 2026-08-28 (TODO #75). ⚠️ C'est
+# `Promptuino` et non `PromptuinoUI` : le second est le depot de TRAVAIL, prive,
+# qui porte en plus le TODO, les specs et les mesures. Ne pas le nommer ici.
+_SOURCE_URL = "https://github.com/medkar/Promptuino"
+_PATREON_URL = "https://patreon.com/Promptuino"
 
 # Open-source software & assets actually bundled in / used by the app.
 # (name, license, vendor) — proper nouns + license identifiers: NOT translated.
@@ -89,6 +92,27 @@ class AboutDialog(QDialog):
         name_col.addWidget(self._lbl_version)
         header.addLayout(name_col)
         header.addStretch()
+
+        # ── Mise a jour (TODO #77) ──────────────────────────────────
+        # A LA DEMANDE ici ; le controle du demarrage, lui, est
+        # silencieux. La difference est voulue : quelqu'un qui CLIQUE
+        # attend une reponse, meme mauvaise (<< impossible de verifier
+        # pour l'instant >>), alors qu'au demarrage un poste hors ligne
+        # ne doit rien voir du tout.
+        maj_col = QVBoxLayout()
+        maj_col.setSpacing(4)
+        self._btn_update = QPushButton(lang_manager.current.update_check)
+        self._btn_update.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_update.setAutoDefault(False)
+        self._btn_update.clicked.connect(self._on_check_updates)
+        maj_col.addWidget(self._btn_update)
+        self._lbl_update = QLabel("")
+        self._lbl_update.setTextFormat(Qt.TextFormat.RichText)
+        self._lbl_update.setOpenExternalLinks(True)
+        self._lbl_update.setWordWrap(True)
+        maj_col.addWidget(self._lbl_update)
+        header.addLayout(maj_col)
+        self._maj_worker = None
         root.addLayout(header)
 
         # Short description (reuses the former About message)
@@ -116,6 +140,7 @@ class AboutDialog(QDialog):
         self._lbl_gh_icon.setFixedSize(15, 15)
         gh_row.addWidget(self._lbl_gh_icon, alignment=Qt.AlignmentFlag.AlignVCenter)
         self._lbl_source = QLabel()
+        self._lbl_source.setOpenExternalLinks(True)
         gh_row.addWidget(self._lbl_source, alignment=Qt.AlignmentFlag.AlignVCenter)
         gh_row.addStretch()
         root.addLayout(gh_row)
@@ -126,6 +151,7 @@ class AboutDialog(QDialog):
         self._lbl_pat_icon.setFixedSize(15, 15)
         pat_row.addWidget(self._lbl_pat_icon, alignment=Qt.AlignmentFlag.AlignVCenter)
         self._lbl_support = QLabel()
+        self._lbl_support.setOpenExternalLinks(True)
         pat_row.addWidget(self._lbl_support, alignment=Qt.AlignmentFlag.AlignVCenter)
         pat_row.addStretch()
         root.addLayout(pat_row)
@@ -225,6 +251,8 @@ class AboutDialog(QDialog):
         self._lbl_source.setStyleSheet(
             f"color: {c.text_secondary}; font-size: 9pt;"
         )
+        self._lbl_source.setText(
+            self._link_html(lang_manager.current.about_source, _SOURCE_URL, c))
         self._lbl_pat_icon.setPixmap(
             IC.make_icon(IC.PATREON, c.accent, 15).pixmap(15, 15)
         )
@@ -232,6 +260,8 @@ class AboutDialog(QDialog):
         self._lbl_support.setStyleSheet(
             f"color: {c.text_secondary}; font-size: 9pt;"
         )
+        self._lbl_support.setText(
+            self._link_html(lang_manager.current.about_support, _PATREON_URL, c))
         self._lbl_credits_intro.setStyleSheet(
             f"color: {c.text_secondary}; font-size: 9pt;"
         )
@@ -255,13 +285,78 @@ class AboutDialog(QDialog):
         )
         self._lbl_credits.setText(self._credits_html(c))
 
+    @staticmethod
+    def _link_html(libelle: str, url: str, c: ColorScheme) -> str:
+        """« Libellé : <lien cliquable> ».
+
+        ⚠️ La couleur d'un `<a>` NE SUIT PAS le `color:` de la feuille du
+        QLabel — il faut la poser sur la balise. Le texte depend donc a la fois
+        de la LANGUE et du THEME, d'ou l'appel depuis `apply_lang` ET
+        `apply_theme`. Meme montage que `_lbl_credits` juste en dessous, qui
+        avait deja ce besoin.
+        """
+        return (f'{libelle} : <a href="{url}" style="color: {c.accent};'
+                f' text-decoration: none;">{url}</a>')
+
+    # ── Mise a jour ───────────────────────────────────────────
+    def _on_check_updates(self):
+        """Lance la verification dans un THREAD.
+
+        ⚠️ Jamais sur le fil graphique : l'appel reseau a un delai de 6 s, et
+        une fenetre figee pendant 6 s serait pire que pas de bouton du tout.
+        """
+        if self._maj_worker is not None and self._maj_worker.isRunning():
+            return
+        s = lang_manager.current
+        self._btn_update.setEnabled(False)
+        self._lbl_update.setText(s.update_checking)
+
+        class _Worker(QThread):
+            fini = pyqtSignal(object)
+
+            def run(self):
+                self.fini.emit(check_updates())
+
+        self._maj_worker = _Worker(self)
+        self._maj_worker.fini.connect(self._on_update_result)
+        self._maj_worker.start()
+
+    def _on_update_result(self, tag):
+        """`tag` = version plus recente, ou None.
+
+        ⚠️ None ne veut PAS dire << a jour >> : il couvre aussi le hors-ligne
+        et un build de developpement. On ne peut donc pas afficher << vous avez
+        la derniere version >> sans mentir une fois sur deux. D'ou le second
+        appel, qui distingue les deux cas.
+        """
+        from .updates import fetch_latest
+
+        s = lang_manager.current
+        self._btn_update.setEnabled(True)
+        if tag:
+            url = PAGE_RELEASES
+            txt = s.update_available.format(v=tag.lstrip("v"))
+            self._lbl_update.setText(
+                f'{txt} <a href="{url}" style="color: '
+                f'{theme_manager.current.accent};">{s.update_download}</a>')
+            return
+        # Pas de version plus recente : est-ce parce qu'on est a jour, ou
+        # parce qu'on n'a pas pu demander ? Les deux se ressemblent et ne
+        # veulent pas dire la meme chose -- d'ou le drapeau `joignable`.
+        _, joignable = fetch_latest()
+        self._lbl_update.setText(
+            s.update_up_to_date if joignable else s.update_failed)
+
     # ── Lang ──────────────────────────────────────────────────
     def apply_lang(self, s: Strings):
         self.setWindowTitle(s.mn_about)
         self._lbl_desc.setText(s.mn_about_msg)
         self._lbl_dev_head.setText(s.about_developer)
-        self._lbl_source.setText(f"{s.about_source} : {_SOURCE_URL}")
-        self._lbl_support.setText(f"{s.about_support} : {_PATREON_URL}")
+        c = theme_manager.current
+        self._lbl_source.setText(self._link_html(s.about_source, _SOURCE_URL, c))
+        self._lbl_support.setText(
+            self._link_html(s.about_support, _PATREON_URL, c))
+        self._btn_update.setText(s.update_check)
         self._lbl_credits_head.setText(s.about_credits_title)
         self._lbl_credits_intro.setText(s.about_credits_intro)
         self._lbl_credits.setText(self._credits_html(theme_manager.current))

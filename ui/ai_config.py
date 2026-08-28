@@ -20,7 +20,8 @@ except Exception:
     _KEYRING_OK = False
 
 _SERVICE    = "promptuino"
-CONFIG_PATH = Path.home() / "Documents" / "Promptuino" / "config.json"
+from .paths import DATA_DIR
+CONFIG_PATH = DATA_DIR / "config.json"
 
 # Valid context sizes (tokens) for the local Ollama chat. The IA-tab slider
 # offers these steps; the setter snaps any stored value to the nearest one.
@@ -167,6 +168,36 @@ class AIConfig(QObject):
 
     def api_key(self, provider_id: str) -> str:
         return self._keyring_get(f"{provider_id}_api_key")
+
+    def clear_all_api_keys(self) -> int:
+        """Efface TOUTES les cles d'API du trousseau. Rend le nombre efface.
+
+        Appelee par `main.py --clear-credentials`, que le desinstalleur lance
+        si l'utilisateur le demande (TODO #78). Les cles vivent dans le
+        Gestionnaire d'identifiants Windows, JAMAIS dans le dossier de l'app :
+        une desinstallation ne les emporte donc pas, et personne ne le disait.
+
+        ⚠️ C'est l'APPLICATION qui efface, pas l'installeur : elle seule sait
+        quels services elle a ecrits. Une liste recopiee cote Inno Setup
+        aurait derive au premier fournisseur ajoute.
+
+        ⚠️ Limite : le trousseau est PAR UTILISATEUR WINDOWS. Si la
+        desinstallation est lancee avec elevation sous un autre compte, ce
+        sont les cles de CE compte qui seraient visees -- donc aucune.
+        """
+        if not _KEYRING_OK:
+            return 0
+        from .ai_backends.providers import PROVIDERS
+        efface = 0
+        for p in PROVIDERS:
+            nom = f"{p.id}_api_key"
+            try:
+                if keyring.get_password(_SERVICE, nom):
+                    keyring.delete_password(_SERVICE, nom)
+                    efface += 1
+            except Exception:
+                pass
+        return efface
 
     def set_api_key(self, provider_id: str, value: str):
         self._keyring_set(f"{provider_id}_api_key", value)

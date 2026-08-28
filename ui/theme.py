@@ -1070,7 +1070,9 @@ def messagebox_qss(c: ColorScheme) -> str:
     )
 
 
-def install_icon_hover(btn, svg: str, size: int = 16, *, normal_role: str = "outline"):
+def install_icon_hover(btn, svg: str, size: int = 16, *,
+                       normal_role: str = "outline",
+                       hover_role: str = "signal_ok"):
     """Recolors a button's icon on hover (signal_ok green), complementing the
     QSS :hover (border + text) which cannot touch a QIcon. Also follows the
     theme change. `normal_role` = resting color: "outline" (white dark
@@ -1101,7 +1103,13 @@ def install_icon_hover(btn, svg: str, size: int = 16, *, normal_role: str = "out
             else:
                 color = cur.text_primary if cur is DARK else cur.text_secondary
             self._normal_icon = _IC.make_icon(svg, color, size)
-            self._hover_icon = _IC.make_icon(svg, cur.signal_ok, size)
+            # `hover_role` : phosphore par defaut ; `signal_error` pour les
+            # actions DESTRUCTRICES (la croix de suppression d'un modele) --
+            # un survol vert sur une corbeille promettrait le contraire de
+            # ce que le clic fait.
+            teinte = (cur.signal_error if hover_role == "signal_error"
+                      else cur.signal_ok)
+            self._hover_icon = _IC.make_icon(svg, teinte, size)
             self._btn.setIconSize(QSize(size, size))
             # Keep the icon matching the current hover state across a theme change.
             self._btn.setIcon(
@@ -1110,6 +1118,14 @@ def install_icon_hover(btn, svg: str, size: int = 16, *, normal_role: str = "out
 
         def eventFilter(self, obj, ev):
             t = ev.type()
+            # ⚠️ Qt delivre Enter/Leave AUSSI aux boutons desactives. Sans ce
+            # garde, survoler un bouton inerte ecrasait l'icone posee par son
+            # proprietaire -- constate le 2026-08-28 sur la coche << deja
+            # telecharge >> de la modale de modeles, remplacee par l'icone
+            # download au survol, puis laissee grise par le Leave. Un controle
+            # desactive n'a d'affordance de survol nulle part.
+            if not self._btn.isEnabled():
+                return False
             if t == QEvent.Type.Enter:
                 self._btn.setIcon(self._hover_icon)
             elif t == QEvent.Type.Leave:

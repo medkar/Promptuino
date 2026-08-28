@@ -23,6 +23,11 @@ from PyQt6.QtWidgets import (
     QProgressBar, QPushButton, QVBoxLayout,
 )
 
+# Les deux emplacements possibles du modele et la regle de choix vivent
+# dans `ui/model_path.py` -- module PUR, partage avec `ui/rag.py`, qui doit
+# lire le meme fichier que celui qu'on ecrit ici.
+from .i18n import lang_manager
+from .model_path import is_model_available, model_path, user_model_path
 from .theme import (
     ColorScheme, theme_manager, primary_button_qss, secondary_button_qss,
 )
@@ -63,25 +68,6 @@ ONNX_MODEL_SHA256 = "005d51beaafb6721f3a8a2227749f2c518356fa087d9c2983da7aabaab8
 ONNX_MODEL_SIZE_BYTES = 470216988
 
 
-def _model_path() -> Path:
-    """Emplacement local du modele.onnx.
-
-    Aligne sur la logique de `ui/rag.py` : `Path(__file__).parent.parent`
-    pointe vers le repo root en dev et vers `_internal/` en mode PyInstaller
-    bundle (convention 6.x). Mauvais piege a eviter : `sys.executable.parent`
-    pointe vers le dossier ROOT du bundle (= sibling de `_internal/`), pas
-    vers `_internal/` lui-meme.
-    """
-    base = Path(__file__).resolve().parent.parent
-    return base / "assets" / "rag" / "model" / "model.onnx"
-
-
-def is_model_available() -> bool:
-    """True si le model.onnx local existe et n'est pas vide."""
-    p = _model_path()
-    return p.exists() and p.stat().st_size > 1_000_000   # > 1 MiB sanity
-
-
 def get_model_url() -> str:
     """URL effective (env var override si presente, sinon constante)."""
     return os.environ.get("PROMPTUINO_ONNX_URL") or ONNX_MODEL_URL
@@ -90,7 +76,12 @@ def get_model_url() -> str:
 # ─── Worker thread de telechargement ─────────────────────────────────────
 class _DownloadWorker(QThread):
     """Telecharge le modele en arriere-plan, emet progress / done / failed."""
-    progress = pyqtSignal(int, int)   # (bytes_done, bytes_total)
+    # ⚠️ `object` et non `int` : l'`int` d'un signal Qt est 32 bits, et un
+    # total au-dela de 2 Gio deborderait (defaut CONSTATE sur le
+    # telechargeur de modeles Ollama, 2026-08-28). Le modele ONNX actuel
+    # (470 Mo) passe, mais la constante est a un changement de modele de
+    # mentir.
+    progress = pyqtSignal(object, object)   # (bytes_done, bytes_total)
     done = pyqtSignal()
     failed = pyqtSignal(str)
 
@@ -108,7 +99,7 @@ class _DownloadWorker(QThread):
         try:
             self._dest.parent.mkdir(parents=True, exist_ok=True)
             req = urllib.request.Request(self._url, headers={
-                "User-Agent": "PromptuinoUI/1.0 (model-download)",
+                "User-Agent": "Promptuino/1.0 (model-download)",
             })
             with urllib.request.urlopen(req, timeout=30) as resp:
                 total = int(resp.headers.get("Content-Length") or 0)
@@ -121,7 +112,7 @@ class _DownloadWorker(QThread):
                         if self._cancel.is_set():
                             out.close()
                             tmp.unlink(missing_ok=True)
-                            self.failed.emit("Telechargement annule par l'utilisateur.")
+                            self.failed.emit(lang_manager.current.onnx_cancelled)
                             return
                         block = resp.read(chunk)
                         if not block:
@@ -172,7 +163,14 @@ class OnnxDownloadDialog(QDialog):
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Configuration initiale - PromptuinoUI")
+        # ⚠️ Ce dialogue etait ecrit en francais EN DUR, sans accents, et
+        # n'etait donc traduit dans aucune des 4 langues -- alors qu'il est
+        # le TOUT PREMIER ecran qu'un utilisateur voit. Meme defaut que les
+        # boutons << Voir le schema >> corriges le 2026-08-10 : invisible en
+        # francais, la seule langue dans laquelle l'app est essayee a la
+        # main.
+        s = lang_manager.current
+        self.setWindowTitle(s.onnx_window_title)
         self.setModal(True)
         self.setMinimumWidth(520)
         self._worker: _DownloadWorker | None = None
@@ -185,19 +183,15 @@ class OnnxDownloadDialog(QDialog):
         layout.setContentsMargins(20, 20, 20, 16)
         layout.setSpacing(12)
 
-        title = QLabel("Telechargement du modele de recherche")
+        title = QLabel(lang_manager.current.onnx_title)
         title.setStyleSheet("font-size: 13pt; font-weight: 600;")
         layout.addWidget(title)
 
-        desc = QLabel(
-            "PromptuinoUI a besoin d'un modele d'embedding (~449 Mo) pour la "
-            "recommandation de librairies Arduino. Ce fichier n'est telecharge "
-            "qu'une seule fois, puis stocke localement."
-        )
+        desc = QLabel(lang_manager.current.onnx_desc)
         desc.setWordWrap(True)
         layout.addWidget(desc)
 
-        self._status = QLabel("Pret a telecharger.")
+        self._status = QLabel(lang_manager.current.onnx_ready)
         layout.addWidget(self._status)
 
         self._progress = QProgressBar()
@@ -208,10 +202,10 @@ class OnnxDownloadDialog(QDialog):
 
         btn_row = QHBoxLayout()
         btn_row.addStretch()
-        self._btn_cancel = QPushButton("Annuler")
+        self._btn_cancel = QPushButton(lang_manager.current.onnx_btn_cancel)
         self._btn_cancel.clicked.connect(self._on_cancel)
         btn_row.addWidget(self._btn_cancel)
-        self._btn_start = QPushButton("Telecharger")
+        self._btn_start = QPushButton(lang_manager.current.onnx_btn_start)
         self._btn_start.setDefault(True)
         self._btn_start.clicked.connect(self._start_download)
         btn_row.addWidget(self._btn_start)
@@ -234,9 +228,12 @@ class OnnxDownloadDialog(QDialog):
                 "variable d'environnement PROMPTUINO_ONNX_URL.",
             )
             return
-        dest = _model_path()
+        # Toujours l'emplacement INSCRIPTIBLE : `model_path()` rendrait le
+        # chemin embarque si un fichier tronque y trainait, et on
+        # retomberait sur le PermissionError de Program Files.
+        dest = user_model_path()
         self._btn_start.setEnabled(False)
-        self._status.setText(f"Telechargement en cours depuis {url}...")
+        self._status.setText(lang_manager.current.onnx_running)
         self._worker = _DownloadWorker(url, dest)
         self._worker.progress.connect(self._on_progress)
         self._worker.done.connect(self._on_done)
@@ -252,18 +249,19 @@ class OnnxDownloadDialog(QDialog):
         mb_done = done / (1024 * 1024)
         mb_total = total / (1024 * 1024)
         self._status.setText(
-            f"Telechargement : {mb_done:.1f} / {mb_total:.1f} Mo  ({pct}%)"
+            lang_manager.current.onnx_progress.format(
+                done=mb_done, total=mb_total, pct=pct)
         )
 
     def _on_done(self) -> None:
         self._progress.setValue(100)
-        self._status.setText("Telechargement termine.")
+        self._status.setText(lang_manager.current.onnx_done)
         self.accept()
 
     def _on_failed(self, msg: str) -> None:
         self._btn_start.setEnabled(True)
-        self._status.setText("Echec.")
-        QMessageBox.critical(self, "Erreur de telechargement", msg)
+        self._status.setText(lang_manager.current.onnx_failed)
+        QMessageBox.critical(self, lang_manager.current.onnx_error_title, msg)
 
     def _on_cancel(self) -> None:
         if self._worker and self._worker.isRunning():

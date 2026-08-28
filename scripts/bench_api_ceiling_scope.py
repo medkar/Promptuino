@@ -34,7 +34,7 @@ import time
 import urllib.request
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-LIBS = (pathlib.Path.home() / "Documents" / "PromptuinoUI_projects"
+LIBS = (pathlib.Path.home() / "Documents" / "Promptuino" / "projets"
         / "Arduino" / "libraries")
 OUT = ROOT / "scripts" / "out" / "api_ceiling_scope"
 sys.path.insert(0, str(ROOT))

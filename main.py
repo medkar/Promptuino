@@ -113,7 +113,7 @@ def main():
             pass
 
     app = QApplication(sys.argv)
-    app.setApplicationName("PromptuinoUI")
+    app.setApplicationName("Promptuino")
 
     # Bibliothèque de composants déclarés par l'utilisateur : chargée UNE fois
     # et injectée dans le registre en mémoire, que le catalogue et le câblage
@@ -181,6 +181,34 @@ def main():
     # assets/fonts/, otherwise system fallback (Segoe UI Variable Display / Cascadia).
     # Sets the app's default UI family before creating the widgets.
     setup_fonts(app)
+
+    # ── Mode INSTALLEUR : recuperer le modele, puis sortir ──────────
+    # Appele par la section [Run] de l'installeur (TODO #74). Le but est
+    # que l'utilisateur n'attende PAS 448 Mio a son premier double-clic --
+    # en salle de classe, trente postes le decouvriraient en meme temps.
+    #
+    # ⚠️ C'est le MEME telechargeur que celui du 1er lancement, pas une
+    # seconde implementation cote Inno Setup : l'URL epinglee, l'empreinte
+    # SHA-256 et la verification n'existent qu'a un seul endroit
+    # (`ui/onnx_setup.py`). Deux copies auraient derive des le premier
+    # changement d'URL.
+    #
+    # Place APRES les polices et la langue (le dialogue doit etre lisible
+    # et traduit) mais AVANT tout le reste : ce mode ne construit aucune
+    # fenetre principale, ne lit aucun projet, n'ecrit aucune session.
+    if "--download-model" in sys.argv:
+        sys.exit(0 if ensure_model_or_exit(app) else 1)
+
+    # ── Mode DESINSTALLEUR : effacer les cles d'API, puis sortir ────
+    # Lance par le desinstalleur si l'utilisateur repond oui (TODO #78).
+    # Les cles vivent dans le Gestionnaire d'identifiants Windows,
+    # jamais dans le dossier de l'app : sans ce geste explicite, elles
+    # survivent a la desinstallation sans que personne ne l'annonce.
+    #
+    # Silencieux et sans fenetre : il tourne pendant une desinstallation.
+    if "--clear-credentials" in sys.argv:
+        from ui.ai_config import ai_config
+        sys.exit(0 if ai_config.clear_all_api_keys() >= 0 else 1)
 
     # Global palette (Direction B foundation, spec §2/§7 P0): set BEFORE the
     # creation of the widgets so that they inherit it. Widgets that set their

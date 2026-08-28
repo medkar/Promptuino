@@ -9,7 +9,7 @@
 #   - Inno Setup 6 installe (winget install JRSoftware.InnoSetup)
 #   - build\third_party\arduino-cli.exe present
 #
-# Resultat : build\output\PromptuinoUI-Setup.exe
+# Resultat : build\output\Promptuino-Setup.exe
 
 $ErrorActionPreference = "Stop"
 
@@ -57,7 +57,7 @@ Write-Host ""
 
 # ─── 2. Nettoyage builds precedents ──────────────────────────────────────
 Write-Host "Nettoyage des artefacts precedents..." -ForegroundColor Yellow
-if (Test-Path "dist\PromptuinoUI") { Remove-Item -Recurse -Force "dist\PromptuinoUI" }
+if (Test-Path "dist\Promptuino") { Remove-Item -Recurse -Force "dist\Promptuino" }
 if (Test-Path "build\promptuinoui") { Remove-Item -Recurse -Force "build\promptuinoui" }
 if (Test-Path "build\output") { Remove-Item -Recurse -Force "build\output" }
 Write-Host "  [OK] dist et build de travail vides"
@@ -76,12 +76,12 @@ if ($LASTEXITCODE -ne 0) {
     Write-Host "ERREUR : PyInstaller a echoue (code $LASTEXITCODE)" -ForegroundColor Red
     exit 1
 }
-if (-not (Test-Path "dist\PromptuinoUI\PromptuinoUI.exe")) {
-    Write-Host "ERREUR : dist\PromptuinoUI\PromptuinoUI.exe introuvable apres build" -ForegroundColor Red
+if (-not (Test-Path "dist\Promptuino\Promptuino.exe")) {
+    Write-Host "ERREUR : dist\Promptuino\Promptuino.exe introuvable apres build" -ForegroundColor Red
     exit 1
 }
-$distSize = (Get-ChildItem "dist\PromptuinoUI" -Recurse | Measure-Object -Property Length -Sum).Sum / 1MB
-Write-Host ("  [OK] dist\PromptuinoUI : {0:N0} Mo" -f $distSize)
+$distSize = (Get-ChildItem "dist\Promptuino" -Recurse | Measure-Object -Property Length -Sum).Sum / 1MB
+Write-Host ("  [OK] dist\Promptuino : {0:N0} Mo" -f $distSize)
 Write-Host ""
 
 # ─── 4. Compile Inno Setup ───────────────────────────────────────────────
@@ -95,7 +95,7 @@ if ($LASTEXITCODE -ne 0) {
     Write-Host "ERREUR : ISCC a echoue (code $LASTEXITCODE)" -ForegroundColor Red
     exit 1
 }
-$setupExe = "build\output\PromptuinoUI-Setup.exe"
+$setupExe = "build\output\Promptuino-Setup.exe"
 if (-not (Test-Path $setupExe)) {
     Write-Host "ERREUR : $setupExe introuvable apres compile" -ForegroundColor Red
     exit 1

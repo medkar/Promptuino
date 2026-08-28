@@ -33,7 +33,7 @@ from .i18n import lang_manager, Strings
 from .ai_config import ai_config, OLLAMA_NUM_CTX_STEPS
 from .ai_backends import (
     BACKEND_DEFS, ClaudeCodeBackend,
-    is_server_running, is_model_available, list_local_models,
+    is_installed, is_server_running, is_model_available, list_local_models,
     get_backend_instance, PROVIDERS,
 )
 
@@ -594,6 +594,16 @@ class _BackendSection(QWidget):
             self._model_combo.setCursor(Qt.CursorShape.PointingHandCursor)
             self._model_combo.textActivated.connect(self._on_model_selected)
             model_row.addWidget(self._model_combo, stretch=1)
+            # Recuperer un modele demandait un TERMINAL (`ollama pull`),
+            # ce qui exclut le public vise. Ollama expose
+            # `POST /api/pull` : c'est le meme geste, envoye par un
+            # programme (TODO #79).
+            self._btn_dl_model = QPushButton()
+            self._btn_dl_model.setFixedHeight(34)
+            self._btn_dl_model.setCursor(Qt.CursorShape.PointingHandCursor)
+            self._btn_dl_model.setAutoDefault(False)
+            self._btn_dl_model.clicked.connect(self._ouvrir_telechargement)
+            model_row.addWidget(self._btn_dl_model)
 
             content_layout.addLayout(model_row)
             content_layout.addSpacing(6)
@@ -689,6 +699,37 @@ class _BackendSection(QWidget):
         if self._is_ollama:
             self._populate_models()
 
+    def _ouvrir_telechargement(self):
+        """Ouvre le telechargeur ; a la fin, la liste locale est relue.
+
+        ⚠️ On ne force AUCUNE selection : l'utilisateur peut telecharger un
+        modele pour plus tard sans changer celui qu'il utilise.
+        """
+        from .model_download_dialog import ModelDownloadDialog
+        dlg = ModelDownloadDialog(self)
+        dlg.modele_installe.connect(lambda _n: self._populate_models())
+        # La suppression change la liste ET peut retirer le modele actif :
+        # le combo se recharge, et refresh_availability (apres exec) fera
+        # suivre la pastille de la barre d'etat (#80).
+        dlg.modele_supprime.connect(lambda _n: self._populate_models())
+        dlg.exec()
+        self.refresh_availability()
+
+    def showEvent(self, ev):
+        """Re-verifie l'etat CHAQUE FOIS que la section redevient visible.
+
+        ⚠️ Sans ceci, le message << ouvrez l'application Ollama, puis revenez
+        ici >> etait un mensonge : rien ne re-verifiait quoi que ce soit, et
+        l'utilisateur revenait sur un libelle fige jusqu'au redemarrage de
+        Promptuino. Il devait donc suivre un conseil qui ne pouvait pas
+        marcher -- releve par l'utilisateur le 2026-08-28.
+
+        Le controle est mesure a 27 ms serveur allume ; il est malgre tout
+        differe d'un tour de boucle pour que l'onglet s'affiche d'abord.
+        """
+        super().showEvent(ev)
+        QTimer.singleShot(0, self.refresh_availability)
+
     def refresh_availability(self):
         """Recomputes the availability state then re-renders the label.
 
@@ -700,7 +741,21 @@ class _BackendSection(QWidget):
         if self._is_ollama:
             model = self._model_combo.currentText().strip() or ai_config.ollama_model
             if not is_server_running():
-                self._availability_state = ("ollama_server_down", None)
+                # ⚠️ Deux situations que l'app confondait en une seule :
+                # << pas installe >> et << installe mais arrete >>. Le
+                # message unique disait << executez : ollama serve >>, ce
+                # qui ne parle qu'a quelqu'un qui a DEJA Ollama -- pour un
+                # enseignant qui decouvre l'app, c'etait un cul-de-sac
+                # (TODO #79). `shutil.which` tranche, comme pour le CLI
+                # Claude juste en dessous.
+                # `shutil.which` seul ratait un Ollama installe APRES le
+                # demarrage de l'app -- c'est-a-dire juste apres que
+                # l'utilisateur ait suivi notre lien. `is_installed`
+                # regarde aussi les emplacements par defaut.
+                installe = is_installed()
+                self._availability_state = (
+                    "ollama_server_down" if installe
+                    else "ollama_not_installed", None)
             elif not is_model_available(model):
                 self._availability_state = ("ollama_model_missing", model)
             else:
@@ -708,6 +763,13 @@ class _BackendSection(QWidget):
         else:
             available = ClaudeCodeBackend().is_available()
             self._availability_state = ("cli_ok" if available else "cli_missing", None)
+
+        # La pastille de la barre d'etat lit ce cache (TODO #80) : on ne
+        # publie que si CE backend est l'actif -- il y a une section par
+        # backend, et publier celle d'un backend non selectionne mentirait.
+        if self.backend_id == ai_config.backend_id:
+            from .ai_status import ai_status
+            ai_status.set_state(self._availability_state[0])
 
         self._render_availability()
 
@@ -719,7 +781,10 @@ class _BackendSection(QWidget):
         s = lang_manager.current
         kind, extra = self._availability_state
 
-        if kind == "ollama_server_down":
+        if kind == "ollama_not_installed":
+            txt = (f'<span style="color:{theme_manager.current.signal_error};">'
+                   f'&#9679; {s.ia_ollama_not_installed}</span>')
+        elif kind == "ollama_server_down":
             txt = f'<span style="color:{theme_manager.current.signal_error};">&#9679; {s.ia_ollama_not_running}</span>'
         elif kind == "ollama_model_missing":
             txt = (
@@ -737,6 +802,9 @@ class _BackendSection(QWidget):
 
         self._lbl_availability.setText(txt)
         self._lbl_availability.setTextFormat(Qt.TextFormat.RichText)
+        # Le message << pas installe >> porte un lien vers ollama.com :
+        # sans ceci, il serait souligne mais inerte.
+        self._lbl_availability.setOpenExternalLinks(True)
 
     # ── Theme ──────────────────────────────────────────────────
 
@@ -775,6 +843,7 @@ class _BackendSection(QWidget):
 
         if self._is_ollama:
             self._lbl_model_label.setText(s.ia_ollama_model_label)
+            self._btn_dl_model.setText(s.md_download)
             self._lbl_ctx_label.setText(s.ia_ollama_ctx_label)
             self._lbl_ctx_help.setText(s.ia_ollama_ctx_help)
         # No refresh_availability here: would make a blocking HTTP call
@@ -795,6 +864,10 @@ class IAView(QWidget):
         self._active_backend = None
         self._build()
         self._load_state()
+        # Publie l'etat du backend ACTIF des la construction (TODO #80) : la
+        # vue etant construite au demarrage, la pastille de la barre d'etat a
+        # une vraie valeur sans que l'utilisateur ouvre jamais cet onglet.
+        self._publier_etat()
         self.apply_theme(theme_manager.current)
         self.apply_lang(lang_manager.current)
         theme_manager.changed.connect(self.apply_theme)
@@ -895,7 +968,34 @@ class IAView(QWidget):
         ai_config.backend_id = checked_id
         backend = get_backend_instance(ai_config.backend_id)
         self._active_backend = backend
+        self._publier_etat()
         self.backend_activated.emit(backend)
+
+    def _publier_etat(self):
+        """Publie vers la pastille l'etat du backend COURANT, sans reseau.
+
+        - ollama / claude_code : le cache que leur section a deja calcule ;
+        - cloud / custom : la seule chose verifiable sans reseau est la
+          presence d'une cle (ou d'une URL pour « custom »). On ne pretend
+          jamais que le service repond -- seulement que la configuration
+          existe. Lire le trousseau coute quelques millisecondes, et
+          seulement ICI (changement de backend), jamais dans le _refresh de
+          la barre d'etat.
+        """
+        from .ai_status import ai_status
+        bid = ai_config.backend_id
+        section = self._sections.get(bid)
+        if section is not None and section._availability_state is not None:
+            ai_status.set_state(section._availability_state[0])
+            return
+        if bid == "custom":
+            ok = bool(ai_config.custom_base_url)
+        elif any(p.id == bid for p in PROVIDERS):
+            ok = bool(ai_config.api_key(bid))
+        else:
+            ai_status.set_state(None)      # on ne sait pas -> pastille grise
+            return
+        ai_status.set_state("cloud_key_ok" if ok else "cloud_key_missing")
 
     def _activate_cloud(self):
         """Activate the cloud provider currently selected in the combo."""
@@ -908,6 +1008,7 @@ class IAView(QWidget):
         ai_config.backend_id = provider_id
         backend = get_backend_instance(ai_config.backend_id)
         self._active_backend = backend
+        self._publier_etat()
         self.backend_activated.emit(backend)
 
     def _on_ollama_model_changed(self, model: str):

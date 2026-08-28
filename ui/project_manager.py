@@ -2,7 +2,7 @@
 User project management.
 
 Disk tree:
-    ~/Documents/PromptuinoUI_projects/
+    ~/Documents/Promptuino/projets/
         Arduino/projects/<nom>/<nom>.ino
         Arduino/projects/<nom>/<nom>.promptuino.json
         Esp32/projects/...   (coming soon)
@@ -42,7 +42,7 @@ TYPE_LABELS: dict[ProjectType, str] = {
 
 def projects_root() -> Path:
     # The root is driven by the session (Parametres -> Stockage).
-    # By default: ~/Documents/PromptuinoUI_projects.
+    # By default: ~/Documents/Promptuino/projets.
     from .session import session
     return session.workspace_root
 

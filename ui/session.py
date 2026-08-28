@@ -4,7 +4,7 @@ Stores:
  - the path of the last opened project to restore it on restart,
  - the workspace root (folder for projects and libraries).
 
-File: ~/Documents/Promptuino/session.json
+File: ~/Documents/Promptuino/data/session.json
 """
 import json
 import os
@@ -14,8 +14,12 @@ from pathlib import Path
 from PyQt6.QtCore import QObject, pyqtSignal
 
 
-_SESSION_PATH = Path.home() / "Documents" / "Promptuino" / "session.json"
-_DEFAULT_WORKSPACE_ROOT = Path.home() / "Documents" / "PromptuinoUI_projects"
+# Les deux emplacements sont decides dans `ui/paths.py` (qui migre aussi
+# les donnees de l'ancienne arborescence a plat). Les constantes restent
+# ICI : les tests les detournent une par une.
+from .paths import DATA_DIR, DEFAULT_WORKSPACE
+_SESSION_PATH = DATA_DIR / "session.json"
+_DEFAULT_WORKSPACE_ROOT = DEFAULT_WORKSPACE
 
 
 class Session(QObject):
@@ -89,7 +93,7 @@ class Session(QObject):
     def workspace_root(self) -> Path:
         """Root folder used for projects and libraries.
 
-        Default: ~/Documents/PromptuinoUI_projects. The user can
+        Default: ~/Documents/Promptuino/projets. The user can
         change it via the Settings window."""
         stored = self._data.get("workspace_root", "") or ""
         return Path(stored) if stored else _DEFAULT_WORKSPACE_ROOT

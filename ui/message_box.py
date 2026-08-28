@@ -22,6 +22,10 @@ def ask_yes_no(parent, title: str, text: str, *,
     a reset, and the safe answer must be the one a distracted Enter lands on.
     """
     box = QMessageBox(parent)
+    # Style maison : sans lui, la boite garde les boutons natifs gris
+    # (releve utilisateur du 2026-08-28 sur la suppression de modele).
+    from .theme import messagebox_qss, theme_manager
+    box.setStyleSheet(messagebox_qss(theme_manager.current))
     box.setIcon(QMessageBox.Icon.Warning if warning else QMessageBox.Icon.Question)
     box.setWindowTitle(title)
     box.setText(text)

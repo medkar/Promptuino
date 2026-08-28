@@ -61,6 +61,10 @@ def run_one(path: Path) -> tuple[Path, int, float, str]:
     # Qt sans affichage : indispensable pour les tests qui instancient des
     # widgets sur une machine sans session graphique (CI, SSH).
     env.setdefault("QT_QPA_PLATFORM", "offscreen")
+    # `ui/paths.py` migre les donnees de l'ancienne arborescence a
+    # l'import. C'est bon dans l'app, jamais dans un test : ce sont les
+    # VRAIS fichiers de l'utilisateur.
+    env["PROMPTUINO_NO_MIGRATION"] = "1"
     started = time.monotonic()
     try:
         proc = subprocess.run(

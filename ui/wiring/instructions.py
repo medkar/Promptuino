@@ -764,22 +764,22 @@ _SECTION_TITLES: dict[str, dict[str, str]] = {
         "it": "Motori rilevati ma non cablati",
     },
     "skipped_motors_explainer": {
-        "fr": "PromptuinoUI se limite à 2 moteurs DC dans le schéma. "
+        "fr": "Promptuino se limite à 2 moteurs DC dans le schéma. "
               "Les moteurs ci-dessous sont bien reconnus dans ton code "
               "mais ne sont pas câblés sur le diagramme. Pour les câbler "
               "à la place des actuels, ouvre « Modifier les choix » et "
               "décoche/recoche les moteurs voulus.",
-        "en": "PromptuinoUI is limited to 2 DC motors in the diagram. "
+        "en": "Promptuino is limited to 2 DC motors in the diagram. "
               "The motors below are recognized in your code but not "
               "wired on the diagram. To wire them instead of the "
               "current ones, open “Edit choices” and uncheck/recheck "
               "the desired motors.",
-        "es": "PromptuinoUI se limita a 2 motores DC en el esquema. "
+        "es": "Promptuino se limita a 2 motores DC en el esquema. "
               "Los motores siguientes están reconocidos en tu código "
               "pero no se cablean en el diagrama. Para cablearlos en "
               "lugar de los actuales, abre «Editar opciones» y "
               "desmarca/marca los motores deseados.",
-        "it": "PromptuinoUI è limitato a 2 motori DC nello schema. "
+        "it": "Promptuino è limitato a 2 motori DC nello schema. "
               "I motori sottostanti sono riconosciuti nel tuo codice "
               "ma non sono cablati sul diagramma. Per cablarli al posto "
               "di quelli attuali, apri «Modifica scelte» e "
@@ -1159,24 +1159,24 @@ _WARNING_TEMPLATES: dict[str, dict[str, str]] = {
               "Il software non può indovinare cosa pilotano.",
     },
     "too_many_dc_motors": {
-        "fr": "{count} moteurs DC détectés. PromptuinoUI se limite à "
+        "fr": "{count} moteurs DC détectés. Promptuino se limite à "
               "**2 moteurs DC maximum** (tous les drivers catalogués "
               "L298N / L293D / TB6612FNG / DRV8833 sont des dual H-bridges, "
               "1 chip = 2 moteurs). Pour piloter plus de moteurs, utilisez "
               "un shield dédié ou parallélisez plusieurs moteurs sur les "
               "mêmes sorties driver.",
-        "en": "{count} DC motors detected. PromptuinoUI supports up to "
+        "en": "{count} DC motors detected. Promptuino supports up to "
               "**2 DC motors maximum** (all catalogued drivers L298N / "
               "L293D / TB6612FNG / DRV8833 are dual H-bridges, 1 chip = "
               "2 motors). For more motors, use a dedicated shield or "
               "parallel several motors on the same driver outputs.",
-        "es": "{count} motores DC detectados. PromptuinoUI se limita a "
+        "es": "{count} motores DC detectados. Promptuino se limita a "
               "**2 motores DC como máximo** (todos los drivers catalogados "
               "L298N / L293D / TB6612FNG / DRV8833 son puentes en H "
               "duales, 1 chip = 2 motores). Para más motores, utilice un "
               "shield dedicado o paralelice varios motores en las mismas "
               "salidas del driver.",
-        "it": "{count} motori DC rilevati. PromptuinoUI è limitato a "
+        "it": "{count} motori DC rilevati. Promptuino è limitato a "
               "**2 motori DC al massimo** (tutti i driver catalogati "
               "L298N / L293D / TB6612FNG / DRV8833 sono ponti H duali, "
               "1 chip = 2 motori). Per più motori, utilizzare uno shield "
