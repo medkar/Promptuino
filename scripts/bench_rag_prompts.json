@@ -1,0 +1,1718 @@
+[
+  {
+    "prompt": "capteur de couleur RGB",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "adafruit-tcs34725"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "gerer un appui long et un double clic sur un bouton",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "onebutton"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "afficher du texte sur un LCD 16x2",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "liquidcrystal-i2c"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "afficher sur un ecran OLED",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "adafruit-ssd1306",
+      "sh1106"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "lire la temperature et l'humidite avec un DHT22",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "dht-sensor-library"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "controler une bande de LED RGB WS2812",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "adafruit-neopixel"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "piloter un servomoteur",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "servo"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "parser du JSON",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "arduinojson"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "specific"
+  },
+  {
+    "prompt": "mesurer une distance avec un capteur ultrason",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "newping"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "lire un capteur de pression et temperature BME280",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "adafruit-bme280"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "lire un accelerometre MPU6050",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "adafruit-mpu6050"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "piloter un moteur pas a pas",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "stepper",
+      "stepper_28byj48"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "moteur pas a pas avec rampe d'acceleration",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "accelstepper"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "specific"
+  },
+  {
+    "prompt": "recevoir un signal de telecommande infrarouge",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "irremote"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "recuperer l'heure depuis internet via NTP",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "ntpclient"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "specific"
+  },
+  {
+    "prompt": "lire la temperature avec une sonde DS18B20",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "dallas-temperature"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "communiquer sur le bus 1-Wire",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "onewire"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "specific"
+  },
+  {
+    "prompt": "publier sur un broker MQTT",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "pubsubclient"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "specific"
+  },
+  {
+    "prompt": "lire l'horloge temps reel DS3231",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "rtclib"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "lire un encodeur rotatif",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "encoder",
+      "as5600"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "ecrire des donnees sur une carte SD",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "sd"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "specific"
+  },
+  {
+    "prompt": "sauvegarder une valeur dans l'EEPROM",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "eeprom"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "specific"
+  },
+  {
+    "prompt": "communication serie logicielle softwareserial",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "softwareserial"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "specific"
+  },
+  {
+    "prompt": "mesurer la luminosite avec un BH1750",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "bh1750"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "piloter deux moteurs DC avec un shield Adafruit",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "adafruit-motorshield-v2"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "specific"
+  },
+  {
+    "prompt": "detecter un mouvement avec un capteur PIR",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "pir-motion-sensor"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "specific"
+  },
+  {
+    "prompt": "lire un badge RFID avec MFRC522",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "mfrc522"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "lire la position GPS avec un NEO-6M",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "tinygps-plus"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "afficher du texte couleur sur un ecran TFT 240x320",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "adafruit-ili9341"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "lire un clavier matriciel 4x4",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "keypad"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "piloter deux moteurs DC avec TB6612FNG",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "sparkfun-tb6612"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "piloter un moteur DC avec L298N",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "l298n"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "mesurer la qualite de l'air avec un capteur MQ-135",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "mq135"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "specific"
+  },
+  {
+    "prompt": "mesurer le CO2 interieur avec un CCS811",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "adafruit-ccs811"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "lire un capteur de CO2 NDIR MH-Z19",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "mhz19"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "envoyer un paquet LoRa longue portee",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "lora"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "specific"
+  },
+  {
+    "prompt": "piloter deux moteurs DC avec un DRV8833",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "drv8833"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "piloter un moteur DC avec un L293D",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "l293d"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "RGB color sensor",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "adafruit-tcs34725"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "handle long press and double click on a button",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "onebutton"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "display text on a 16x2 LCD",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "liquidcrystal-i2c"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "show text on an OLED screen",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "adafruit-ssd1306",
+      "sh1106"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "read DHT22 temperature and humidity",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "dht-sensor-library"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "control a WS2812 LED strip",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "adafruit-neopixel"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "control a servo motor",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "servo"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "parse JSON on Arduino",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "arduinojson"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "specific"
+  },
+  {
+    "prompt": "ultrasonic distance sensor",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "newping"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "read BME280 pressure and temperature sensor",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "adafruit-bme280"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "read MPU6050 accelerometer",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "adafruit-mpu6050"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "drive a stepper motor",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "stepper",
+      "stepper_28byj48"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "stepper motor with acceleration ramp",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "accelstepper"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "specific"
+  },
+  {
+    "prompt": "receive an infrared remote control signal",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "irremote"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "get time from internet via NTP",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "ntpclient"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "specific"
+  },
+  {
+    "prompt": "read temperature with a DS18B20 probe",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "dallas-temperature"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "communicate on the 1-Wire bus",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "onewire"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "specific"
+  },
+  {
+    "prompt": "MQTT client",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "pubsubclient"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "specific"
+  },
+  {
+    "prompt": "real time clock DS3231",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "rtclib"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "rotary encoder",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "encoder",
+      "as5600"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "write data to SD card",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "sd"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "specific"
+  },
+  {
+    "prompt": "save a value to EEPROM",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "eeprom"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "specific"
+  },
+  {
+    "prompt": "software serial communication",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "softwareserial"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "specific"
+  },
+  {
+    "prompt": "measure ambient light with BH1750",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "bh1750"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "drive two DC motors with an Adafruit shield",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "adafruit-motorshield-v2"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "specific"
+  },
+  {
+    "prompt": "detect motion with a PIR sensor",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "pir-motion-sensor"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "specific"
+  },
+  {
+    "prompt": "read an RFID badge with MFRC522",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "mfrc522"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "read GPS position from a NEO-6M module",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "tinygps-plus"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "display color text on a 240x320 TFT screen",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "adafruit-ili9341"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "read a 4x4 matrix keypad",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "keypad"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "drive two DC motors with TB6612FNG",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "sparkfun-tb6612"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "drive a DC motor with L298N",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "l298n"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "measure air quality with an MQ-135 sensor",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "mq135"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "specific"
+  },
+  {
+    "prompt": "measure indoor CO2 and TVOC with CCS811",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "adafruit-ccs811"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "read NDIR CO2 sensor MH-Z19",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "mhz19"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "send a long range LoRa packet",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "lora"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "specific"
+  },
+  {
+    "prompt": "drive two DC motors with a DRV8833",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "drv8833"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "drive a DC motor with an L293D",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "l293d"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "sensor de color RGB",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "adafruit-tcs34725"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "gestionar pulsacion larga y doble clic en un boton",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "onebutton"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "mostrar texto en una pantalla LCD 16x2",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "liquidcrystal-i2c"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "mostrar en una pantalla OLED",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "adafruit-ssd1306",
+      "sh1106"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "leer temperatura y humedad con DHT22",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "dht-sensor-library"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "controlar una tira de LED RGB WS2812",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "adafruit-neopixel"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "controlar un servomotor",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "servo"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "parsear JSON",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "arduinojson"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "specific"
+  },
+  {
+    "prompt": "medir distancia con sensor ultrasonico",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "newping"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "leer sensor de presion y temperatura BME280",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "adafruit-bme280"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "leer acelerometro MPU6050",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "adafruit-mpu6050"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "controlar un motor paso a paso",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "stepper",
+      "stepper_28byj48"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "motor paso a paso con rampa de aceleracion",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "accelstepper"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "specific"
+  },
+  {
+    "prompt": "recibir senal de mando a distancia infrarrojo",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "irremote"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "obtener hora desde internet por NTP",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "ntpclient"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "specific"
+  },
+  {
+    "prompt": "leer temperatura con una sonda DS18B20",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "dallas-temperature"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "comunicar en el bus 1-Wire",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "onewire"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "specific"
+  },
+  {
+    "prompt": "publicar en un broker MQTT",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "pubsubclient"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "specific"
+  },
+  {
+    "prompt": "leer reloj en tiempo real DS3231",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "rtclib"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "leer un codificador rotatorio",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "encoder",
+      "as5600"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "escribir datos en una tarjeta SD",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "sd"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "specific"
+  },
+  {
+    "prompt": "guardar un valor en la EEPROM",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "eeprom"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "specific"
+  },
+  {
+    "prompt": "comunicacion serie por software softwareserial",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "softwareserial"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "specific"
+  },
+  {
+    "prompt": "medir luminosidad con BH1750",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "bh1750"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "controlar dos motores DC con un shield Adafruit",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "adafruit-motorshield-v2"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "specific"
+  },
+  {
+    "prompt": "detectar movimiento con un sensor PIR",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "pir-motion-sensor"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "specific"
+  },
+  {
+    "prompt": "leer una tarjeta RFID con MFRC522",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "mfrc522"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "leer posicion GPS con un modulo NEO-6M",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "tinygps-plus"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "mostrar texto en color en una pantalla TFT 240x320",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "adafruit-ili9341"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "leer un teclado matricial 4x4",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "keypad"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "controlar dos motores DC con TB6612FNG",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "sparkfun-tb6612"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "controlar un motor DC con L298N",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "l298n"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "medir calidad del aire con un sensor MQ-135",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "mq135"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "specific"
+  },
+  {
+    "prompt": "medir CO2 interior y COV con CCS811",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "adafruit-ccs811"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "leer sensor de CO2 NDIR MH-Z19",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "mhz19"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "enviar un paquete LoRa de larga distancia",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "lora"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "specific"
+  },
+  {
+    "prompt": "controlar dos motores DC con un DRV8833",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "drv8833"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "controlar un motor DC con un L293D",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "l293d"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "sensore di colore RGB",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "adafruit-tcs34725"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "gestire pressione lunga e doppio clic su un pulsante",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "onebutton"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "mostrare testo su un display LCD 16x2",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "liquidcrystal-i2c"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "mostrare su uno schermo OLED",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "adafruit-ssd1306",
+      "sh1106"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "leggere temperatura e umidita con DHT22",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "dht-sensor-library"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "controllare una striscia di LED RGB WS2812",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "adafruit-neopixel"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "controllare un servomotore",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "servo"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "analizzare JSON",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "arduinojson"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "specific"
+  },
+  {
+    "prompt": "misurare distanza con sensore ultrasuoni",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "newping"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "leggere sensore di pressione e temperatura BME280",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "adafruit-bme280"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "leggere accelerometro MPU6050",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "adafruit-mpu6050"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "controllare un motore passo passo",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "stepper",
+      "stepper_28byj48"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "motore passo passo con rampa di accelerazione",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "accelstepper"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "specific"
+  },
+  {
+    "prompt": "ricevere segnale di telecomando infrarosso",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "irremote"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "ottenere ora da internet via NTP",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "ntpclient"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "specific"
+  },
+  {
+    "prompt": "leggere temperatura con una sonda DS18B20",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "dallas-temperature"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "comunicare sul bus 1-Wire",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "onewire"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "specific"
+  },
+  {
+    "prompt": "pubblicare su un broker MQTT",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "pubsubclient"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "specific"
+  },
+  {
+    "prompt": "leggere orologio in tempo reale DS3231",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "rtclib"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "leggere un encoder rotativo",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "encoder",
+      "as5600"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "scrivere dati su una scheda SD",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "sd"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "specific"
+  },
+  {
+    "prompt": "salvare un valore nella EEPROM",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "eeprom"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "specific"
+  },
+  {
+    "prompt": "comunicazione seriale software softwareserial",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "softwareserial"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "specific"
+  },
+  {
+    "prompt": "misurare luminosita con BH1750",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "bh1750"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "controllare due motori DC con uno shield Adafruit",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "adafruit-motorshield-v2"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "specific"
+  },
+  {
+    "prompt": "rilevare movimento con un sensore PIR",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "pir-motion-sensor"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "specific"
+  },
+  {
+    "prompt": "leggere una tessera RFID con MFRC522",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "mfrc522"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "leggere posizione GPS con un modulo NEO-6M",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "tinygps-plus"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "mostrare testo a colori su schermo TFT 240x320",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "adafruit-ili9341"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "leggere una tastiera matriciale 4x4",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "keypad"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "controllare due motori DC con TB6612FNG",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "sparkfun-tb6612"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "controllare un motore DC con L298N",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "l298n"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "misurare la qualita dell'aria con un sensore MQ-135",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "mq135"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "specific"
+  },
+  {
+    "prompt": "misurare CO2 interno e COV con CCS811",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "adafruit-ccs811"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "leggere sensore di CO2 NDIR MH-Z19",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "mhz19"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "inviare un pacchetto LoRa a lunga distanza",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "lora"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual",
+    "specificity": "specific"
+  },
+  {
+    "prompt": "controllare due motori DC con un DRV8833",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "drv8833"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "controllare un motore DC con un L293D",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "l293d"
+    ],
+    "added": "2026-08-18",
+    "source": "smoke_test_rag_multilingual"
+  },
+  {
+    "prompt": "fais clignoter une led sur la broche 13",
+    "lang": "fr",
+    "band": "generic",
+    "expect": [],
+    "added": "2026-08-18",
+    "source": "hand"
+  },
+  {
+    "prompt": "affiche un compteur de secondes sur le moniteur serie",
+    "lang": "fr",
+    "band": "generic",
+    "expect": [],
+    "added": "2026-08-18",
+    "source": "hand"
+  },
+  {
+    "prompt": "fais un scanner i2c",
+    "lang": "fr",
+    "band": "generic",
+    "expect": [
+      "Wire (I2C core library)"
+    ],
+    "added": "2026-08-18",
+    "source": "hand"
+  },
+  {
+    "prompt": "blink an led on pin 13",
+    "lang": "en",
+    "band": "generic",
+    "expect": [],
+    "added": "2026-08-18",
+    "source": "hand"
+  },
+  {
+    "prompt": "print a seconds counter on the serial monitor",
+    "lang": "en",
+    "band": "generic",
+    "expect": [],
+    "added": "2026-08-18",
+    "source": "hand"
+  },
+  {
+    "prompt": "write an i2c scanner",
+    "lang": "en",
+    "band": "generic",
+    "expect": [
+      "Wire (I2C core library)"
+    ],
+    "added": "2026-08-18",
+    "source": "hand"
+  },
+  {
+    "prompt": "haz parpadear un led en el pin 13",
+    "lang": "es",
+    "band": "generic",
+    "expect": [],
+    "added": "2026-08-18",
+    "source": "hand"
+  },
+  {
+    "prompt": "muestra un contador de segundos en el monitor serie",
+    "lang": "es",
+    "band": "generic",
+    "expect": [],
+    "added": "2026-08-18",
+    "source": "hand"
+  },
+  {
+    "prompt": "haz un escaner i2c",
+    "lang": "es",
+    "band": "generic",
+    "expect": [
+      "Wire (I2C core library)"
+    ],
+    "added": "2026-08-18",
+    "source": "hand"
+  },
+  {
+    "prompt": "fai lampeggiare un led sul pin 13",
+    "lang": "it",
+    "band": "generic",
+    "expect": [],
+    "added": "2026-08-18",
+    "source": "hand"
+  },
+  {
+    "prompt": "mostra un contatore di secondi sul monitor seriale",
+    "lang": "it",
+    "band": "generic",
+    "expect": [],
+    "added": "2026-08-18",
+    "source": "hand"
+  },
+  {
+    "prompt": "fai uno scanner i2c",
+    "lang": "it",
+    "band": "generic",
+    "expect": [
+      "Wire (I2C core library)"
+    ],
+    "added": "2026-08-18",
+    "source": "hand"
+  }
+]

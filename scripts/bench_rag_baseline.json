@@ -1,0 +1,1273 @@
+{
+  "schema_version": 2,
+  "results": [
+    {
+      "prompt": "capteur de couleur RGB",
+      "lang": "fr",
+      "band_label": "described/vague",
+      "outcome": "correct",
+      "stray": [
+        "ssd1351"
+      ]
+    },
+    {
+      "prompt": "gerer un appui long et un double clic sur un bouton",
+      "lang": "fr",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "afficher du texte sur un LCD 16x2",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "afficher sur un ecran OLED",
+      "lang": "fr",
+      "band_label": "described/vague",
+      "outcome": "correct",
+      "stray": [
+        "eink_display"
+      ]
+    },
+    {
+      "prompt": "lire la temperature et l'humidite avec un DHT22",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "controler une bande de LED RGB WS2812",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "piloter un servomoteur",
+      "lang": "fr",
+      "band_label": "described/vague",
+      "outcome": "correct",
+      "stray": [
+        "pca9685"
+      ]
+    },
+    {
+      "prompt": "parser du JSON",
+      "lang": "fr",
+      "band_label": "described/specific",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "mesurer une distance avec un capteur ultrason",
+      "lang": "fr",
+      "band_label": "described/vague",
+      "outcome": "correct",
+      "stray": [
+        "vl53l0x"
+      ]
+    },
+    {
+      "prompt": "lire un capteur de pression et temperature BME280",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "lire un accelerometre MPU6050",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "piloter un moteur pas a pas",
+      "lang": "fr",
+      "band_label": "described/vague",
+      "outcome": "wrong",
+      "stray": [
+        "tmc2209"
+      ]
+    },
+    {
+      "prompt": "moteur pas a pas avec rampe d'acceleration",
+      "lang": "fr",
+      "band_label": "described/specific",
+      "outcome": "correct",
+      "stray": [
+        "stepper_28byj48",
+        "nema17"
+      ]
+    },
+    {
+      "prompt": "recevoir un signal de telecommande infrarouge",
+      "lang": "fr",
+      "band_label": "described/vague",
+      "outcome": "correct",
+      "stray": [
+        "tsl2561"
+      ]
+    },
+    {
+      "prompt": "recuperer l'heure depuis internet via NTP",
+      "lang": "fr",
+      "band_label": "described/specific",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "lire la temperature avec une sonde DS18B20",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "communiquer sur le bus 1-Wire",
+      "lang": "fr",
+      "band_label": "described/specific",
+      "outcome": "wrong",
+      "stray": [
+        "i2c_multiplexer",
+        "pn532"
+      ]
+    },
+    {
+      "prompt": "publier sur un broker MQTT",
+      "lang": "fr",
+      "band_label": "described/specific",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "lire l'horloge temps reel DS3231",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "lire un encodeur rotatif",
+      "lang": "fr",
+      "band_label": "described/vague",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "ecrire des donnees sur une carte SD",
+      "lang": "fr",
+      "band_label": "described/specific",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "sauvegarder une valeur dans l'EEPROM",
+      "lang": "fr",
+      "band_label": "described/specific",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "communication serie logicielle softwareserial",
+      "lang": "fr",
+      "band_label": "described/specific",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "mesurer la luminosite avec un BH1750",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "piloter deux moteurs DC avec un shield Adafruit",
+      "lang": "fr",
+      "band_label": "described/specific",
+      "outcome": "correct",
+      "stray": [
+        "sparkfun-tb6612"
+      ]
+    },
+    {
+      "prompt": "detecter un mouvement avec un capteur PIR",
+      "lang": "fr",
+      "band_label": "described/specific",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "lire un badge RFID avec MFRC522",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "lire la position GPS avec un NEO-6M",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "afficher du texte couleur sur un ecran TFT 240x320",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "lire un clavier matriciel 4x4",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "piloter deux moteurs DC avec TB6612FNG",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "piloter un moteur DC avec L298N",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "mesurer la qualite de l'air avec un capteur MQ-135",
+      "lang": "fr",
+      "band_label": "described/specific",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "mesurer le CO2 interieur avec un CCS811",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "lire un capteur de CO2 NDIR MH-Z19",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "envoyer un paquet LoRa longue portee",
+      "lang": "fr",
+      "band_label": "described/specific",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "piloter deux moteurs DC avec un DRV8833",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "piloter un moteur DC avec un L293D",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "RGB color sensor",
+      "lang": "en",
+      "band_label": "described/vague",
+      "outcome": "correct",
+      "stray": [
+        "ssd1351",
+        "apds9960"
+      ]
+    },
+    {
+      "prompt": "handle long press and double click on a button",
+      "lang": "en",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "display text on a 16x2 LCD",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "show text on an OLED screen",
+      "lang": "en",
+      "band_label": "described/vague",
+      "outcome": "correct",
+      "stray": [
+        "eink_display"
+      ]
+    },
+    {
+      "prompt": "read DHT22 temperature and humidity",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "control a WS2812 LED strip",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "control a servo motor",
+      "lang": "en",
+      "band_label": "described/vague",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "parse JSON on Arduino",
+      "lang": "en",
+      "band_label": "described/specific",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "ultrasonic distance sensor",
+      "lang": "en",
+      "band_label": "described/vague",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "read BME280 pressure and temperature sensor",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "read MPU6050 accelerometer",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "drive a stepper motor",
+      "lang": "en",
+      "band_label": "described/vague",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "stepper motor with acceleration ramp",
+      "lang": "en",
+      "band_label": "described/specific",
+      "outcome": "wrong",
+      "stray": [
+        "stepper"
+      ]
+    },
+    {
+      "prompt": "receive an infrared remote control signal",
+      "lang": "en",
+      "band_label": "described/vague",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "get time from internet via NTP",
+      "lang": "en",
+      "band_label": "described/specific",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "read temperature with a DS18B20 probe",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "communicate on the 1-Wire bus",
+      "lang": "en",
+      "band_label": "described/specific",
+      "outcome": "wrong",
+      "stray": [
+        "i2c_multiplexer"
+      ]
+    },
+    {
+      "prompt": "MQTT client",
+      "lang": "en",
+      "band_label": "described/specific",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "real time clock DS3231",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "rotary encoder",
+      "lang": "en",
+      "band_label": "described/vague",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "write data to SD card",
+      "lang": "en",
+      "band_label": "described/specific",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "save a value to EEPROM",
+      "lang": "en",
+      "band_label": "described/specific",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "software serial communication",
+      "lang": "en",
+      "band_label": "described/specific",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "measure ambient light with BH1750",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "drive two DC motors with an Adafruit shield",
+      "lang": "en",
+      "band_label": "described/specific",
+      "outcome": "correct",
+      "stray": [
+        "sparkfun-tb6612",
+        "dc_motor"
+      ]
+    },
+    {
+      "prompt": "detect motion with a PIR sensor",
+      "lang": "en",
+      "band_label": "described/specific",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "read an RFID badge with MFRC522",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "read GPS position from a NEO-6M module",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "display color text on a 240x320 TFT screen",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "read a 4x4 matrix keypad",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "drive two DC motors with TB6612FNG",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "drive a DC motor with L298N",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": [
+        "dc_motor"
+      ]
+    },
+    {
+      "prompt": "measure air quality with an MQ-135 sensor",
+      "lang": "en",
+      "band_label": "described/specific",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "measure indoor CO2 and TVOC with CCS811",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "read NDIR CO2 sensor MH-Z19",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "send a long range LoRa packet",
+      "lang": "en",
+      "band_label": "described/specific",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "drive two DC motors with a DRV8833",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "drive a DC motor with an L293D",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": [
+        "stepper",
+        "dc_motor"
+      ]
+    },
+    {
+      "prompt": "sensor de color RGB",
+      "lang": "es",
+      "band_label": "described/vague",
+      "outcome": "correct",
+      "stray": [
+        "ssd1351",
+        "apds9960"
+      ]
+    },
+    {
+      "prompt": "gestionar pulsacion larga y doble clic en un boton",
+      "lang": "es",
+      "band_label": "described/vague",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "mostrar texto en una pantalla LCD 16x2",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "mostrar en una pantalla OLED",
+      "lang": "es",
+      "band_label": "described/vague",
+      "outcome": "correct",
+      "stray": [
+        "ssd1351"
+      ]
+    },
+    {
+      "prompt": "leer temperatura y humedad con DHT22",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "controlar una tira de LED RGB WS2812",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "controlar un servomotor",
+      "lang": "es",
+      "band_label": "described/vague",
+      "outcome": "correct",
+      "stray": [
+        "pca9685"
+      ]
+    },
+    {
+      "prompt": "parsear JSON",
+      "lang": "es",
+      "band_label": "described/specific",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "medir distancia con sensor ultrasonico",
+      "lang": "es",
+      "band_label": "described/vague",
+      "outcome": "correct",
+      "stray": [
+        "vl53l0x"
+      ]
+    },
+    {
+      "prompt": "leer sensor de presion y temperatura BME280",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "leer acelerometro MPU6050",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "controlar un motor paso a paso",
+      "lang": "es",
+      "band_label": "described/vague",
+      "outcome": "correct",
+      "stray": [
+        "accelstepper"
+      ]
+    },
+    {
+      "prompt": "motor paso a paso con rampa de aceleracion",
+      "lang": "es",
+      "band_label": "described/specific",
+      "outcome": "correct",
+      "stray": [
+        "stepper_28byj48"
+      ]
+    },
+    {
+      "prompt": "recibir senal de mando a distancia infrarrojo",
+      "lang": "es",
+      "band_label": "described/vague",
+      "outcome": "correct",
+      "stray": [
+        "pn532"
+      ]
+    },
+    {
+      "prompt": "obtener hora desde internet por NTP",
+      "lang": "es",
+      "band_label": "described/specific",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "leer temperatura con una sonda DS18B20",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "comunicar en el bus 1-Wire",
+      "lang": "es",
+      "band_label": "described/specific",
+      "outcome": "wrong",
+      "stray": [
+        "i2c_multiplexer",
+        "pn532"
+      ]
+    },
+    {
+      "prompt": "publicar en un broker MQTT",
+      "lang": "es",
+      "band_label": "described/specific",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "leer reloj en tiempo real DS3231",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "leer un codificador rotatorio",
+      "lang": "es",
+      "band_label": "described/vague",
+      "outcome": "correct",
+      "stray": [
+        "keypad"
+      ]
+    },
+    {
+      "prompt": "escribir datos en una tarjeta SD",
+      "lang": "es",
+      "band_label": "described/specific",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "guardar un valor en la EEPROM",
+      "lang": "es",
+      "band_label": "described/specific",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "comunicacion serie por software softwareserial",
+      "lang": "es",
+      "band_label": "described/specific",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "medir luminosidad con BH1750",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "controlar dos motores DC con un shield Adafruit",
+      "lang": "es",
+      "band_label": "described/specific",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "detectar movimiento con un sensor PIR",
+      "lang": "es",
+      "band_label": "described/specific",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "leer una tarjeta RFID con MFRC522",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "leer posicion GPS con un modulo NEO-6M",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "mostrar texto en color en una pantalla TFT 240x320",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "leer un teclado matricial 4x4",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "controlar dos motores DC con TB6612FNG",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "controlar un motor DC con L298N",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "medir calidad del aire con un sensor MQ-135",
+      "lang": "es",
+      "band_label": "described/specific",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "medir CO2 interior y COV con CCS811",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "leer sensor de CO2 NDIR MH-Z19",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "enviar un paquete LoRa de larga distancia",
+      "lang": "es",
+      "band_label": "described/specific",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "controlar dos motores DC con un DRV8833",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "controlar un motor DC con un L293D",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "sensore di colore RGB",
+      "lang": "it",
+      "band_label": "described/vague",
+      "outcome": "correct",
+      "stray": [
+        "ssd1351",
+        "apds9960"
+      ]
+    },
+    {
+      "prompt": "gestire pressione lunga e doppio clic su un pulsante",
+      "lang": "it",
+      "band_label": "described/vague",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "mostrare testo su un display LCD 16x2",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "mostrare su uno schermo OLED",
+      "lang": "it",
+      "band_label": "described/vague",
+      "outcome": "correct",
+      "stray": [
+        "ssd1351"
+      ]
+    },
+    {
+      "prompt": "leggere temperatura e umidita con DHT22",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "controllare una striscia di LED RGB WS2812",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "controllare un servomotore",
+      "lang": "it",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "analizzare JSON",
+      "lang": "it",
+      "band_label": "described/specific",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "misurare distanza con sensore ultrasuoni",
+      "lang": "it",
+      "band_label": "described/vague",
+      "outcome": "correct",
+      "stray": [
+        "vl53l0x",
+        "pir-motion-sensor"
+      ]
+    },
+    {
+      "prompt": "leggere sensore di pressione e temperatura BME280",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "leggere accelerometro MPU6050",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "controllare un motore passo passo",
+      "lang": "it",
+      "band_label": "described/vague",
+      "outcome": "correct",
+      "stray": [
+        "accelstepper"
+      ]
+    },
+    {
+      "prompt": "motore passo passo con rampa di accelerazione",
+      "lang": "it",
+      "band_label": "described/specific",
+      "outcome": "correct",
+      "stray": [
+        "stepper_28byj48"
+      ]
+    },
+    {
+      "prompt": "ricevere segnale di telecomando infrarosso",
+      "lang": "it",
+      "band_label": "described/vague",
+      "outcome": "correct",
+      "stray": [
+        "tsl2561"
+      ]
+    },
+    {
+      "prompt": "ottenere ora da internet via NTP",
+      "lang": "it",
+      "band_label": "described/specific",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "leggere temperatura con una sonda DS18B20",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "comunicare sul bus 1-Wire",
+      "lang": "it",
+      "band_label": "described/specific",
+      "outcome": "wrong",
+      "stray": [
+        "i2c_multiplexer",
+        "pn532"
+      ]
+    },
+    {
+      "prompt": "pubblicare su un broker MQTT",
+      "lang": "it",
+      "band_label": "described/specific",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "leggere orologio in tempo reale DS3231",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "leggere un encoder rotativo",
+      "lang": "it",
+      "band_label": "described/vague",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "scrivere dati su una scheda SD",
+      "lang": "it",
+      "band_label": "described/specific",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "salvare un valore nella EEPROM",
+      "lang": "it",
+      "band_label": "described/specific",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "comunicazione seriale software softwareserial",
+      "lang": "it",
+      "band_label": "described/specific",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "misurare luminosita con BH1750",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "controllare due motori DC con uno shield Adafruit",
+      "lang": "it",
+      "band_label": "described/specific",
+      "outcome": "correct",
+      "stray": [
+        "sparkfun-tb6612"
+      ]
+    },
+    {
+      "prompt": "rilevare movimento con un sensore PIR",
+      "lang": "it",
+      "band_label": "described/specific",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "leggere una tessera RFID con MFRC522",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "leggere posizione GPS con un modulo NEO-6M",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "mostrare testo a colori su schermo TFT 240x320",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "leggere una tastiera matriciale 4x4",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "controllare due motori DC con TB6612FNG",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "controllare un motore DC con L298N",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "misurare la qualita dell'aria con un sensore MQ-135",
+      "lang": "it",
+      "band_label": "described/specific",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "misurare CO2 interno e COV con CCS811",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "leggere sensore di CO2 NDIR MH-Z19",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "inviare un pacchetto LoRa a lunga distanza",
+      "lang": "it",
+      "band_label": "described/specific",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "controllare due motori DC con un DRV8833",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "controllare un motore DC con un L293D",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "fais clignoter une led sur la broche 13",
+      "lang": "fr",
+      "band_label": "generic",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "affiche un compteur de secondes sur le moniteur serie",
+      "lang": "fr",
+      "band_label": "generic",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "fais un scanner i2c",
+      "lang": "fr",
+      "band_label": "generic",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "blink an led on pin 13",
+      "lang": "en",
+      "band_label": "generic",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "print a seconds counter on the serial monitor",
+      "lang": "en",
+      "band_label": "generic",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "write an i2c scanner",
+      "lang": "en",
+      "band_label": "generic",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "haz parpadear un led en el pin 13",
+      "lang": "es",
+      "band_label": "generic",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "muestra un contador de segundos en el monitor serie",
+      "lang": "es",
+      "band_label": "generic",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "haz un escaner i2c",
+      "lang": "es",
+      "band_label": "generic",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "fai lampeggiare un led sul pin 13",
+      "lang": "it",
+      "band_label": "generic",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "mostra un contatore di secondi sul monitor seriale",
+      "lang": "it",
+      "band_label": "generic",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "fai uno scanner i2c",
+      "lang": "it",
+      "band_label": "generic",
+      "outcome": "correct",
+      "stray": []
+    }
+  ],
+  "ceiling": {
+    "by_case": [
+      {
+        "prompt": "affiche un compteur de secondes sur le moniteur serie",
+        "lang": "fr",
+        "score": 0.48017609119415283
+      },
+      {
+        "prompt": "blink an led on pin 13",
+        "lang": "en",
+        "score": 0.42543068528175354
+      },
+      {
+        "prompt": "fai lampeggiare un led sul pin 13",
+        "lang": "it",
+        "score": 0.3445906937122345
+      },
+      {
+        "prompt": "fais clignoter une led sur la broche 13",
+        "lang": "fr",
+        "score": 0.24419447779655457
+      },
+      {
+        "prompt": "haz parpadear un led en el pin 13",
+        "lang": "es",
+        "score": 0.26507365703582764
+      },
+      {
+        "prompt": "mostra un contatore di secondi sul monitor seriale",
+        "lang": "it",
+        "score": 0.49459078907966614
+      },
+      {
+        "prompt": "muestra un contador de segundos en el monitor serie",
+        "lang": "es",
+        "score": 0.48730459809303284
+      },
+      {
+        "prompt": "print a seconds counter on the serial monitor",
+        "lang": "en",
+        "score": 0.44043803215026855
+      }
+    ]
+  }
+}

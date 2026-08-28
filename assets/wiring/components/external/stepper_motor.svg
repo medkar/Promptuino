@@ -1,0 +1,282 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   width="144"
+   height="127.14"
+   viewBox="0 0 144 127.14"
+   version="1.1"
+   id="svg12"
+   sodipodi:docname="stepper_motor.svg"
+   inkscape:version="1.4.2 (f4327f4, 2025-05-13)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview12"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:zoom="3.1736668"
+     inkscape:cx="18.27539"
+     inkscape:cy="40.804535"
+     inkscape:window-width="1920"
+     inkscape:window-height="1009"
+     inkscape:window-x="1376"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="component" />
+  <!-- 28BYJ-48 stepper motor — orientation HORIZONTALE : corps cylindrique
+       a GAUCHE, connecteur JST 5-pin bleu a DROITE, pins sur le bord droit
+       du connecteur. Le contenu visuel (paths/rects en frame native) est
+       wrappe dans un sous-groupe avec rotation 90° CCW. Les pin-N-pos et
+       labels sont au niveau exterieur avec coords post-rotation pour que
+       les labels restent lisibles horizontalement et que le loader
+       renvoie directement les positions canvas. -->
+  <defs
+     id="defs2">
+    <linearGradient
+       id="a"
+       x1="146.65"
+       y1="-706.3"
+       x2="149.35"
+       y2="-706.3"
+       gradientTransform="matrix(2, 0, 0, -2, -219.46, -1372.22)"
+       gradientUnits="userSpaceOnUse">
+      <stop
+         offset="0"
+         stop-color="#fff"
+         stop-opacity="0.49"
+         id="stop1" />
+      <stop
+         offset="1"
+         stop-color="#e3c36d"
+         stop-opacity="0.35"
+         id="stop2" />
+    </linearGradient>
+  </defs>
+  <g
+     id="component">
+    <!-- ─── Contenu visuel rotated 90° CCW (translate puis rotate) ─── -->
+    <g
+       transform="translate(0, 127.14) rotate(-90)"
+       id="g12">
+      <!-- Connecteur (haut chanfreine) -->
+      <path
+         d="M45,121.49,40.5,117v-13.5h72V117l-4.5,4.5H45"
+         transform="translate(-4.5 -12.59)"
+         fill="#54b0e0"
+         id="path2" />
+      <!-- Connecteur (corps rectangulaire bleu) -->
+      <rect
+         x="40.51"
+         y="90.9"
+         width="62.99"
+         height="36"
+         rx="4.5"
+         fill="#54b0e0"
+         stroke="#c4baba"
+         stroke-width="0.48"
+         transform="translate(-4.5 -12.59)"
+         id="rect2" />
+      <!-- Corps moteur (cercle + brides + protrusion connecteur) -->
+      <path
+         id="component-body"
+         d="M76.5,13.5a54,54,0,0,0-53.25,45H13.5a9,9,0,0,0,0,18h9.75A54,54,0,0,0,49.5,114.25V130.5h54V114.25A54,54,0,0,0,129.75,76.5h9.75a9,9,0,0,0,0-18h-9.75A54,54,0,0,0,76.5,13.5ZM13.5,63A4.5,4.5,0,1,1,9,67.5,4.49,4.49,0,0,1,13.5,63Zm126,0a4.5,4.5,0,1,1-4.5,4.5A4.49,4.49,0,0,1,139.5,63Z"
+         transform="translate(-4.5 -12.59)"
+         fill="#b3b3b3"
+         fill-rule="evenodd" />
+      <!-- Cercle exterieur -->
+      <path
+         d="M130.5,67.49a54,54,0,1,1-54-54A54,54,0,0,1,130.5,67.49Z"
+         transform="translate(-4.5 -12.59)"
+         fill="none"
+         stroke="#b3b3b3"
+         stroke-width="1.8"
+         id="path3" />
+      <!-- Arcs decoratifs (texture carter) -->
+      <path
+         d="M95.39,16.9a54,54,0,0,1,34.29,41.21"
+         transform="translate(-4.5 -12.59)"
+         fill="none"
+         stroke="#9c9c9c"
+         stroke-width="1.8"
+         id="path4" />
+      <path
+         d="M23.22,58.69A54,54,0,0,1,57.93,16.78"
+         transform="translate(-4.5 -12.59)"
+         fill="none"
+         stroke="#9c9c9c"
+         stroke-width="1.8"
+         id="path5" />
+      <path
+         d="M40.72,107.93A54,54,0,0,1,23.43,77.45"
+         transform="translate(-4.5 -12.59)"
+         fill="none"
+         stroke="#9c9c9c"
+         stroke-width="1.8"
+         id="path6" />
+      <path
+         d="M129.58,77.39a53.94,53.94,0,0,1-17.26,30.5"
+         transform="translate(-4.5 -12.59)"
+         fill="none"
+         stroke="#9c9c9c"
+         stroke-width="1.8"
+         id="path7" />
+      <!-- Hub axe -->
+      <path
+         d="M92.86,32.77a18,18,0,1,1-23.92-8.71,18,18,0,0,1,23.92,8.71Z"
+         transform="translate(-4.5 -12.59)"
+         fill="#a8a8a8"
+         stroke="#ededed"
+         stroke-miterlimit="8"
+         stroke-width="2"
+         fill-rule="evenodd"
+         id="path8" />
+      <!-- Engrenage dore D-shaft -->
+      <path
+         d="M85.52,36.19a9.9,9.9,0,0,1-17.94,8.39v0a9.9,9.9,0,0,1,17.94-8.39Z"
+         transform="translate(-4.5 -12.59)"
+         fill="#ecd384"
+         stroke="#585858"
+         stroke-linecap="square"
+         stroke-linejoin="round"
+         stroke-width="0.9"
+         fill-rule="evenodd"
+         id="path9" />
+      <!-- Lignes denture -->
+      <path
+         d="M66.92,38.9,81.6,32.06"
+         transform="translate(-4.5 -12.59)"
+         fill="none"
+         stroke="#585858"
+         stroke-linecap="round"
+         stroke-miterlimit="8"
+         stroke-width="0.45"
+         id="path10" />
+      <path
+         d="M71.48,48.69l14.69-6.85"
+         transform="translate(-4.5 -12.59)"
+         fill="none"
+         stroke="#585858"
+         stroke-linecap="round"
+         stroke-miterlimit="8"
+         stroke-width="0.45"
+         id="path11" />
+      <!-- Petit cercle central -->
+      <path
+         d="M79.24,40.37a2.7,2.7,0,1,1-5.4,0h0a2.7,2.7,0,1,1,5.4,0Z"
+         transform="translate(-4.5 -12.59)"
+         stroke="#96814d"
+         stroke-linecap="round"
+         stroke-linejoin="round"
+         stroke-width="0.18"
+         fill-rule="evenodd"
+         fill="url(#a)"
+         id="path12" />
+    </g>
+    <!-- ─── Pins exposes pour routage (cote DROIT post-rotation) ─────
+         Coords obtenues en appliquant translate(0, 127.14) rotate(-90)
+         a la position pre-rotation (cx, cy=114) :
+            new_cx = cy = 114
+            new_cy = 127.14 - cx
+         Espacement vertical 12px, alignes a x=114. -->
+    <circle
+       id="pin-1-pos"
+       cx="114"
+       cy="79.386246"
+       r="2"
+       fill="#000083"
+       stroke="#000083"
+       stroke-width="0.5" />
+    <circle
+       id="pin-2-pos"
+       cx="114"
+       cy="67.386246"
+       r="2"
+       fill="#000083"
+       stroke="#000083"
+       stroke-width="0.5" />
+    <circle
+       id="pin-3-pos"
+       cx="114"
+       cy="55.386246"
+       r="2"
+       fill="#000083"
+       stroke="#000083"
+       stroke-width="0.5" />
+    <circle
+       id="pin-4-pos"
+       cx="114"
+       cy="43.386246"
+       r="2"
+       fill="#000083"
+       stroke="#000083"
+       stroke-width="0.5" />
+    <circle
+       id="pin-5-pos"
+       cx="114"
+       cy="31.386244"
+       r="2"
+       fill="#000083"
+       stroke="#000083"
+       stroke-width="0.5" />
+    <!-- Labels silkscreen (a gauche des pins, dans le connecteur, lisibles horizontalement) -->
+    <text
+       id="pin-1-label"
+       x="109"
+       y="80.658585"
+       text-anchor="end"
+       font-family="sans-serif"
+       font-size="3.5px"
+       font-weight="bold"
+       fill="#ffffff">COM</text>
+    <text
+       id="pin-2-label"
+       x="109"
+       y="68.658585"
+       text-anchor="end"
+       font-family="sans-serif"
+       font-size="3.5px"
+       font-weight="bold"
+       fill="#ffffff">A</text>
+    <text
+       id="pin-3-label"
+       x="109"
+       y="56.658585"
+       text-anchor="end"
+       font-family="sans-serif"
+       font-size="3.5px"
+       font-weight="bold"
+       fill="#ffffff">B</text>
+    <text
+       id="pin-4-label"
+       x="109"
+       y="44.658585"
+       text-anchor="end"
+       font-family="sans-serif"
+       font-size="3.5px"
+       font-weight="bold"
+       fill="#ffffff">C</text>
+    <text
+       id="pin-5-label"
+       x="109"
+       y="32.658585"
+       text-anchor="end"
+       font-family="sans-serif"
+       font-size="3.5px"
+       font-weight="bold"
+       fill="#ffffff">D</text>
+    <text
+       id="component-name"
+       x="142"
+       y="64.14"
+       text-anchor="middle"
+       font-family="sans-serif"
+       font-size="0"
+       fill="#000" />
+  </g>
+</svg>

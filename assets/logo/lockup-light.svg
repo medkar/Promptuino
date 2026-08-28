@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="260" height="44" viewBox="0 0 260 44">
+  
+  <rect width="44" height="44" rx="8" fill="#e4e7ec"></rect>
+  <text x="5" y="20" font-family="Geist,&#39;Segoe UI Variable Display&#39;,&#39;Segoe UI&#39;,system-ui,sans-serif" font-size="10.5" font-weight="800" fill="#0a0e14" letter-spacing="-0.5">Prompt</text>
+  <text x="39" y="32" font-family="Geist,&#39;Segoe UI Variable Display&#39;,&#39;Segoe UI&#39;,system-ui,sans-serif" font-size="10.5" font-weight="800" fill="#0a0e14" text-anchor="end" letter-spacing="-0.5"><tspan fill="#008f6f">&gt;</tspan>uino</text>
+  
+  <text x="56" y="18" font-family="Geist,&#39;Segoe UI Variable Display&#39;,&#39;Segoe UI&#39;,system-ui,sans-serif" font-size="16" font-weight="700" fill="#0a0e14" letter-spacing="-0.4">PROMPTUINO</text>
+  <text x="56" y="33" font-family="Geist Mono,Consolas,monospace" font-size="9" font-weight="500" fill="#4b5563" letter-spacing="0.3">v0.1.0 · BUILD 42</text>
+</svg>

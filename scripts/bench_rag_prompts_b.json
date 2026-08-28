@@ -1,0 +1,4066 @@
+[
+  {
+    "prompt": "je veux savoir a quelle altitude je suis quand je pars randonner",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "bmp085",
+      "bmp180"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "i want to know how high up i am when i go hiking",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "bmp085",
+      "bmp180"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "quiero saber a que altura estoy cuando salgo de excursion",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "bmp085",
+      "bmp180"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "voglio sapere a che altezza mi trovo quando vado in escursione",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "bmp085",
+      "bmp180"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "lire l'altitude avec un BMP085",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "bmp085",
+      "bmp180"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "read the altitude with a BMP085",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "bmp085",
+      "bmp180"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "leer la altitud con un BMP085",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "bmp085",
+      "bmp180"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "leggere l'altitudine con un BMP085",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "bmp085",
+      "bmp180"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "savoir si le temps va changer dans les prochaines heures",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "bmp180",
+      "bmp085"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "know if the weather is going to change in the next few hours",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "bmp180",
+      "bmp085"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "saber si el tiempo va a cambiar en las proximas horas",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "bmp180",
+      "bmp085"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "sapere se il tempo cambiera nelle prossime ore",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "bmp180",
+      "bmp085"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "faire une petite station meteo avec un BMP180",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "bmp180",
+      "bmp085"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "build a small weather station with a BMP180",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "bmp180",
+      "bmp085"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "hacer una pequena estacion meteorologica con un BMP180",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "bmp180",
+      "bmp085"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "fare una piccola stazione meteo con un BMP180",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "bmp180",
+      "bmp085"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "afficher vers quel point cardinal mon robot avance",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "hmc6352"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "show which cardinal direction my robot is heading",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "hmc6352"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "mostrar hacia que punto cardinal avanza mi robot",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "hmc6352"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "mostrare verso quale punto cardinale avanza il mio robot",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "hmc6352"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "lire le cap en degres avec un HMC6352",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "hmc6352"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "read the heading in degrees with an HMC6352",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "hmc6352"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "leer el rumbo en grados con un HMC6352",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "hmc6352"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "leggere la rotta in gradi con un HMC6352",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "hmc6352"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "savoir si ma carte est penchee et de quel cote elle regarde",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "lsm303"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "know if my board is tilted and which way it is facing",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "lsm303"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "saber si mi placa esta inclinada y hacia donde mira",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "lsm303"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "sapere se la mia scheda e inclinata e da che parte guarda",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "lsm303"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "utiliser un LSM303 pour connaitre l'orientation",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "lsm303"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "use an LSM303 to get the orientation",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "lsm303"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "usar un LSM303 para conocer la orientacion",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "lsm303"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "usare un LSM303 per conoscere l'orientamento",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "lsm303"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "afficher le pourcentage de batterie qui reste sur mon projet portable",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "max1704x",
+      "max17043"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "show the battery percentage left on my portable project",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "max1704x",
+      "max17043"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "mostrar el porcentaje de bateria que queda en mi proyecto portatil",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "max1704x",
+      "max17043"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "mostrare la percentuale di batteria rimasta sul mio progetto portatile",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "max1704x",
+      "max17043"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "lire l'etat de charge avec un MAX17048",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "max1704x",
+      "max17043"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "read the state of charge with a MAX17048",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "max1704x",
+      "max17043"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "leer el estado de carga con un MAX17048",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "max1704x",
+      "max17043"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "leggere lo stato di carica con un MAX17048",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "max1704x",
+      "max17043"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "enregistrer mes mesures dans un fichier que j'ouvrirai sur mon ordinateur",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "microsd_card_module",
+      "sd"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "save my readings into a file i can open later on my computer",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "microsd_card_module",
+      "sd"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "guardar mis mediciones en un archivo que abrire luego en el ordenador",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "microsd_card_module",
+      "sd"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "salvare le mie misure in un file da aprire poi sul computer",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "microsd_card_module",
+      "sd"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "brancher un microSD card module pour stocker mes donnees",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "microsd_card_module",
+      "sd"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "wire a microSD card module to store my data",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "microsd_card_module",
+      "sd"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "conectar un microSD card module para guardar mis datos",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "microsd_card_module",
+      "sd"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "collegare un microSD card module per salvare i miei dati",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "microsd_card_module",
+      "sd"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "detecter quand ma boite est secouee ou renversee",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "mma8452q"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "detect when my box gets shaken or knocked over",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "mma8452q"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "detectar cuando mi caja se agita o se vuelca",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "mma8452q"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "rilevare quando la mia scatola viene scossa o rovesciata",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "mma8452q"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "detecter les chocs avec un MMA8452Q",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "mma8452q"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "detect knocks with an MMA8452Q",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "mma8452q"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "detectar golpes con un MMA8452Q",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "mma8452q"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "rilevare gli urti con un MMA8452Q",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "mma8452q"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "compter le nombre d'etages que j'ai montes a pied",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "mpl3115a2"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "count how many floors i climbed on foot",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "mpl3115a2"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "contar cuantos pisos he subido a pie",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "mpl3115a2"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "contare quanti piani ho salito a piedi",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "mpl3115a2"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "mesurer le denivele avec un MPL3115A2",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "mpl3115a2"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "measure the elevation change with an MPL3115A2",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "mpl3115a2"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "medir el desnivel con un MPL3115A2",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "mpl3115a2"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "misurare il dislivello con un MPL3115A2",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "mpl3115a2"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "faire douze touches sensibles au doigt, sans rien de mecanique a enfoncer",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "mpr121"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "make twelve finger touch keys with nothing mechanical to press",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "mpr121"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "hacer doce teclas sensibles al dedo sin ningun boton mecanico",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "mpr121"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "fare dodici tasti sensibili al dito senza nessun pulsante meccanico",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "mpr121"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "gerer mes touches tactiles avec un MPR121",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "mpr121"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "handle my touch keys with an MPR121",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "mpr121"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "gestionar mis teclas tactiles con un MPR121",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "mpr121"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "gestire i miei tasti tattili con un MPR121",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "mpr121"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "declencher le ventilateur de la salle de bain quand il y a trop de vapeur",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "sht25"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "turn on the bathroom fan when there is too much steam",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "sht25"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "encender el ventilador del bano cuando hay demasiado vapor",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "sht25"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "accendere il ventilatore del bagno quando c'e troppo vapore",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "sht25"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "lire l'air ambiant avec un SHT25",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "sht25"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "read the ambient air with an SHT25",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "sht25"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "leer el aire ambiente con un SHT25",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "sht25"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "leggere l'aria ambiente con un SHT25",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "sht25"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "imprimer un petit ticket en papier quand quelqu'un appuie dessus",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "thermal_printer"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "print a small paper receipt when someone presses on it",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "thermal_printer"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "imprimir un pequeno ticket de papel cuando alguien pulsa el boton",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "thermal_printer"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "stampare un piccolo scontrino di carta quando qualcuno preme il pulsante",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "thermal_printer"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "piloter un module thermal printer pour mes tickets",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "thermal_printer"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "drive a thermal printer module for my receipts",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "thermal_printer"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "controlar un modulo thermal printer para mis tickets",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "thermal_printer"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "pilotare un modulo thermal printer per i miei scontrini",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "thermal_printer"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "surveiller la temperature dans mon armoire electrique",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "tmp102"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "keep an eye on the temperature inside my electrical cabinet",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "tmp102"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "vigilar la temperatura dentro de mi armario electrico",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "tmp102"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "tenere d'occhio la temperatura dentro il mio quadro elettrico",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "tmp102"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "lire la temperature avec un TMP102",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "tmp102"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "read the temperature with a TMP102",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "tmp102"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "leer la temperatura con un TMP102",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "tmp102"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "leggere la temperatura con un TMP102",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "tmp102"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "brancher mon montage au reseau de la maison avec un cable au lieu du wifi",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "wiz820io"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "connect my project to the home network with a cable instead of wifi",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "wiz820io"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "conectar mi montaje a la red de casa con un cable en lugar de wifi",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "wiz820io"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "collegare il mio progetto alla rete di casa con un cavo invece del wifi",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "wiz820io"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "utiliser un module WIZ820io pour le reseau",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "wiz820io"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "use a WIZ820io module for the network",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "wiz820io"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "usar un modulo WIZ820io para la red",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "wiz820io"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "usare un modulo WIZ820io per la rete",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "wiz820io"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "envoyer mes mesures vers mon telephone par le wifi de la maison",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "esp8266"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "send my readings to my phone over the home wifi",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "esp8266"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "enviar mis mediciones a mi telefono por el wifi de casa",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "esp8266"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "inviare le mie misure al telefono tramite il wifi di casa",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "esp8266"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "ajouter le wifi avec un ESP8266 en ESP-01",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "esp8266"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "add wifi with an ESP8266 in its ESP-01 form",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "esp8266"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "anadir wifi con un ESP8266 en formato ESP-01",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "esp8266"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "aggiungere il wifi con un ESP8266 in versione ESP-01",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "esp8266"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "recevoir un message sur mon portable quand la pompe s'arrete, il n'y a pas de wifi la-bas",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "sim800l"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "get a text on my phone when the pump stops, there is no wifi out there",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "sim800l"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "recibir un mensaje en mi movil cuando la bomba se para, alli no hay wifi",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "sim800l"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "ricevere un messaggio sul cellulare quando la pompa si ferma, li non c'e wifi",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "sim800l"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "envoyer un sms avec un SIM800L",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "sim800l"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "send an sms with a SIM800L",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "sim800l"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "enviar un sms con un SIM800L",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "sim800l"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "inviare un sms con un SIM800L",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "sim800l"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "declencher une alarme s'il y a de la fumee ou une fuite de gaz dans la cuisine",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "mq2"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "sound an alarm if there is smoke or a gas leak in the kitchen",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "mq2"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "hacer sonar una alarma si hay humo o una fuga de gas en la cocina",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "mq2"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "far suonare un allarme se c'e fumo o una fuga di gas in cucina",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "mq2"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "lire la sortie analogique d'un MQ-2",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "mq2"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "read the analog output of an MQ-2",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "mq2"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "leer la salida analogica de un MQ-2",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "mq2"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "leggere l'uscita analogica di un MQ-2",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "mq2"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "compter combien de litres passent dans le tuyau de mon arrosage",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "water_flow_sensor"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "count how many liters go through my garden hose",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "water_flow_sensor"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "contar cuantos litros pasan por la manguera del riego",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "water_flow_sensor"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "contare quanti litri passano nel tubo dell'irrigazione",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "water_flow_sensor"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "utiliser un water flow sensor YF-S201",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "water_flow_sensor"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "use a YF-S201 water flow sensor",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "water_flow_sensor"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "usar un water flow sensor YF-S201",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "water_flow_sensor"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "usare un water flow sensor YF-S201",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "water_flow_sensor"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "faire avancer un gros moteur qui tourne pas a pas sur ma petite cnc sans qu'il chauffe trop",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "drv8825"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "drive a big stepper motor on my small cnc without it getting too hot",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "drv8825"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "mover un motor paso a paso grande en mi cnc pequena sin que se caliente demasiado",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "drv8825"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "far avanzare un grosso motore passo passo sulla mia piccola cnc senza che scaldi troppo",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "drv8825"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "piloter le moteur avec un DRV8825",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "drv8825"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "drive the motor with a DRV8825",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "drv8825"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "controlar el motor con un DRV8825",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "drv8825"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "pilotare il motore con un DRV8825",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "drv8825"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "mesurer la chaleur d'une casserole sans la toucher",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "tmp006"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "measure how hot a pan is without touching it",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "tmp006"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "medir lo caliente que esta una sarten sin tocarla",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "tmp006"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "misurare quanto e calda una pentola senza toccarla",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "tmp006"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "mesurer a distance avec un TMP006",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "tmp006"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "measure from a distance with a TMP006",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "tmp006"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "medir a distancia con un TMP006",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "tmp006"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "misurare a distanza con un TMP006",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "tmp006"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "prendre la temperature du front a quelques centimetres de distance",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "tmp007"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "take a forehead temperature from a few centimeters away",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "tmp007"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "tomar la temperatura de la frente a unos centimetros de distancia",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "tmp007"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "misurare la temperatura della fronte a qualche centimetro di distanza",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "tmp007"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "prendre la temperature avec un TMP007",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "tmp007"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "take the temperature with a TMP007",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "tmp007"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "tomar la temperatura con un TMP007",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "tmp007"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "prendere la temperatura con un TMP007",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "tmp007"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "savoir si le soleil est dangereux pour la peau avant de sortir",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "si1145"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "know if the sun is dangerous for the skin before going outside",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "si1145"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "saber si el sol es peligroso para la piel antes de salir",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "si1145"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "sapere se il sole e pericoloso per la pelle prima di uscire",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "si1145"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "lire l'indice uv avec un SI1145",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "si1145"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "read the uv index with an SI1145",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "si1145"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "leer el indice uv con un SI1145",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "si1145"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "leggere l'indice uv con un SI1145",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "si1145"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "afficher la temperature de la piece au dixieme de degre pres",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "adt7410"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "show the room temperature down to a tenth of a degree",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "adt7410"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "mostrar la temperatura de la habitacion con una decima de grado",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "adt7410"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "mostrare la temperatura della stanza fino al decimo di grado",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "adt7410"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "mesurer finement avec un ADT7410",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "adt7410"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "measure finely with an ADT7410",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "adt7410"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "medir con finura con un ADT7410",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "adt7410"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "misurare con precisione con un ADT7410",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "adt7410"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "regler le volume depuis le code au lieu de tourner une molette a la main",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "ds3502"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "set the volume from code instead of turning a knob by hand",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "ds3502"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "ajustar el volumen desde el codigo en vez de girar una rueda a mano",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "ds3502"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "regolare il volume dal codice invece di girare una manopola a mano",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "ds3502"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "regler la valeur avec un DS3502",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "ds3502"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "set the value with a DS3502",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "ds3502"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "ajustar el valor con un DS3502",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "ds3502"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "regolare il valore con un DS3502",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "ds3502"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "garder un compteur meme apres une coupure de courant, il est reecrit des milliers de fois par jour",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "fram"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "keep a counter through a power cut even though it is rewritten thousands of times a day",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "fram"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "guardar un contador tras un corte de luz aunque se reescriba miles de veces al dia",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "fram"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "conservare un contatore dopo un'interruzione di corrente anche riscrivendolo migliaia di volte al giorno",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "fram"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "stocker mes valeurs dans une memoire FRAM en i2c",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "fram"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "store my values in an i2c FRAM memory",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "fram"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "guardar mis valores en una memoria FRAM por i2c",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "fram"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "salvare i miei valori in una memoria FRAM in i2c",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "fram"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "connaitre le niveau d'eau dans une cuve grace a la pression dans un tuyau plonge dedans",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "mprls"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "find the water level in a tank from the pressure inside a tube dipped in it",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "mprls"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "conocer el nivel de agua de un deposito por la presion en un tubo sumergido",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "mprls"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "conoscere il livello dell'acqua in una cisterna dalla pressione in un tubo immerso",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "mprls"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "lire la pression avec un MPRLS",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "mprls"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "read the pressure with an MPRLS",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "mprls"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "leer la presion con un MPRLS",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "mprls"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "leggere la pressione con un MPRLS",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "mprls"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "surveiller l'air de ma petite serre pour que mes semis ne sechent pas",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "hdc1008"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "watch the air in my small greenhouse so my seedlings do not dry out",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "hdc1008"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "vigilar el aire de mi pequeno invernadero para que mis plantulas no se sequen",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "hdc1008"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "controllare l'aria della mia piccola serra perche le piantine non secchino",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "hdc1008"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "lire l'humidite avec un HDC1008",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "hdc1008"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "read the humidity with an HDC1008",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "hdc1008"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "leer la humedad con un HDC1008",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "hdc1008"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "leggere l'umidita con un HDC1008",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "hdc1008"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "mesurer les vibrations de ma machine a laver sur des entrees analogiques",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "adxl335"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "measure the vibration of my washing machine on analog inputs",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "adxl335"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "medir las vibraciones de mi lavadora en entradas analogicas",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "adxl335"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "misurare le vibrazioni della mia lavatrice su ingressi analogici",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "adxl335"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "lire les trois axes d'un ADXL335",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "adxl335"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "read the three axes of an ADXL335",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "adxl335"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "leer los tres ejes de un ADXL335",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "adxl335"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "leggere i tre assi di un ADXL335",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "adxl335"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "piloter mon montage depuis une application sur mon telephone sans fil",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "bluefruit_le"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "control my project from an app on my phone without wires",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "bluefruit_le"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "controlar mi montaje desde una aplicacion del movil sin cables",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "bluefruit_le"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "pilotare il mio progetto da un'app del telefono senza fili",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "bluefruit_le"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "utiliser un module Bluefruit LE",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "bluefruit_le"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "use a Bluefruit LE module",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "bluefruit_le"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "usar un modulo Bluefruit LE",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "bluefruit_le"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "usare un modulo Bluefruit LE",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "bluefruit_le"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "stocker des sons et des images directement sur la carte sans carte memoire",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "spi_flash"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "store sounds and pictures on the board itself without a memory card",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "spi_flash"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "guardar sonidos e imagenes en la propia placa sin tarjeta de memoria",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "spi_flash"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "salvare suoni e immagini sulla scheda stessa senza schedina di memoria",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "spi_flash"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "ecrire des fichiers dans une memoire SPI flash",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "spi_flash"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "write files into an SPI flash memory",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "spi_flash"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "escribir archivos en una memoria SPI flash",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "spi_flash"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "scrivere file in una memoria SPI flash",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "spi_flash"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "animer un ruban lumineux tres vite pour dessiner des images en agitant le bras",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "dotstar"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "animate a lighted strip very fast to draw pictures by waving my arm",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "dotstar"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "animar una tira luminosa muy rapido para dibujar moviendo el brazo",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "dotstar"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "animare una striscia luminosa molto veloce per disegnare agitando il braccio",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "dotstar"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "piloter un ruban DotStar en APA102",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "dotstar"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "drive a DotStar strip in APA102",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "dotstar"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "controlar una tira DotStar en APA102",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "dotstar"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "pilotare una striscia DotStar in APA102",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "dotstar"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "mesurer la lumiere en lux de facon precise pour mes plantes d'interieur",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "tsl2561"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "measure the light in lux accurately for my indoor plants",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "tsl2561"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "medir la luz en lux con precision para mis plantas de interior",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "tsl2561"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "misurare la luce in lux con precisione per le mie piante da interno",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "tsl2561"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "lire la luminosite avec un TSL2561",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "tsl2561"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "read the brightness with a TSL2561",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "tsl2561"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "leer la luminosidad con un TSL2561",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "tsl2561"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "leggere la luminosita con un TSL2561",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "tsl2561"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "un afficheur toujours allume qui ne vide pas la pile et se lit en plein soleil",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "sharp_memory_display"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "a display that stays on all the time, barely drains the battery and reads in bright sun",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "sharp_memory_display"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "una pantalla siempre encendida que casi no gasta pila y se lee a pleno sol",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "sharp_memory_display"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "un display sempre acceso che quasi non consuma la pila e si legge in pieno sole",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "sharp_memory_display"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "afficher sur un SHARP Memory Display",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "sharp_memory_display"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "draw on a SHARP Memory Display",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "sharp_memory_display"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "dibujar en un SHARP Memory Display",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "sharp_memory_display"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "disegnare su uno SHARP Memory Display",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "sharp_memory_display"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "mettre mon montage sur internet pour envoyer des donnees vers un site web",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "winc1500"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "put my project on the internet to send data to a website",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "winc1500"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "poner mi montaje en internet para enviar datos a una pagina web",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "winc1500"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "mettere il mio progetto su internet per inviare dati a un sito web",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "winc1500"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "se connecter au wifi avec un WINC1500",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "winc1500"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "connect to wifi with a WINC1500",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "winc1500"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "conectarse al wifi con un WINC1500",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "winc1500"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "collegarsi al wifi con un WINC1500",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "winc1500"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "diffuser ma musique sur la radio de la voiture garee devant chez moi",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "si4713"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "broadcast my music to the radio of the car parked in front of my house",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "si4713"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "emitir mi musica a la radio del coche aparcado delante de casa",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "si4713"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "trasmettere la mia musica alla radio dell'auto parcheggiata davanti a casa",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "si4713"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "emettre en fm avec un Si4713",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "si4713"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "transmit on fm with an Si4713",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "si4713"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "emitir en fm con un Si4713",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "si4713"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "trasmettere in fm con un Si4713",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "si4713"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "lire huit capteurs analogiques alors que ma carte n'a plus d'entrees libres",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "ads7830"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "read eight analog sensors when my board has no free inputs left",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "ads7830"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "leer ocho sensores analogicos cuando mi placa no tiene entradas libres",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "ads7830"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "leggere otto sensori analogici quando la mia scheda non ha piu ingressi liberi",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "ads7830"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "ajouter des entrees avec un ADS7830",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "ads7830"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "add inputs with an ADS7830",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "ads7830"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "anadir entradas con un ADS7830",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "ads7830"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "aggiungere ingressi con un ADS7830",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "ads7830"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "faire une boite a rythme avec seize touches carrees qui s'allument sous le doigt",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "trellis"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "build a drum machine with sixteen square keys that light up under the finger",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "trellis"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "hacer una caja de ritmos con dieciseis teclas cuadradas que se iluminan bajo el dedo",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "trellis"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "fare una drum machine con sedici tasti quadrati che si illuminano sotto il dito",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "trellis"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "lire les touches d'un Trellis",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "trellis"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "read the keys of a Trellis",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "trellis"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "leer las teclas de un Trellis",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "trellis"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "leggere i tasti di un Trellis",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "trellis"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "detecter le passage d'un aimant sans aucun contact",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "mmc5603"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "detect a magnet going past without any contact",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "mmc5603"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "detectar el paso de un iman sin ningun contacto",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "mmc5603"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "rilevare il passaggio di una calamita senza alcun contatto",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "mmc5603"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "lire le champ magnetique avec un MMC5603",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "mmc5603"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "read the magnetic field with an MMC5603",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "mmc5603"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "leer el campo magnetico con un MMC5603",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "mmc5603"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "leggere il campo magnetico con un MMC5603",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "mmc5603"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "controler tres precisement l'air dans l'etui de ma guitare pour ne pas abimer le bois",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "hdc3021"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "check very accurately the air inside my guitar case so the wood does not warp",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "hdc3021"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "controlar con mucha precision el aire dentro del estuche de mi guitarra para no danar la madera",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "hdc3021"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "controllare con molta precisione l'aria dentro la custodia della chitarra per non rovinare il legno",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "hdc3021"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "mesurer avec un HDC3021",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "hdc3021"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "measure with an HDC3021",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "hdc3021"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "medir con un HDC3021",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "hdc3021"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "misurare con un HDC3021",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "hdc3021"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "mesurer le tres faible courant que consomme mon montage sur pile pour estimer son autonomie",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "ina228"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "measure the very small current my battery powered project draws to guess how long it lasts",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "ina228"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "medir la corriente muy pequena que consume mi montaje con pilas para estimar su autonomia",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "ina228"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "misurare la corrente molto piccola che consuma il mio progetto a pile per stimarne l'autonomia",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "ina228"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "suivre la consommation avec un INA228",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "ina228"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "track the power draw with an INA228",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "ina228"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "seguir el consumo con un INA228",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "ina228"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "seguire il consumo con un INA228",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "ina228"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "reconnaitre exactement la teinte d'une peinture pour retrouver la meme au magasin",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "opt4048"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "tell exactly what shade of paint this is so i can buy the same one",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "opt4048"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "reconocer exactamente el tono de una pintura para comprar el mismo en la tienda",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "opt4048"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "riconoscere esattamente la tinta di una vernice per ricomprare la stessa",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "opt4048"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "mesurer la couleur avec un OPT4048",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "opt4048"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "measure the color with an OPT4048",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "opt4048"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "medir el color con un OPT4048",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "opt4048"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "misurare il colore con un OPT4048",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "opt4048"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "faire bouger un tout petit moteur qui avance pas a pas sans bruit dans une maquette",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "stspin220"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "move a very small stepper motor quietly inside a model",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "stspin220"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "mover un motor paso a paso muy pequeno sin ruido dentro de una maqueta",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "stspin220"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "muovere un motorino passo passo senza rumore dentro un plastico",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "stspin220"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "commander le moteur avec un STSPIN220",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "stspin220"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "command the motor with an STSPIN220",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "stspin220"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "mandar el motor con un STSPIN220",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "stspin220"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "comandare il motore con uno STSPIN220",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "stspin220"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "rendre les moteurs de mon imprimante 3d silencieux et les regler par le port serie",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "tmc2209"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "make my 3d printer motors silent and tune them over the serial port",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "tmc2209"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "hacer silenciosos los motores de mi impresora 3d y ajustarlos por el puerto serie",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "tmc2209"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "rendere silenziosi i motori della mia stampante 3d e regolarli dalla porta seriale",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "tmc2209"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "configurer un TMC2209",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "tmc2209"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "configure a TMC2209",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "tmc2209"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "configurar un TMC2209",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "tmc2209"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "configurare un TMC2209",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "tmc2209"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "brancher quatre capteurs identiques qui ont tous la meme adresse sur le meme bus",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "i2c_multiplexer"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "connect four identical sensors that all share the same address on one bus",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "i2c_multiplexer"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "conectar cuatro sensores identicos que tienen todos la misma direccion en el mismo bus",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "i2c_multiplexer"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "collegare quattro sensori identici che hanno tutti lo stesso indirizzo sullo stesso bus",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "i2c_multiplexer"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "repartir mes capteurs avec un I2C multiplexer TCA9548A",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "i2c_multiplexer"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "spread my sensors with an I2C multiplexer TCA9548A",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "i2c_multiplexer"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "repartir mis sensores con un I2C multiplexer TCA9548A",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "i2c_multiplexer"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "distribuire i miei sensori con un I2C multiplexer TCA9548A",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "i2c_multiplexer"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "verifier que mon boitier etanche ne prend pas l'eau en surveillant la pression a l'interieur",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "lps28"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "check my waterproof box stays sealed by watching the pressure inside it",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "lps28"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "comprobar que mi caja estanca no entra agua vigilando la presion de dentro",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "lps28"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "verificare che la mia scatola stagna non prenda acqua controllando la pressione interna",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "lps28"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "lire la pression avec un LPS28",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "lps28"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "read the pressure with an LPS28",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "lps28"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "leer la presion con un LPS28",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "lps28"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "leggere la pressione con un LPS28",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "lps28"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "une etiquette qui garde son texte affiche meme quand tout est debranche",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "eink_display"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "a label that keeps showing its text even when everything is unplugged",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "eink_display"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "una etiqueta que sigue mostrando su texto aunque todo este desenchufado",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "eink_display"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "un'etichetta che continua a mostrare il testo anche con tutto scollegato",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "eink_display"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "afficher mon texte sur un e-ink display",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "eink_display"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "show my text on an e-ink display",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "eink_display"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "mostrar mi texto en un e-ink display",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "eink_display"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "mostrare il mio testo su un e-ink display",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "eink_display"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "peser un objet au gramme pres avec un petit capteur de poids branche en i2c",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "nau7802"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "weigh an object to the gram with a small weight sensor wired over i2c",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "nau7802"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "pesar un objeto al gramo con un pequeno sensor de peso conectado por i2c",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "nau7802"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "pesare un oggetto al grammo con un piccolo sensore di peso collegato in i2c",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "nau7802"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "lire ma balance avec un NAU7802",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "nau7802"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "read my scale with a NAU7802",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "nau7802"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "leer mi bascula con un NAU7802",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "nau7802"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "leggere la mia bilancia con un NAU7802",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "nau7802"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "savoir si l'air de la chambre est mauvais a respirer, avec les poussieres et les odeurs",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "sen5x"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "know if the air in the bedroom is bad to breathe, with the dust and the smells",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "sen5x"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "saber si el aire del dormitorio es malo para respirar, con el polvo y los olores",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "sen5x"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "sapere se l'aria della camera e cattiva da respirare, con le polveri e gli odori",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "sen5x"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "utiliser un capteur Sensirion SEN55",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "sen5x"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "use a Sensirion SEN55 sensor",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "sen5x"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "usar un sensor Sensirion SEN55",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "sen5x"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "usare un sensore Sensirion SEN55",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "sen5x"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "afficher un cadran rond comme une montre sur un petit ecran",
+    "lang": "fr",
+    "band": "described",
+    "expect": [
+      "gc9a01"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "show a round dial like a watch face on a small screen",
+    "lang": "en",
+    "band": "described",
+    "expect": [
+      "gc9a01"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "mostrar una esfera redonda como un reloj en una pantalla pequena",
+    "lang": "es",
+    "band": "described",
+    "expect": [
+      "gc9a01"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "mostrare un quadrante rotondo come un orologio su un piccolo schermo",
+    "lang": "it",
+    "band": "described",
+    "expect": [
+      "gc9a01"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b",
+    "specificity": "vague"
+  },
+  {
+    "prompt": "dessiner sur un ecran GC9A01",
+    "lang": "fr",
+    "band": "named",
+    "expect": [
+      "gc9a01"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "draw on a GC9A01 screen",
+    "lang": "en",
+    "band": "named",
+    "expect": [
+      "gc9a01"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "dibujar en una pantalla GC9A01",
+    "lang": "es",
+    "band": "named",
+    "expect": [
+      "gc9a01"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  },
+  {
+    "prompt": "disegnare su uno schermo GC9A01",
+    "lang": "it",
+    "band": "named",
+    "expect": [
+      "gc9a01"
+    ],
+    "added": "2026-08-21",
+    "source": "todo-60-batterie-b"
+  }
+]

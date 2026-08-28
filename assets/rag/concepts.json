@@ -1,0 +1,2256 @@
+[
+  {
+    "id": "pwm",
+    "name": "PWM (Pulse Width Modulation)",
+    "category": "concept",
+    "aliases": ["pwm", "what is pwm", "pwm signal", "duty cycle", "rapport cyclique", "analogwrite", "variateur", "modulation largeur impulsion", "qu'est-ce que le pwm", "fade", "ciclo de trabajo", "que es pwm", "ciclo di lavoro", "cos'e il pwm"],
+    "summary": "PWM is a way to simulate an analog output: the pin is switched on and off very fast, and the PWM duty cycle (on-time ratio) sets the average voltage.",
+    "facts": ["PWM output via analogWrite(pin, 0..255) on Uno (0 = off, 255 = full)", "PWM pins Uno: 3, 5, 6, 9, 10, 11", "PWM frequency ~490 Hz (~980 Hz on pins 5 and 6)", "PWM is used to dim LEDs and set motor speed"]
+  },
+  {
+    "id": "pull-up",
+    "name": "Pull-up / pull-down resistor",
+    "category": "concept",
+    "aliases": ["pull-up", "pull up", "pullup", "pull-down", "pulldown", "input_pullup", "resistance de rappel", "resistencia pull-up", "floating", "flottant"],
+    "summary": "Keeps a digital input at a defined level when nothing drives it, preventing a floating, noisy reading.",
+    "facts": ["Uno internal pull-up: pinMode(pin, INPUT_PULLUP) (~20-50k)", "With INPUT_PULLUP a pressed button reads LOW", "No internal pull-down on AVR; use an external resistor"]
+  },
+  {
+    "id": "led-series-resistor",
+    "name": "LED series resistor (current limiting)",
+    "category": "concept",
+    "aliases": ["led resistor", "resistance led", "current limiting", "ohm law led", "resistencia led", "resistenza led"],
+    "summary": "An LED needs a series resistor to limit current, otherwise it draws too much and burns out.",
+    "facts": ["R = (Vsupply - Vled) / Iled", "Example: (5V - 2V) / 0.02A = 150 ohm -> use 220 ohm", "Typical: 220-330 ohm on a 5V pin"]
+  },
+  {
+    "id": "ohms-law",
+    "name": "Ohm's law",
+    "category": "concept",
+    "aliases": ["ohm", "ohms law", "loi d'ohm", "loi de ohm", "ley de ohm", "legge di ohm", "voltage current resistance", "tension courant resistance"],
+    "summary": "The fundamental relationship between voltage, current and resistance in a circuit.",
+    "facts": ["V = I * R", "I = V / R", "R = V / I", "Power P = V * I (watts)"]
+  },
+  {
+    "id": "voltage-divider",
+    "name": "Voltage divider",
+    "category": "concept",
+    "aliases": ["voltage divider", "diviseur de tension", "divisor de tension", "partitore di tensione", "pont diviseur", "two resistors voltage"],
+    "summary": "Two series resistors split a voltage proportionally; used to scale a higher voltage down to a safe analog input level.",
+    "facts": ["Vout = Vin * R2 / (R1 + R2)", "Used to read a 5V signal on a 3.3V ADC", "Also forms the read circuit for an LDR or thermistor"]
+  },
+  {
+    "id": "led-anode-cathode",
+    "name": "LED polarity (anode / cathode)",
+    "category": "concept",
+    "aliases": ["led polarity", "anode", "cathode", "polarite led", "anode cathode", "led direction", "polaridad led", "led sens"],
+    "summary": "An LED is polarized: current flows only from anode (+) to cathode (-); wiring it backwards leaves it off.",
+    "facts": ["Anode = + (longer leg), cathode = - (shorter leg, flat side of the rim)", "Forward voltage Vf ~1.8-2.2V (red), ~3.0-3.4V (blue/white)", "Cathode connects toward ground (through the resistor)"]
+  },
+  {
+    "id": "decoupling-capacitor",
+    "name": "Decoupling and bulk capacitor",
+    "category": "concept",
+    "aliases": ["decoupling capacitor", "condensateur de decouplage", "bulk capacitor", "bypass capacitor", "condensador de desacoplo", "condensatore di disaccoppiamento", "0.1uF cap"],
+    "summary": "Capacitors placed across power and ground smooth voltage dips caused by sudden current draw and high-frequency noise.",
+    "facts": ["Decoupling: 0.1uF ceramic close to each IC's VCC/GND", "Bulk: 10-470uF electrolytic on the supply rail", "Essential near motors, servos, RF modules"]
+  },
+  {
+    "id": "logic-levels",
+    "name": "Logic levels 3.3V vs 5V",
+    "category": "concept",
+    "aliases": ["logic level", "niveau logique", "3.3v vs 5v", "5v 3.3v", "nivel logico", "livello logico", "voltage level", "ttl level"],
+    "summary": "Boards run at 5V or 3.3V logic; feeding a 5V signal into a 3.3V-only pin can permanently damage it.",
+    "facts": ["5V logic: Uno, Mega, Nano, Leonardo", "3.3V logic: ESP32, ESP8266, Due, STM32, Pico", "Use a level shifter or voltage divider to cross between them"]
+  },
+  {
+    "id": "max-current",
+    "name": "Maximum current (pin and board limits)",
+    "category": "concept",
+    "aliases": ["max current", "courant maximal", "current limit", "corriente maxima", "corrente massima", "20ma pin", "burn pin", "intensite broche"],
+    "summary": "Each pin and the regulator can only source a limited current; exceeding it overheats or destroys the board.",
+    "facts": ["Uno pin: ~20mA recommended, 40mA absolute max", "All AVR I/O combined: ~200mA total", "5V rail (via USB): ~500mA shared", "Drive motors/relays through a transistor, not directly"]
+  },
+  {
+    "id": "common-ground",
+    "name": "Common ground",
+    "category": "concept",
+    "aliases": ["common ground", "masse commune", "gnd commun", "ground reference", "masa comun", "massa comune", "shared ground", "0v reference"],
+    "summary": "All parts of a circuit must share a ground reference; signals between two supplies need their GNDs connected.",
+    "facts": ["Connect external battery/driver GND to the board GND", "Without common ground, signal levels are undefined", "Ground = the 0V reference for all voltages"]
+  },
+  {
+    "id": "transistor-switch",
+    "name": "Transistor as a switch (NPN / MOSFET)",
+    "category": "concept",
+    "aliases": ["transistor switch", "transistor interrupteur", "npn", "mosfet", "n-channel", "transistor commutation", "transistor interruptor", "base gate", "drive load"],
+    "summary": "A transistor lets a small pin current control a much larger load current, e.g. a motor, relay or LED strip.",
+    "facts": ["NPN BJT: base via resistor (~1k), collector to load, emitter to GND", "Logic-level MOSFET (e.g. 2N7000, IRLZ44N): gate to pin, drain to load, source to GND", "Load connects to + supply; transistor switches the low side", "Add a base/gate resistor; add a flyback diode for inductive loads"]
+  },
+  {
+    "id": "flyback-diode",
+    "name": "Flyback (freewheeling) diode",
+    "category": "concept",
+    "aliases": ["flyback diode", "diode de roue libre", "freewheeling diode", "diodo de proteccion", "diodo di ricircolo", "kickback diode", "inductive load diode", "1n4007"],
+    "summary": "A diode across an inductive load (motor, relay coil) absorbs the voltage spike when current is switched off.",
+    "facts": ["Cathode (band) to +supply, anode to the switched (transistor) side", "Protects the transistor from the back-EMF spike", "Common part: 1N4007 or a Schottky like 1N5819"]
+  },
+  {
+    "id": "voltage-regulator",
+    "name": "Voltage regulator (LDO 5V / 3.3V)",
+    "category": "concept",
+    "aliases": ["voltage regulator", "regulateur de tension", "ldo", "7805", "ams1117", "regulador de tension", "regolatore di tensione", "3.3v regulator"],
+    "summary": "A regulator turns a higher, variable input voltage into a stable fixed output (commonly 5V or 3.3V).",
+    "facts": ["7805: ~7-35V in -> 5V out, needs a heatsink at high drop", "AMS1117-3.3: ~4.7-12V in -> 3.3V out (LDO)", "Add input/output decoupling caps (e.g. 10uF + 0.1uF)"]
+  },
+  {
+    "id": "level-shifter",
+    "name": "Logic level shifter",
+    "category": "concept",
+    "aliases": ["level shifter", "convertisseur de niveau", "adaptateur de niveau logique", "bidirectional level shifter", "conversor de nivel", "convertitore di livello", "3.3v 5v converter", "txs0108"],
+    "summary": "A level shifter safely translates digital signals between 3.3V and 5V devices in both directions.",
+    "facts": ["MOSFET-based bidirectional modules are common for I2C/SPI", "Needs both reference voltages (LV=3.3V, HV=5V) plus GND", "A simple voltage divider works only one way (5V->3.3V), slowly"]
+  },
+  {
+    "id": "breadboard-rails",
+    "name": "Breadboard power rails",
+    "category": "concept",
+    "aliases": ["breadboard", "platine d'essai", "rails d'alimentation", "power rails", "protoboard", "breadboard rails", "bus rail", "buses laterales", "linee di alimentazione"],
+    "summary": "A breadboard's outer rails carry power (+) and ground (-) horizontally, while the inner columns connect 5 holes vertically.",
+    "facts": ["Side rails (red/blue) are continuous along the length", "Inner rows: groups of 5 holes connected vertically", "The center gap separates the two halves (for DIP chips)"]
+  },
+  {
+    "id": "digital-vs-analog",
+    "name": "Digital vs analog signal",
+    "category": "concept",
+    "aliases": ["digital vs analog", "numerique analogique", "signal analogique", "digital analog", "senal analogica", "segnale analogico", "on off vs continuous"],
+    "summary": "A digital signal is only HIGH or LOW; an analog signal is a continuous range of voltages.",
+    "facts": ["Digital read with digitalRead() -> 0 or 1", "Analog read with analogRead() -> a range of values", "PWM fakes analog output from digital pins"]
+  },
+  {
+    "id": "pwm-resolution",
+    "name": "PWM resolution",
+    "category": "concept",
+    "aliases": ["pwm resolution", "resolution pwm", "8-bit pwm", "10-bit pwm", "ledc esp32", "resolucion pwm", "risoluzione pwm", "analogwriteresolution"],
+    "summary": "PWM resolution sets how many duty-cycle steps are available between fully off and fully on.",
+    "facts": ["AVR Uno: 8-bit, analogWrite 0..255", "ESP32 LEDC: configurable up to 16-bit (analogWriteResolution / ledcSetup)", "Uno R4 / Due: analogWriteResolution() up to 12-bit"]
+  },
+  {
+    "id": "adc",
+    "name": "ADC (analog-to-digital converter)",
+    "category": "concept",
+    "aliases": ["adc", "analogread", "convertisseur analogique numerique", "can", "analog to digital", "conversor analogico digital", "convertitore analogico digitale", "10 bit adc"],
+    "summary": "The ADC measures a voltage on an analog pin and converts it to a number proportional to the reference voltage.",
+    "facts": ["Uno: 10-bit, analogRead() returns 0..1023 (0..5V)", "ESP32 / Due / Pico: 12-bit, 0..4095", "Uno R4: 14-bit (default 10-bit, raise via analogReadResolution)", "Volts = reading * Vref / (max+1)"]
+  },
+  {
+    "id": "dac",
+    "name": "DAC (digital-to-analog converter)",
+    "category": "concept",
+    "aliases": ["dac", "convertisseur numerique analogique", "true analog output", "sortie analogique reelle", "conversor digital analogico", "convertitore digitale analogico", "real analog out"],
+    "summary": "A DAC outputs a real, steady analog voltage (unlike PWM, which is a switched average).",
+    "facts": ["Uno has NO DAC (only PWM)", "Uno R4: 12-bit DAC on A0", "ESP32: two 8-bit DACs (GPIO25, GPIO26)", "Due: two DAC outputs (DAC0, DAC1)"]
+  },
+  {
+    "id": "button-debounce",
+    "name": "Button debounce",
+    "category": "concept",
+    "aliases": ["debounce", "anti-rebond", "rebond bouton", "debouncing", "antirebote", "antirimbalzo", "bouncing", "button noise"],
+    "summary": "Mechanical buttons bounce, producing several fast transitions per press; debouncing ignores changes within a short window.",
+    "facts": ["Typical debounce delay: 20-50 ms", "Software: ignore changes until millis() - lastChange > delay", "Hardware: an RC filter or a 0.1uF cap across the button"]
+  },
+  {
+    "id": "pinmode-digital-io",
+    "name": "pinMode / digitalRead / digitalWrite",
+    "category": "concept",
+    "aliases": ["pinmode", "digitalread", "digitalwrite", "input output", "entree sortie", "configurer broche", "modo pin", "lettura digitale", "set pin mode"],
+    "summary": "pinMode configures a pin as input or output; digitalWrite drives it HIGH/LOW; digitalRead reads its state.",
+    "facts": ["pinMode(pin, INPUT | OUTPUT | INPUT_PULLUP)", "digitalWrite(pin, HIGH | LOW) on an OUTPUT pin", "digitalRead(pin) returns HIGH or LOW", "HIGH = Vcc (5V or 3.3V), LOW = 0V"]
+  },
+  {
+    "id": "floating-input",
+    "name": "Floating input",
+    "category": "concept",
+    "aliases": ["floating input", "entree flottante", "broche flottante", "floating pin", "entrada flotante", "ingresso flottante", "unconnected pin", "noisy input"],
+    "summary": "An input pin connected to nothing 'floats' and reads random HIGH/LOW from electrical noise; a pull resistor fixes the level.",
+    "facts": ["Cause: input not tied to a defined level", "Fix: INPUT_PULLUP or an external pull-up/pull-down", "Symptom: a button or sensor reading flickers randomly"]
+  },
+  {
+    "id": "map-constrain",
+    "name": "map() and constrain()",
+    "category": "concept",
+    "aliases": ["map", "constrain", "remap", "mise a l'echelle", "echelle valeur", "mapear valor", "scala valore", "scale range"],
+    "summary": "map() rescales a value from one range to another; constrain() clamps a value within min/max bounds.",
+    "facts": ["map(value, fromLow, fromHigh, toLow, toHigh)", "Example: map(analogRead(A0), 0, 1023, 0, 255)", "constrain(x, a, b) keeps x in [a, b]", "map() uses integer math (truncates)"]
+  },
+  {
+    "id": "analog-reference",
+    "name": "analogReference()",
+    "category": "concept",
+    "aliases": ["analogreference", "reference analogique", "aref", "vref", "referencia analogica", "riferimento analogico", "adc reference"],
+    "summary": "Sets the top voltage the ADC maps to its maximum reading; lowering it improves precision on small signals.",
+    "facts": ["analogReference(DEFAULT) = Vcc (5V on Uno)", "INTERNAL = 1.1V (ATmega328), EXTERNAL = voltage on the AREF pin", "Never apply more than the chosen reference to an analog pin"]
+  },
+  {
+    "id": "tone-notone",
+    "name": "tone() / noTone()",
+    "category": "concept",
+    "aliases": ["tone", "notone", "buzzer frequence", "generer son", "square wave", "generar tono", "generare suono", "sound frequency"],
+    "summary": "tone() generates a square wave of a given frequency on a pin to drive a buzzer or speaker; noTone() stops it.",
+    "facts": ["tone(pin, frequency [, duration])", "noTone(pin) stops the sound", "Uses one hardware timer (conflicts with PWM on pins 3 and 11 on Uno)", "Only one tone() at a time on AVR"]
+  },
+  {
+    "id": "i2c",
+    "name": "I2C bus (Wire)",
+    "category": "concept",
+    "aliases": ["i2c", "iic", "wire", "sda", "scl", "two wire", "bus i2c", "deux fils", "dos hilos", "due fili", "twi"],
+    "summary": "I2C is a two-wire bus (data SDA + clock SCL) where many devices share the same two lines, each at its own address.",
+    "facts": ["Uno: SDA = A4, SCL = A5 (also broken out near AREF)", "Mega: SDA = 20, SCL = 21", "ESP32 default: SDA = GPIO21, SCL = GPIO22", "Needs pull-up resistors on SDA and SCL (~4.7k)", "Wire.begin() to start; 7-bit addresses 0x08-0x77"]
+  },
+  {
+    "id": "i2c-pullups",
+    "name": "I2C pull-up resistors",
+    "category": "concept",
+    "aliases": ["i2c pull-up", "resistance i2c", "pull-up sda scl", "i2c resistor", "resistencia i2c", "resistenza i2c", "4.7k i2c"],
+    "summary": "I2C lines are open-drain, so SDA and SCL each need a pull-up resistor to the bus voltage to return HIGH.",
+    "facts": ["Typical value: 4.7k (2.2k for fast/long buses)", "Pull up to the bus logic voltage (3.3V or 5V)", "Many breakout boards already include on-board pull-ups", "One pull-up per line is enough for the whole bus"]
+  },
+  {
+    "id": "i2c-address-scan",
+    "name": "I2C address scan",
+    "category": "concept",
+    "aliases": ["i2c scanner", "scan i2c", "adresse i2c", "i2c address", "escaner i2c", "scanner i2c", "find i2c address", "detect i2c device"],
+    "summary": "An I2C scanner probes every address and reports which devices respond, useful to find an unknown module's address.",
+    "facts": ["Valid 7-bit addresses: 0x08 to 0x77", "Common: 0x27 or 0x3F (LCD backpack), 0x68 (DS1307/MPU6050), 0x76/0x77 (BMP/BME280)", "Probe with Wire.beginTransmission(addr) + Wire.endTransmission() == 0"]
+  },
+  {
+    "id": "spi",
+    "name": "SPI bus",
+    "category": "concept",
+    "aliases": ["spi", "mosi", "miso", "sck", "ss", "cs", "chip select", "bus spi", "serial peripheral", "interfaz spi"],
+    "summary": "SPI is a fast four-wire bus (MOSI, MISO, SCK, plus one chip-select per device) for SD cards, displays and sensors.",
+    "facts": ["Uno: MOSI = D11, MISO = D12, SCK = D13, default SS = D10", "Each peripheral needs its own CS/SS line", "Master drives SCK; data shifts on MOSI/MISO", "Also available on the 6-pin ICSP header"]
+  },
+  {
+    "id": "uart-serial",
+    "name": "UART / Serial (TX, RX)",
+    "category": "concept",
+    "aliases": ["uart", "serial", "tx", "rx", "baud", "liaison serie", "port serie", "comunicacion serie", "comunicazione seriale", "serial port"],
+    "summary": "UART is an asynchronous two-wire serial link (TX out, RX in) used for the Serial Monitor and modules like GPS or Bluetooth.",
+    "facts": ["Cross-connect: device TX -> board RX, device RX -> board TX", "Both ends must use the same baud rate (e.g. 9600, 115200)", "Uno: 1 hardware UART on pins 0 (RX) / 1 (TX), shared with USB", "Mega: 4 hardware UARTs (Serial, Serial1-3)"]
+  },
+  {
+    "id": "software-serial",
+    "name": "SoftwareSerial",
+    "category": "concept",
+    "aliases": ["softwareserial", "serie logicielle", "soft serial", "extra serial port", "puerto serie software", "seriale software", "bit bang serial"],
+    "summary": "SoftwareSerial emulates an extra UART on regular digital pins when the hardware UARTs are busy or absent.",
+    "facts": ["SoftwareSerial mySerial(rxPin, txPin)", "Reliable up to ~9600-38400 baud; unreliable higher", "Only one SoftwareSerial port can receive at a time", "On Mega prefer the real Serial1-3 instead"]
+  },
+  {
+    "id": "serial-monitor-plotter",
+    "name": "Serial Monitor / Serial Plotter",
+    "category": "concept",
+    "aliases": ["serial monitor", "moniteur serie", "serial plotter", "traceur serie", "monitor serie", "monitor serial", "debug serial", "print debug"],
+    "summary": "The Serial Monitor shows text the board prints over USB; the Serial Plotter graphs numeric values in real time.",
+    "facts": ["Start with Serial.begin(9600) (or 115200) in setup()", "Serial.print() / Serial.println() send text", "Monitor baud must match the sketch's baud", "Plotter graphs numbers separated by spaces/commas, one line per sample"]
+  },
+  {
+    "id": "wifi",
+    "name": "WiFi (ESP32 / ESP8266)",
+    "category": "concept",
+    "aliases": ["wifi", "wi-fi", "reseau sans fil", "wireless", "esp wifi", "red wifi", "rete wifi", "connexion internet"],
+    "summary": "ESP32 and ESP8266 have built-in Wi-Fi to join a network (station) or create one (access point) for web/IoT projects.",
+    "facts": ["2.4 GHz only (no 5 GHz)", "WiFi.begin(ssid, password) to connect as a station", "WiFi.softAP(...) to create a hotspot", "Classic AVR boards (Uno/Nano) have no Wi-Fi; Uno R4 WiFi adds it"]
+  },
+  {
+    "id": "bluetooth",
+    "name": "Bluetooth (HC-05 / BLE)",
+    "category": "concept",
+    "aliases": ["bluetooth", "ble", "hc-05", "hc-06", "sans fil bluetooth", "bluetooth low energy", "bluetooth classico"],
+    "summary": "Bluetooth links a board to a phone or PC wirelessly; HC-05/06 modules use UART, while ESP32 has built-in classic + BLE.",
+    "facts": ["HC-05/HC-06: UART module, default 9600 baud, 3.3V logic on RX (use a divider from a 5V TX)", "ESP32 has built-in Bluetooth Classic and BLE", "Uno/Nano need an external module for Bluetooth"]
+  },
+  {
+    "id": "blocking-vs-nonblocking",
+    "name": "Blocking vs non-blocking code",
+    "category": "concept",
+    "aliases": ["blocking", "non-blocking", "bloquant", "non bloquant", "code non bloquant", "bloqueante", "non bloccante", "asynchronous loop"],
+    "summary": "Blocking code (like delay) freezes the whole program while it waits; non-blocking code keeps the loop responsive.",
+    "facts": ["delay() blocks: nothing else runs during it", "Non-blocking uses millis() to check elapsed time", "Lets you blink an LED and read a button at the same time"]
+  },
+  {
+    "id": "millis-vs-delay",
+    "name": "millis() vs delay()",
+    "category": "concept",
+    "aliases": ["millis", "delay", "timing sans delay", "blink without delay", "temporisation", "tiempo sin delay", "tempo senza delay", "millis timing"],
+    "summary": "delay() pauses everything; millis() returns elapsed time so you can schedule actions without stopping the loop.",
+    "facts": ["millis() = ms since boot (unsigned long)", "Pattern: if (millis() - lastTime >= interval) { lastTime = millis(); ... }", "delay(ms) blocks for the whole duration", "micros() gives microsecond resolution"]
+  },
+  {
+    "id": "millis-overflow",
+    "name": "millis() overflow / rollover",
+    "category": "concept",
+    "aliases": ["millis overflow", "depassement millis", "rollover", "millis rollover", "desbordamiento millis", "overflow millis", "49 days"],
+    "summary": "millis() wraps back to 0 after about 49 days; using subtraction (now - last) instead of comparison stays correct across the wrap.",
+    "facts": ["Overflows after ~49.7 days (2^32 ms)", "Safe pattern: (unsigned long)(millis() - previous) >= interval", "Unsafe: millis() >= target (breaks at rollover)"]
+  },
+  {
+    "id": "interrupts",
+    "name": "Interrupts (ISR, attachInterrupt)",
+    "category": "concept",
+    "aliases": ["interrupt", "interruption", "isr", "attachinterrupt", "interruzione", "interrupcion", "external interrupt", "rising falling change"],
+    "summary": "An interrupt runs a small handler (ISR) immediately when a pin changes, without polling, ideal for encoders or fast events.",
+    "facts": ["attachInterrupt(digitalPinToInterrupt(pin), isr, RISING|FALLING|CHANGE)", "Uno hardware interrupt pins: D2 and D3", "Mega: D2, D3, D18, D19, D20, D21", "Keep ISRs short; mark shared variables volatile; delay()/Serial unreliable inside"]
+  },
+  {
+    "id": "hardware-timers",
+    "name": "Hardware timers",
+    "category": "concept",
+    "aliases": ["timer", "minuterie", "timer materiel", "hardware timer", "temporizador", "timer hardware", "timer interrupt", "periodic interrupt"],
+    "summary": "Hardware timers generate precise periodic events or PWM independently of loop(), used for exact timing and sampling.",
+    "facts": ["Uno (ATmega328): Timer0 (millis/delay + PWM 5,6), Timer1 (PWM 9,10), Timer2 (PWM 3,11 + tone)", "Changing a timer can break PWM, millis() or tone() that share it", "ESP32 has 4 general-purpose hardware timers"]
+  },
+  {
+    "id": "polling-vs-interrupt",
+    "name": "Polling vs interrupt",
+    "category": "concept",
+    "aliases": ["polling", "scrutation", "polling vs interrupt", "sondage", "sondeo", "polling vs interruzione", "check in loop"],
+    "summary": "Polling repeatedly checks a pin inside loop(); interrupts react instantly only when an event occurs, saving CPU for fast or rare events.",
+    "facts": ["Polling: simple, can miss very short pulses if loop() is busy", "Interrupt: catches brief events, but the ISR must stay short", "Use interrupts for encoders, fast sensors, wake-from-sleep"]
+  },
+  {
+    "id": "state-machine",
+    "name": "State machine",
+    "category": "concept",
+    "aliases": ["state machine", "machine a etats", "automate", "fsm", "maquina de estados", "macchina a stati", "states", "etats"],
+    "summary": "A state machine models a program as a set of states and transitions, replacing tangled delays and flags with clear logic.",
+    "facts": ["Track the current state in a variable (often an enum)", "Each loop(): act on the state, then decide the next state", "Pairs well with millis() for non-blocking timing"]
+  },
+  {
+    "id": "volatile",
+    "name": "volatile keyword",
+    "category": "concept",
+    "aliases": ["volatile", "mot cle volatile", "variable volatile", "shared variable isr", "variable compartida isr", "volatile variable", "isr variable"],
+    "summary": "volatile tells the compiler a variable can change outside normal flow (in an ISR), so it must be re-read from memory each time.",
+    "facts": ["Required for variables shared between an ISR and loop()", "Prevents the compiler from caching a stale value", "Multi-byte volatiles need noInterrupts()/interrupts() for atomic access"]
+  },
+  {
+    "id": "integer-types-overflow",
+    "name": "Integer types and overflow",
+    "category": "concept",
+    "aliases": ["integer overflow", "depassement entier", "types entiers", "int long unsigned", "byte", "tipos enteros", "overflow intero", "data types"],
+    "summary": "Integer types have fixed sizes; exceeding their range silently wraps around, causing subtle bugs.",
+    "facts": ["AVR: int and 'word'/'unsigned int' are 16-bit (-32768..32767 / 0..65535)", "long = 32-bit, unsigned long = 0..4294967295", "byte = 8-bit unsigned (0..255)", "On ESP32/Due/Pico, int is 32-bit"]
+  },
+  {
+    "id": "setup-vs-loop",
+    "name": "setup() vs loop()",
+    "category": "concept",
+    "aliases": ["setup", "loop", "setup loop", "structure programme", "estructura sketch", "struttura sketch", "main arduino", "sketch structure"],
+    "summary": "setup() runs once at boot for initialization; loop() then runs forever, repeating the main program.",
+    "facts": ["setup(): pinMode, Serial.begin, sensor init — runs once", "loop(): the repeating main logic", "Together they replace a classic main() (the core adds it)"]
+  },
+  {
+    "id": "avr-memory",
+    "name": "AVR memory (SRAM / Flash / EEPROM)",
+    "category": "concept",
+    "aliases": ["memory", "memoire", "sram", "flash", "eeprom", "memoria", "ram arduino", "program memory", "types de memoire"],
+    "summary": "AVR boards have three memories: Flash for program code, SRAM for runtime variables, and EEPROM for small persistent data.",
+    "facts": ["Uno (ATmega328P): 32KB Flash, 2KB SRAM, 1KB EEPROM", "Flash is non-volatile (keeps the sketch); SRAM is wiped on reset", "Running out of SRAM causes random crashes — watch Strings and big arrays"]
+  },
+  {
+    "id": "string-vs-char-array",
+    "name": "String object vs char array",
+    "category": "concept",
+    "aliases": ["string", "char array", "chaine de caracteres", "tableau de caracteres", "cadena de texto", "stringa", "c-string", "string object"],
+    "summary": "The String object is easy but fragments scarce SRAM; fixed char arrays are lighter and safer on small boards.",
+    "facts": ["String (capital S) uses dynamic memory and can fragment the heap", "char buf[N] = a fixed C-string, more predictable", "On 2KB-SRAM boards prefer char arrays for stability"]
+  },
+  {
+    "id": "f-macro-progmem",
+    "name": "F() macro and PROGMEM",
+    "category": "concept",
+    "aliases": ["f macro", "progmem", "macro f", "flash strings", "economiser ram", "guardar en flash", "memoria flash strings", "pgm_read"],
+    "summary": "F() and PROGMEM keep constant strings/data in Flash instead of copying them into scarce SRAM at startup.",
+    "facts": ["Serial.println(F(\"text\")) keeps the literal in Flash", "PROGMEM stores constant arrays in Flash; read with pgm_read_*", "Frees SRAM — important on the 2KB Uno", "Mostly an AVR concern; less needed on ESP32/Pico"]
+  },
+  {
+    "id": "eeprom-persistence",
+    "name": "EEPROM persistence",
+    "category": "concept",
+    "aliases": ["eeprom", "memoire persistante", "sauvegarde donnees", "save settings", "memoria no volatil", "memoria persistente", "store config", "non-volatile storage"],
+    "summary": "EEPROM stores small amounts of data that survive power-off, ideal for settings and calibration values.",
+    "facts": ["Uno: 1KB EEPROM; Mega: 4KB", "EEPROM.read(addr) / EEPROM.write(addr, value); EEPROM.put/get for variables", "Limited endurance: ~100,000 write cycles per cell", "ESP32/ESP8266 emulate EEPROM in flash (call EEPROM.begin/commit)"]
+  },
+  {
+    "id": "watchdog-timer",
+    "name": "Watchdog timer",
+    "category": "concept",
+    "aliases": ["watchdog", "chien de garde", "wdt", "auto reset", "perro guardian", "cane da guardia", "reset on hang", "watchdog timer"],
+    "summary": "The watchdog resets the board automatically if the program hangs and stops 'feeding' it within a set time.",
+    "facts": ["AVR: wdt_enable(WDTO_2S); call wdt_reset() regularly", "If the loop stalls past the timeout, the chip reboots", "ESP32 has its own task watchdog (esp_task_wdt)"]
+  },
+  {
+    "id": "deep-sleep-low-power",
+    "name": "Deep sleep / low power",
+    "category": "concept",
+    "aliases": ["deep sleep", "veille profonde", "basse consommation", "low power", "sleep mode", "bajo consumo", "basso consumo", "battery saving", "economie energie"],
+    "summary": "Sleep modes shut down most of the chip to slash current draw, waking on a timer or pin event, key for battery projects.",
+    "facts": ["AVR: LowPower / sleep modes drop current toward microamps", "ESP32 deep sleep: ~10uA, wake via timer or RTC GPIO", "ESP32 RAM is lost in deep sleep except RTC memory", "Disable unused peripherals (ADC, BOD) for the lowest draw"]
+  },
+  {
+    "id": "random-randomseed",
+    "name": "random() / randomSeed()",
+    "category": "concept",
+    "aliases": ["random", "randomseed", "nombre aleatoire", "aleatoire", "numero aleatorio", "numero casuale", "pseudo random", "generer aleatoire"],
+    "summary": "random() returns pseudo-random numbers; randomSeed() varies the starting point so the sequence differs each run.",
+    "facts": ["random(max) -> 0..max-1; random(min, max) -> min..max-1", "randomSeed(analogRead(A0)) seeds from a floating analog pin", "Without seeding, the same sequence repeats every boot"]
+  },
+  {
+    "id": "servo-concept",
+    "name": "Servo motor",
+    "category": "concept",
+    "aliases": ["servo", "servomoteur", "servo motor", "moteur servo", "servomotor", "servocomando", "angle servo", "sg90"],
+    "summary": "A hobby servo moves to a commanded angle using a 50 Hz PWM control signal; the Servo library handles the timing.",
+    "facts": ["Control signal: 50 Hz, pulse ~1.0-2.0 ms (0-180 degrees)", "Servo library: myServo.attach(pin); myServo.write(angle)", "Wires: signal (orange/yellow), + (red, 5V), GND (brown/black)", "Power a servo from an external 5V supply, not the board's 5V, with common ground"]
+  },
+  {
+    "id": "dc-motor-driver",
+    "name": "DC motor and driver",
+    "category": "concept",
+    "aliases": ["dc motor", "moteur cc", "moteur courant continu", "motor driver", "pont en h", "h-bridge", "motor dc", "motore cc", "l298n"],
+    "summary": "A DC motor draws too much current and creates noise to drive from a pin directly; a driver (H-bridge) handles power and direction.",
+    "facts": ["Never wire a motor straight to an Arduino pin", "An H-bridge (L298N, L293D, TB6612FNG, DRV8833) sets direction and speed", "Speed via PWM on the enable/PWM input", "Power the motor from its own supply, share GND with the board"]
+  },
+  {
+    "id": "stepper-motor",
+    "name": "Stepper motor",
+    "category": "concept",
+    "aliases": ["stepper", "moteur pas a pas", "step dir", "moteur pas-a-pas", "motor paso a paso", "motore passo passo", "a4988", "28byj-48"],
+    "summary": "A stepper moves in precise fixed steps and needs a driver; bipolar steppers use STEP/DIR drivers, the 28BYJ-48 uses a ULN2003 board.",
+    "facts": ["NEMA17 + A4988/DRV8825: STEP and DIR pins, microstepping", "28BYJ-48 (unipolar) + ULN2003 board: 4 control inputs", "Holding torque consumes current even when stopped", "AccelStepper library smooths acceleration"]
+  },
+  {
+    "id": "relay",
+    "name": "Relay module",
+    "category": "concept",
+    "aliases": ["relay", "relais", "rele", "rele relay", "relay module", "module relais", "optocoupler relay", "switch mains"],
+    "summary": "A relay is an electrically-driven switch that isolates the low-voltage control side from a high-voltage/high-current load.",
+    "facts": ["Module IN pin driven by a digital output; many are active-LOW", "Opto-isolated modules separate control and load grounds", "Has a built-in flyback diode across the coil", "Contacts: COM, NO (normally open), NC (normally closed)"]
+  },
+  {
+    "id": "analog-sensor",
+    "name": "Analog sensor (threshold / calibration)",
+    "category": "concept",
+    "aliases": ["analog sensor", "capteur analogique", "seuil", "calibration", "sensor analogico", "sensore analogico", "threshold", "calibrer capteur"],
+    "summary": "An analog sensor outputs a varying voltage read with analogRead(); useful values come from calibrating and comparing to a threshold.",
+    "facts": ["Read raw with analogRead() (0..1023 on Uno)", "Calibrate: record min/max, then map() to a useful range", "Compare to a threshold for on/off decisions", "Average several readings to reduce noise"]
+  },
+  {
+    "id": "thermistor-ntc",
+    "name": "Thermistor (NTC)",
+    "category": "concept",
+    "aliases": ["thermistor", "thermistance", "ntc", "capteur temperature analogique", "termistor", "termistore", "10k ntc", "temperature resistor"],
+    "summary": "An NTC thermistor's resistance falls as temperature rises; read in a voltage divider and convert with the Steinhart-Hart equation.",
+    "facts": ["NTC = resistance decreases with heat (common 10k at 25 C)", "Wire it in a divider with a fixed reference resistor (often 10k)", "Convert resistance to temperature via Beta or Steinhart-Hart", "Read the divider midpoint on an analog pin"]
+  },
+  {
+    "id": "photoresistor-ldr",
+    "name": "Photoresistor (LDR)",
+    "category": "concept",
+    "aliases": ["ldr", "photoresistance", "photoresistor", "capteur de lumiere", "fotorresistencia", "fotoresistore", "light sensor", "cellule photoresistante"],
+    "summary": "An LDR's resistance drops in bright light; placed in a voltage divider it gives an analog reading of light level.",
+    "facts": ["Bright light -> low resistance; darkness -> high resistance", "Use a divider with a fixed resistor (~10k) and read the midpoint", "Not calibrated in lux — gives a relative light value", "analogRead() returns higher/lower depending on divider orientation"]
+  },
+  {
+    "id": "active-vs-passive-buzzer",
+    "name": "Active vs passive buzzer",
+    "category": "concept",
+    "aliases": ["buzzer", "buzzer actif", "buzzer passif", "active buzzer", "passive buzzer", "zumbador", "cicalino", "piezo", "sonore"],
+    "summary": "An active buzzer beeps with just DC power; a passive buzzer needs an oscillating signal (tone()) to choose the pitch.",
+    "facts": ["Active: built-in oscillator, digitalWrite HIGH = fixed-tone beep", "Passive: silent on DC, use tone(pin, frequency) for notes", "Passive buzzers can play melodies; active ones cannot vary pitch"]
+  },
+  {
+    "id": "shift-register-74hc595",
+    "name": "Shift register (74HC595)",
+    "category": "concept",
+    "aliases": ["74hc595", "shift register", "registre a decalage", "595", "registro de desplazamiento", "registro a scorrimento", "expand outputs", "ajouter sorties"],
+    "summary": "The 74HC595 turns 3 pins into 8 (or more, chained) outputs by shifting bits in serially and latching them to its parallel outputs.",
+    "facts": ["3 control pins: data (DS), clock (SHCP/SRCLK), latch (STCP/RCLK)", "8 outputs (Q0-Q7); chain via Q7' (serial out) to add 8 more", "Drive with shiftOut(dataPin, clockPin, MSBFIRST, value)", "Total output current per chip is limited (~70mA)"]
+  },
+  {
+    "id": "multiplexing",
+    "name": "Multiplexing (matrix / 7-segment)",
+    "category": "concept",
+    "aliases": ["multiplexing", "multiplexage", "matrice led", "afficheur 7 segments", "7-segment", "multiplexado", "multiplexing matrice", "led matrix", "persistence of vision"],
+    "summary": "Multiplexing lights one row/digit at a time very fast so the eye sees a full display, saving many I/O pins.",
+    "facts": ["Scan fast enough (>~60 Hz refresh) so flicker is invisible", "An 8x8 LED matrix needs only 16 lines instead of 64", "7-segment multiplexing shares the segment pins across digits", "Often paired with shift registers or driver ICs (MAX7219)"]
+  },
+  {
+    "id": "rgb-led",
+    "name": "RGB LED (common anode / cathode)",
+    "category": "concept",
+    "aliases": ["rgb led", "led rgb", "led couleur", "common anode rgb", "common cathode", "led rvb", "led tricolor", "anodo comun"],
+    "summary": "An RGB LED packs red, green and blue chips; mixing their brightness with PWM produces colors. Wiring depends on the common pin type.",
+    "facts": ["3 color pins + 1 common (anode or cathode)", "Common cathode: common to GND, drive each color HIGH/PWM", "Common anode: common to +V, drive each color LOW (inverted PWM)", "Each color leg needs its own series resistor"]
+  },
+  {
+    "id": "board-uno-r3",
+    "name": "Arduino Uno R3",
+    "category": "board",
+    "aliases": ["uno", "uno r3", "arduino uno", "atmega328", "atmega328p"],
+    "summary": "The classic 8-bit AVR beginner board, 5V logic.",
+    "facts": ["MCU: ATmega328P, 8-bit AVR @ 16 MHz", "Logic level: 5V", "Flash 32KB / SRAM 2KB / EEPROM 1KB", "Digital 14 (PWM: 3,5,6,9,10,11), Analog 6 (A0-A5, 10-bit ADC), no DAC", "I2C: A4/A5, SPI: 11/12/13, UART: 1 hardware (0/1)", "LED_BUILTIN = 13"]
+  },
+  {
+    "id": "board-cmp-r3-vs-r4",
+    "name": "Uno R3 vs Uno R4",
+    "category": "board",
+    "aliases": ["uno r3 vs r4", "difference uno r3 r4", "r3 ou r4", "diferencia uno r3 r4", "uno r3 r4 differenze"],
+    "summary": "The R4 keeps the Uno form factor and 5V logic but is far more capable than the R3.",
+    "facts": ["R3: 8-bit AVR @16 MHz, 2KB SRAM, ADC 10-bit, no DAC", "R4: 32-bit Cortex-M4 @48 MHz, 32KB SRAM, ADC 14-bit, DAC on A0", "R4 adds CAN bus; R4 WiFi adds Wi-Fi/BLE + 12x8 LED matrix", "Both are 5V logic, same pinout"]
+  },
+  {
+    "id": "board-uno-r4-minima",
+    "name": "Arduino Uno R4 Minima",
+    "category": "board",
+    "aliases": ["uno r4", "uno r4 minima", "r4 minima", "renesas ra4m1", "arduino uno r4"],
+    "summary": "A 32-bit Uno (Renesas RA4M1) keeping the Uno shape and 5V logic, far more powerful than the R3, without Wi-Fi.",
+    "facts": ["MCU: Renesas RA4M1, 32-bit Cortex-M4 @ 48 MHz", "Logic level: 5V", "Flash 256KB / SRAM 32KB / EEPROM 8KB", "ADC 14-bit, 12-bit DAC on A0, CAN bus", "Same Uno pinout; I2C A4/A5, no Wi-Fi (see R4 WiFi)"]
+  },
+  {
+    "id": "board-uno-r4-wifi",
+    "name": "Arduino Uno R4 WiFi",
+    "category": "board",
+    "aliases": ["uno r4 wifi", "r4 wifi", "uno wifi", "arduino uno r4 wifi", "esp32-s3 uno"],
+    "summary": "The Uno R4 with wireless: a Renesas RA4M1 main chip plus an ESP32-S3 for Wi-Fi/BLE, a 12x8 LED matrix, 5V logic.",
+    "facts": ["Main MCU: Renesas RA4M1, 32-bit Cortex-M4 @ 48 MHz", "Logic level: 5V", "Flash 256KB / SRAM 32KB / EEPROM 8KB", "ADC 14-bit, 12-bit DAC on A0, CAN bus", "Adds ESP32-S3 (Wi-Fi 2.4 GHz + BLE) and a 12x8 onboard LED matrix"]
+  },
+  {
+    "id": "board-nano",
+    "name": "Arduino Nano",
+    "category": "board",
+    "aliases": ["nano", "arduino nano", "nano atmega328", "nano v3"],
+    "summary": "A breadboard-friendly board with the same ATmega328P as the Uno, 5V logic, in a tiny mini-USB form factor.",
+    "facts": ["MCU: ATmega328P, 8-bit AVR @ 16 MHz (same as Uno)", "Logic level: 5V", "Flash 32KB / SRAM 2KB / EEPROM 1KB", "8 analog inputs A0-A7 (two more than Uno), 10-bit ADC", "Digital 14 (PWM: 3,5,6,9,10,11), I2C A4/A5, mini-USB"]
+  },
+  {
+    "id": "board-nano-every",
+    "name": "Arduino Nano Every",
+    "category": "board",
+    "aliases": ["nano every", "arduino nano every", "atmega4809", "nano nuevo"],
+    "summary": "A Nano-form board with the newer ATmega4809, more memory than the classic Nano, still 5V logic.",
+    "facts": ["MCU: ATmega4809, 8-bit AVR @ 20 MHz", "Logic level: 5V", "Flash 48KB / SRAM 6KB / EEPROM 256B", "Nano pinout; 8 analog inputs", "More SRAM than the classic Nano (6KB vs 2KB)"]
+  },
+  {
+    "id": "board-mega-2560",
+    "name": "Arduino Mega 2560",
+    "category": "board",
+    "aliases": ["mega", "mega 2560", "arduino mega", "atmega2560", "mega2560"],
+    "summary": "A large 8-bit AVR board with many more pins and memory than the Uno, 5V logic, for big projects.",
+    "facts": ["MCU: ATmega2560, 8-bit AVR @ 16 MHz", "Logic level: 5V", "Flash 256KB / SRAM 8KB / EEPROM 4KB", "54 digital (15 PWM), 16 analog (A0-A15, 10-bit ADC)", "I2C: 20 (SDA) / 21 (SCL), 4 hardware UARTs, LED_BUILTIN = 13"]
+  },
+  {
+    "id": "board-leonardo-micro",
+    "name": "Arduino Leonardo / Micro",
+    "category": "board",
+    "aliases": ["leonardo", "micro", "arduino leonardo", "arduino micro", "atmega32u4", "usb hid arduino"],
+    "summary": "ATmega32U4 boards with native USB, so they can act as a USB keyboard or mouse (HID); 5V logic.",
+    "facts": ["MCU: ATmega32U4, 8-bit AVR @ 16 MHz", "Logic level: 5V", "Flash 32KB / SRAM 2.5KB / EEPROM 1KB", "Native USB: emulates a keyboard/mouse (HID)", "Serial (USB) is separate from Serial1 (pins 0/1); Micro = same chip, smaller"]
+  },
+  {
+    "id": "board-due",
+    "name": "Arduino Due",
+    "category": "board",
+    "aliases": ["due", "arduino due", "sam3x8e", "cortex-m3 arduino", "due 3.3v"],
+    "summary": "A 32-bit ARM board (SAM3X8E) in the Mega form factor; powerful but 3.3V logic and NOT 5V tolerant.",
+    "facts": ["MCU: Atmel SAM3X8E, 32-bit Cortex-M3 @ 84 MHz", "Logic level: 3.3V (pins are NOT 5V tolerant — 5V can destroy them)", "Flash 512KB / SRAM 96KB", "ADC 12-bit, two DAC outputs (DAC0, DAC1)", "54 digital pins, 12 PWM, 4 UARTs"]
+  },
+  {
+    "id": "board-pro-mini",
+    "name": "Arduino Pro Mini",
+    "category": "board",
+    "aliases": ["pro mini", "arduino pro mini", "promini", "mini ftdi", "pro mini 3.3v"],
+    "summary": "A minimal ATmega328P board without USB; needs an FTDI/USB-serial adapter to program. Comes in 5V and 3.3V variants.",
+    "facts": ["MCU: ATmega328P (same core as Uno)", "Two variants: 5V/16 MHz and 3.3V/8 MHz", "Flash 32KB / SRAM 2KB / EEPROM 1KB", "No onboard USB — program via an external FTDI adapter", "Very compact; popular for battery / embedded builds"]
+  },
+  {
+    "id": "board-esp32-devkit",
+    "name": "ESP32 DevKit v1",
+    "category": "board",
+    "aliases": ["esp32", "esp32 devkit v1", "esp32 devkit", "esp32 dev", "xtensa esp32", "wroom-32", "wemos d1 mini esp32", "esp32-s2", "esp32-s3", "esp32-c3"],
+    "summary": "A dual-core 3.3V Wi-Fi + Bluetooth board widely used for IoT; powerful but its pins are 3.3V only.",
+    "facts": ["MCU: Espressif ESP32 (Xtensa dual-core LX6) @ up to 240 MHz", "Logic level: 3.3V (NOT 5V tolerant)", "Wi-Fi 2.4 GHz + Bluetooth Classic + BLE", "Analog inputs: up to 18 ADC channels, but ADC2 is unusable while Wi-Fi is on (~8-15 usable in practice)", "ADC 12-bit (0..4095), two 8-bit DACs (GPIO25/26)", "Default I2C: GPIO21 (SDA) / GPIO22 (SCL), LED_BUILTIN = 2"]
+  },
+  {
+    "id": "board-esp8266",
+    "name": "ESP8266 (NodeMCU / Wemos D1)",
+    "category": "board",
+    "aliases": ["esp8266", "nodemcu", "wemos d1", "esp-12", "esp8266 wifi", "d1 mini"],
+    "summary": "A low-cost 3.3V Wi-Fi board; single-core, fewer pins than the ESP32, with only one limited analog input.",
+    "facts": ["MCU: ESP8266 @ ~80 MHz (can run 160 MHz)", "Logic level: 3.3V (NOT 5V tolerant)", "Wi-Fi 2.4 GHz (no Bluetooth)", "Single analog input A0, 0-1V max at the chip (NodeMCU board has a divider to ~3.2V)", "I2C is software/bit-banged on chosen GPIOs"]
+  },
+  {
+    "id": "board-stm32-blue-pill",
+    "name": "STM32 Blue Pill (F103C8)",
+    "category": "board",
+    "aliases": ["blue pill", "blue pill (f103c8)", "stm32", "stm32f103", "stm32f103c8", "bluepill"],
+    "summary": "A cheap, fast 32-bit ARM board (STM32F103C8T6); 3.3V logic with some 5V-tolerant pins.",
+    "facts": ["MCU: STM32F103C8T6, ARM Cortex-M3 @ 72 MHz", "Logic level: 3.3V (some pins are 5V-tolerant)", "Flash 64KB / SRAM 20KB", "ADC 12-bit, multiple timers, USART/SPI/I2C", "Usually flashed via ST-Link or USB-serial bootloader"]
+  },
+  {
+    "id": "board-rpi-pico",
+    "name": "Raspberry Pi Pico",
+    "category": "board",
+    "aliases": ["pico", "raspberry pi pico", "rp2040", "pi pico", "pico w"],
+    "summary": "A dual-core ARM Cortex-M0+ board (RP2040) with lots of RAM; 3.3V logic, programmable I/O (PIO).",
+    "facts": ["MCU: RP2040, dual-core Cortex-M0+ @ 133 MHz", "Logic level: 3.3V (NOT 5V tolerant)", "264KB SRAM, 2MB onboard flash", "3 analog inputs (12-bit ADC)", "Unique PIO state machines; Pico W variant adds Wi-Fi"]
+  },
+  {
+    "id": "board-cmp-uno-mega-nano",
+    "name": "Uno vs Mega vs Nano",
+    "category": "board",
+    "aliases": ["uno vs mega vs nano", "difference uno mega nano", "comparatif cartes avr", "uno mega nano", "comparacion uno mega nano", "uno mega nano confronto"],
+    "summary": "Three 5V AVR boards: the Uno is the standard, the Mega adds many pins and memory, the Nano is a tiny breadboard version of the Uno.",
+    "facts": ["Uno: 14 digital, 6 analog, 2KB SRAM, 1 UART, ATmega328P", "Mega: 54 digital, 16 analog, 8KB SRAM, 4 UARTs, ATmega2560", "Nano: same ATmega328P as Uno but 8 analog inputs, smaller mini-USB form", "All three are 5V logic, 8-bit AVR @ 16 MHz"]
+  },
+  {
+    "id": "board-cmp-5v-vs-3v3",
+    "name": "5V vs 3.3V boards",
+    "category": "board",
+    "aliases": ["5v vs 3.3v", "cartes 5v 3.3v", "5v 3.3v boards", "tension carte", "3.3v boards", "5v boards", "5v vs 3v3", "logic voltage boards"],
+    "summary": "Boards run their I/O at either 5V or 3.3V; mixing them carelessly can destroy a 3.3V input fed a 5V signal.",
+    "facts": ["5V logic: Uno, Mega, Nano, Leonardo (AVR)", "3.3V logic: ESP32, ESP8266, Due, STM32, Pico", "Connecting a 5V output to a 3.3V-only input can permanently damage it", "Cross levels with a level shifter or (5V->3.3V) a voltage divider"]
+  },
+  {
+    "id": "bme280-vs-bmp280",
+    "name": "BME280 vs BMP280 (board sold as BME280 carrying a BMP280)",
+    "category": "hardware_trap",
+    "aliases": [
+      "bme280",
+      "bmp280",
+      "gy-bme280",
+      "hw-611",
+      "hw611",
+      "gy-bmp280",
+      "gy-bmp280-3.3",
+      "humidity always 0",
+      "humidite toujours 0",
+      "sin humedad",
+      "humedad siempre 0",
+      "niente umidita",
+      "umidita sempre 0",
+      "chipid",
+      "0x58",
+      "0x60"
+    ],
+    "summary": "A board sold as BME280 can carry a BMP280 instead: same pinout, same I2C addresses, but no humidity sensor at all.",
+    "facts": [
+      "Read the chip-id register 0xD0: 0x60 = BME280, 0x58 = BMP280",
+      "Board silkscreen GY-BMP280-3.3, also silkscreened HW-611: a BMP280 module",
+      "A BMP280 has NO humidity sensor, so humidity can never work on it",
+      "Both use I2C address 0x76 or 0x77 and the same pinout, so the swap is invisible from the wiring",
+      "Adafruit_BME280 library: begin() checks the chip ID equals 0x60 and returns false otherwise, so a BMP280 (0x58) fails begin() outright rather than silently reading humidity as 0",
+      "If the chip is a BMP280, use a BMP280 library and drop humidity from the sketch"
+    ]
+  },
+  {
+    "id": "mpu9250-vs-mpu6500",
+    "name": "MPU9250 vs MPU6500 (board sold as MPU9250 carrying an MPU6500)",
+    "category": "hardware_trap",
+    "aliases": [
+      "mpu9250",
+      "mpu-9250",
+      "mpu6500",
+      "mpu-6500",
+      "hw-612",
+      "hw612",
+      "who_am_i",
+      "0x71",
+      "0x70",
+      "magnetometer",
+      "magnetometre",
+      "magnetometro",
+      "boussole",
+      "brujula",
+      "bussola",
+      "yaw drift",
+      "derive en lacet",
+      "ak8963"
+    ],
+    "summary": "A board sold as MPU9250 can carry an MPU6500 instead: same pinout, same I2C addresses, but no magnetometer at all.",
+    "facts": [
+      "Read the WHO_AM_I register 0x75: 0x71 = MPU9250, 0x70 = MPU6500",
+      "An MPU9250 is an MPU6500 plus an AK8963 magnetometer; an MPU6500 has NO magnetometer",
+      "Both use I2C address 0x68 or 0x69 and the same pinout, so the swap is invisible from the wiring",
+      "Without a magnetometer there is no heading reference, so yaw drifts in any 9-DOF orientation fusion",
+      "Reported figure: around 25 percent of boards sold as MPU9250 carry an MPU6500",
+      "If the chip is an MPU6500, use a 6-axis library and drop the compass, or add a separate magnetometer such as an HMC5883L"
+    ]
+  },
+  {
+    "id": "ds18b20-counterfeit",
+    "name": "Counterfeit DS18B20 (clone sold as a Maxim DS18B20)",
+    "category": "hardware_trap",
+    "aliases": [
+      "ds18b20",
+      "counterfeit",
+      "contrefacon",
+      "clone",
+      "falsificado",
+      "contraffatto",
+      "parasite power",
+      "alimentation parasite",
+      "rom address",
+      "adresse rom",
+      "scratchpad",
+      "temperature offset",
+      "derive de temperature",
+      "85 degrees"
+    ],
+    "summary": "Most DS18B20 parts sold today are clones rather than genuine Maxim silicon: they read the right ballpark but miss the datasheet accuracy and often fail in parasite power mode.",
+    "facts": [
+      "Read the 1-Wire ROM address: a pattern 28-xx-xx-xx-xx-00-00-xx indicates a clone, because the genuine ROM is a 48-bit counter whose high bytes are still zero",
+      "Most clones leave reserved byte 6 of the scratchpad at a value the datasheet forbids",
+      "Known clone symptoms: parasite power fails, higher noise, temperature offset beyond the advertised plus/minus 0.5 C band, and unusable EEPROM",
+      "The OneWire example sketches already print the ROM address, so this check needs zero extra library",
+      "A clone still reports a temperature: suspect it for accuracy and parasite power, rather than for a broken part"
+    ]
+  },
+  {
+    "id": "ssd1306-vs-sh1106",
+    "name": "OLED sold as SSD1306 driven by an SH1106 controller (2-pixel shift)",
+    "category": "hardware_trap",
+    "aliases": [
+      "ssd1306",
+      "sh1106",
+      "sh110x",
+      "oled",
+      "ecran decale",
+      "display shifted",
+      "pantalla desplazada",
+      "schermo spostato",
+      "shifted pixels",
+      "pixels parasites",
+      "random pixels",
+      "132 columns",
+      "u8g2"
+    ],
+    "summary": "OLED modules that look identical can carry either an SSD1306 or an SH1106 controller; driving an SH1106 with an SSD1306 library shifts the whole image by 2 pixels.",
+    "facts": [
+      "The SH1106 has 132 columns of RAM but only 128 visible, and the visible area starts at column 2",
+      "An SSD1306 library writes from column 0, so on an SH1106 the first 2 pixels of every page fall outside the visible window: the image shifts and the edge shows stray pixels",
+      "Rule of thumb: a 0.96 inch module is usually SSD1306, a 1.3 inch module is almost always SH1106",
+      "The controller marking is printed on the small IC on the back of the module",
+      "Fix without rewiring: use the Adafruit SH110X library, or declare SH1106 in U8g2, which apply the column offset"
+    ]
+  },
+  {
+    "id": "hmc5883l-vs-qmc5883l",
+    "name": "GY-271 silkscreened HMC5883L carrying a QMC5883L",
+    "category": "hardware_trap",
+    "aliases": [
+      "hmc5883l",
+      "hmc5883",
+      "qmc5883l",
+      "qmc5883",
+      "gy-271",
+      "gy271",
+      "0x0d",
+      "0x1e",
+      "lecture a zero",
+      "lectura a cero",
+      "letture a zero",
+      "reads zeros",
+      "wrong compass library"
+    ],
+    "summary": "A GY-271 board silkscreened HMC5883L often carries a QMC5883L from a different maker: different I2C address and a completely different register map, so an HMC5883L library reads zeros.",
+    "facts": [
+      "Scan the I2C bus: address 0x1E means HMC5883L, address 0x0D means QMC5883L",
+      "The GY-271 silkscreen frequently says HMC5883L even when the chip on it is a QMC5883L, so the printed marking cannot be trusted here",
+      "The two register maps differ entirely, including where the x, y and z bytes sit, so an HMC5883L library returns zeros on a QMC5883L",
+      "Fix without rewiring: keep the board and switch to a QMC5883L library",
+      "Both parts measure the same quantity, so once the matching library is used the board works as a compass"
+    ]
+  },
+  {
+    "id": "lcd-i2c-pcf8574-address",
+    "name": "I2C LCD backpack carrying a PCF8574 (0x27) or a PCF8574A (0x3F)",
+    "category": "hardware_trap",
+    "summary": "Visually identical I2C LCD backpacks ship with either a PCF8574 or a PCF8574A expander: one answers at 0x27, the other at 0x3F, so a sketch hard-coded to the wrong address drives a lit but blank panel.",
+    "aliases": [
+      "pcf8574",
+      "pcf8574a",
+      "pcf8574t",
+      "pcf8574at",
+      "0x27",
+      "0x3f",
+      "lcd i2c",
+      "liquidcrystal_i2c",
+      "lcd 1602",
+      "lcd 2004",
+      "lcd backpack",
+      "adaptateur i2c lcd",
+      "lcd retroeclaire vierge",
+      "lcd shows only blocks",
+      "pantalla lcd en blanco",
+      "lcd i2c senza testo"
+    ],
+    "facts": [
+      "Scan the I2C bus: a backpack built on a PCF8574 answers at 0x27, one built on a PCF8574A answers at 0x3F",
+      "Both variants drive the same 1602 or 2004 panel through the same LiquidCrystal_I2C library, so only the address given to the constructor changes",
+      "The A0, A1 and A2 solder pads move the address inside 0x20-0x27 for a PCF8574 and inside 0x38-0x3F for a PCF8574A",
+      "Read the marking on the expander chip itself: PCF8574T and PCF8574AT are one letter apart",
+      "A lit backlight showing a row of solid blocks points at the address or at the contrast trimmer rather than at a broken panel"
+    ]
+  },
+  {
+    "id": "ads1115-vs-ads1015",
+    "name": "Board silkscreened ADS1115 carrying an ADS1015 die",
+    "category": "hardware_trap",
+    "summary": "Boards printed ADS1115 are shipped with ADS1015 silicon, which shares the same I2C register map and answers every transaction with plausible numbers. Only the resolution betrays it: the four low bits stay at zero, so readings move in jumps of 16.",
+    "aliases": [
+      "ads1115",
+      "ads1015",
+      "ads1x15",
+      "adafruit_ads1x15",
+      "ads1115_we",
+      "bogi",
+      "brpi",
+      "who_am_i.ino",
+      "7.8125 uv",
+      "860 sps",
+      "3300 sps",
+      "steps of 16",
+      "low four bits",
+      "12 bit resolution",
+      "resolution grossiere",
+      "resolucion de 12 bits"
+    ],
+    "facts": [
+      "Print raw counts from a single-ended read on a slowly varying input: ADS1015 silicon returns values spaced 16 apart, such as 26352, 26368, 26384, while genuine ADS1115 silicon moves count by count",
+      "At gain plus or minus 0.256 V an ADS1115 step equals 7.8125 microvolts; a substituted die yields about 125 microvolts per observable step, a sixteen times coarser grain",
+      "Throughput separates the two dies as well: ADS1115 tops out at 860 samples per second, ADS1015 at 3300. Request the maximum data rate and time the conversions",
+      "Chip top marking gives a hint only: BOGI marks ADS1115 silicon and BRPI marks ADS1015, but the ADS1115_WE README shows a board whose marking is plainly wrong, so trust the measurement over the label",
+      "The swap runs in both directions, ADS1015 dies on ADS1115 boards and ADS1115 dies on ADS1015 boards, so measure rather than assume"
+    ]
+  },
+  {
+    "id": "dht20-i2c-in-dht-housing",
+    "name": "DHT20 wearing the DHT housing but speaking I2C at 0x38",
+    "category": "hardware_trap",
+    "summary": "The DHT20 ships in the familiar DHT-series housing and four-pin footprint, yet it holds an AHT20 die and talks over I2C at address 0x38 instead of the single-wire timing protocol. A DHT library therefore drives the wrong bus entirely and reads NaN forever on a healthy part.",
+    "aliases": [
+      "dht20",
+      "adafruit 5183",
+      "dht housing",
+      "boitier dht",
+      "single wire protocol",
+      "protocole une broche",
+      "0x38",
+      "readtemperature nan",
+      "isnan",
+      "arduino sensor kit",
+      "dht20 i2c",
+      "carcasa dht",
+      "involucro dht"
+    ],
+    "facts": [
+      "Run an I2C scan before anything else: a device answering at 0x38 is AHT20 class and needs a DHT20 or AHT driver, whatever the housing suggests",
+      "Adafruit product 5183 states it plainly: the part looks like a DHT11 or DHT22, inside is the AHT20, and the interface is plain I2C at address 0x38, which cannot be changed",
+      "A DHT library drives the single-pin timing protocol and receives nothing, so readTemperature and readHumidity return NaN forever while the part answers an I2C scan normally",
+      "The Arduino Sensor Kit replaced its DHT11 module with a DHT20 I2C module, so kit documentation and older tutorials describe two different buses for parts that look the same"
+    ]
+  },
+  {
+    "id": "apds9960-clone-id-a8",
+    "name": "APDS-9960 clone answering 0xA8 at the ID register",
+    "category": "hardware_trap",
+    "summary": "Widely sold APDS-9960 breakouts carry silicon returning 0xA8 from the ID register where Broadcom parts return 0xAB. Every mainstream library hard-codes 0xAB, so begin() rejects a module that acknowledges normally on the bus and is otherwise sound.",
+    "aliases": [
+      "apds9960",
+      "apds-9960",
+      "sparkfun_apds9960",
+      "arduino_apds9960",
+      "apds9960_id_1",
+      "0xab",
+      "0xa8",
+      "0x92",
+      "0x39",
+      "gesture engine",
+      "moteur de gestes",
+      "begin refuses",
+      "id register",
+      "registre d identification"
+    ],
+    "facts": [
+      "Read register 0x92 at I2C address 0x39: genuine silicon answers 0xAB, the clone answers 0xA8. A scan showing 0x39 present while begin() refuses the part is the exact signature",
+      "SparkFun_APDS9960.h defines APDS9960_ID_1 as 0xAB; changing that single constant to 0xA8 makes the SparkFun examples run on the clone",
+      "On 0xA8 silicon the ENABLE register at 0x80 powers up holding 0x09, which leaves the gesture engine idle. Writing 0x7F to 0x80 turns the gesture modes on, but the same report warns this DISABLES the RGB colour detector, so pick one function or the other",
+      "The official Arduino_APDS9960 library still hard-codes 0xAB, so Nano 33 BLE gesture examples stop at begin() on these boards until the check accepts both identifiers",
+      "The 0xA8 parts drive the interrupt pin unreliably, so poll the gesture FIFO rather than wait on that line"
+    ]
+  },
+  {
+    "id": "max31855-vs-max6675-boards",
+    "name": "K-type thermocouple boards mixing MAX6675 and MAX31855",
+    "category": "hardware_trap",
+    "summary": "Cheap red K-type thermocouple breakouts carry either a MAX6675 or a MAX31855, sometimes on a layout drawn for the other part. A MAX6675 layout ties the thermocouple negative lead to ground, which a MAX31855 reports as a permanent short-to-ground fault.",
+    "aliases": [
+      "max31855",
+      "max6675",
+      "m31855k",
+      "cold junction 128",
+      "thermocouple 0.00",
+      "short to gnd fault",
+      "scg bit",
+      "alumel grounded",
+      "1424a2",
+      "cjmcu thermocouple",
+      "k-type amplifier",
+      "thermocouple frozen reading",
+      "termopar congelado",
+      "termocoppia bloccata"
+    ],
+    "facts": [
+      "Measure the resistance between the thermocouple minus pad and GND: a MAX6675 layout connects them on purpose, and that same connection makes a MAX31855 raise its short-to-ground fault forever",
+      "MAX31855 fault bits: D0 open circuit, D1 short to ground, D2 short to supply, D16 any fault. A short-to-ground report with a known-good probe attached points at the board layout, not at the wiring",
+      "A chip whose three marking lines read M31855K, 1424A2 and +780AB returns a frozen cold junction of 128.00 and a thermocouple reading of 0.00 whatever probe is attached; several buyers saw it across sellers",
+      "The two parts differ on the wire: MAX6675 sends 16 bits, MAX31855 sends 32, so a MAX6675 library on a MAX31855 misreads in silence",
+      "Silkscreens sometimes print both part numbers, and the MAX31855 is marketed as a MAX6675 upgrade, so the printed name settles nothing"
+    ]
+  },
+  {
+    "id": "mcp4725-address-variant",
+    "name": "MCP4725 factory address variants under one silkscreen",
+    "category": "hardware_trap",
+    "summary": "The MCP4725 exists in four factory variants whose base address is burned into the die, while the module silkscreen only ever says MCP4725. Code written for one breakout answers nothing on another even though a bus scan shows a live device.",
+    "aliases": [
+      "mcp4725",
+      "mcp4725a0",
+      "mcp4725a1",
+      "mcp4725a2",
+      "mcp4725a3",
+      "adresse 0x62",
+      "12 bit dac",
+      "dac base address",
+      "convertisseur numerique analogique i2c",
+      "dac variant suffix"
+    ],
+    "facts": [
+      "Scan the bus and match the address to the variant table: MCP4725A1 sits at 0x62 and 0x63, A2 at 0x64 and 0x65, A3 at 0x66 and 0x67",
+      "The Adafruit breakout is the A1 variant and documents 0x62 as its default, 0x63 with A0 tied high, so hardcoding 0x62 from that tutorial fails on a generic board while a scan still finds a device",
+      "The variant cannot be read over the bus: there is no identifier register, so a scan plus the table, or the package marking under magnification, are the only routes",
+      "The variant suffixes A0 to A3 collide by name with the chip A0 address pin, and that pin only shifts the address by one inside a variant pair rather than selecting the variant",
+      "This is a factory variant rather than a counterfeit: the die is genuine and the datasheet describes every address, but the module never prints which one it carries"
+    ]
+  },
+  {
+    "id": "max3010x-part-id-mixup",
+    "name": "MAX30100, MAX30102 and MAX30105 on identical purple breakouts",
+    "category": "hardware_trap",
+    "summary": "Three different pulse oximeter dies ship on visually identical purple breakouts, answer at the same bus address and are listed interchangeably by sellers, yet they need different libraries. The wrong driver initialises without complaint and returns unusable data.",
+    "aliases": [
+      "max30102",
+      "max30100",
+      "max30105",
+      "max30101",
+      "gy-max30102",
+      "part_id register",
+      "0x57",
+      "0xff register",
+      "0x15 identifier",
+      "0x11 identifier",
+      "pulse oximeter breakout",
+      "spo2 breakout",
+      "oxymetre de pouls",
+      "oximetro de pulso"
+    ],
+    "facts": [
+      "All three parts answer at address 0x57, so a bus scan proves presence and never identity",
+      "Read register 0xFF, the part identifier: 0x11 means MAX30100, while 0x15 means MAX30102, MAX30105 or MAX30101, so 0x15 narrows the choice without settling it alone",
+      "Register 0xFE holds the revision identifier and separates production runs once the family is known",
+      "A MAX30100 driven by a MAX30102 library, or the reverse, starts up without complaint and returns unusable data, because the register maps diverge although the address matches"
+    ]
+  },
+  {
+    "id": "si7021-htu21d-swap",
+    "name": "Board labelled Si7021 carrying an HTU21D or SHT21 die",
+    "category": "hardware_trap",
+    "summary": "The generic GY-21 breakout ships indifferently with a Si7021, a Si7020, a TE HTU21D or a Sensirion SHT21, all at the same bus address and all answering the same measurement commands. The swap stays invisible until a Si7021 driver tries to identify the part at init and aborts.",
+    "aliases": [
+      "si7021",
+      "si7020",
+      "htu21d",
+      "sht21",
+      "htu2xd",
+      "gy-21",
+      "gy21",
+      "snb_3",
+      "electronic id",
+      "0xfc 0xc9",
+      "0xfa 0x0f",
+      "0x32",
+      "identifiant electronique",
+      "mislabeled humidity board"
+    ],
+    "facts": [
+      "Send command 0xFC 0xC9 and read the electronic identifier: the first byte returned is SNB_3, and Silicon Labs maps it to 0x15 for a Si7021 and 0x14 for a Si7020",
+      "An SNB_3 of 0x32 means the die is an HTU21D or an SHT21 rather than a Silicon Labs part, which is the whole substitution in one byte",
+      "All four parts answer at address 0x40, so an address scan separates nothing and only the electronic identifier settles it",
+      "The checksum byte is mandatory on the identifier reads and optional on measurement commands, so a driver that skips those clock cycles fails identification even on a genuine part",
+      "ESPHome documents the case verbatim: some boards may be mislabeled, and trying the HTU21D model is the suggested remedy on bus errors"
+    ]
+  },
+  {
+    "id": "nrf24l01-si24r1-clone",
+    "name": "Si24R1 clones and remarked dies sold as nRF24L01+",
+    "category": "hardware_trap",
+    "summary": "Modules identical to an nRF24L01+ carry either a NanJing Si24R1 register-level clone or a remarked die with Nordic markings. Mixed links pair, then drop packets as soon as auto acknowledge or dynamic payloads are enabled.",
+    "aliases": [
+      "nrf24l01",
+      "si24r1",
+      "rf24",
+      "rf_setup",
+      "rf_pwr",
+      "en_dpl",
+      "no_ack bit",
+      "dynamic payload",
+      "bk2425",
+      "rfm73",
+      "power down current",
+      "courant en veille",
+      "radio drops packets",
+      "square index mark"
+    ],
+    "facts": [
+      "Write 1 into bit 0 of RF_SETUP at register 0x06 and read it back: a genuine nRF24L01+ ignores that bit and returns 0, a Si24R1 uses it as RF_PWR bit 0 and returns 1",
+      "The Si24R1 firmware reproduces a typo from the original nRF24L01 datasheet, so its auto acknowledge misbehaves against a genuine part",
+      "Remarked dies reverse the NO_ACK bit once EN_DPL is set, so a link that works with fixed payloads breaks the moment dynamic payload length is turned on",
+      "Power-down current separates them without any bus transaction: genuine parts draw well under a microamp, measured fakes draw several",
+      "Package marking: genuine Nordic dies carry a square index in the top-left corner, the remarked ones a circle with misaligned text"
+    ]
+  },
+  {
+    "id": "st7735-controller-variant",
+    "name": "ST7735B, ST7735R and ST7735S sold interchangeably",
+    "category": "hardware_trap",
+    "summary": "Modules advertised as ST7735 carry several controllers and panel binnings needing different init sequences, memory offsets and colour filter order. The plastic tab colour used to hint at the binning and no longer does.",
+    "aliases": [
+      "st7735",
+      "st7735r",
+      "st7735s",
+      "st7735b",
+      "initr",
+      "initb",
+      "greentab",
+      "redtab",
+      "blacktab",
+      "colstart",
+      "rowstart",
+      "red and blue swapped",
+      "rouge et bleu inverses",
+      "st7735 decale",
+      "st7735 shifted image",
+      "tft decale de deux pixels",
+      "colonne parasite au bord",
+      "garbage column",
+      "128x160 tft"
+    ],
+    "facts": [
+      "Image two pixels right and one pixel low with a garbage column on the opposite edge: the panel is the green tab binning and needs colstart 2 and rowstart 1, where the red tab binning uses 0 and 0",
+      "On a 1.44 inch 128 by 128 panel the same symptom needs colstart 2 and rowstart 3, and the row offset flips between 3 and 1 with rotation",
+      "Red and blue swapped on a 1.8 inch panel: the black tab binning issues MADCTL 0xC0 and uses an RGB colour filter where the others use BGR",
+      "A 0.96 inch 160 by 80 panel needs colstart 24, and its plug-in variant needs 26 with inversion on and off exchanged, which shows as a full photo negative image",
+      "A panel staying black under every initR variant is ST7735B silicon and needs the separate initB path, an entirely different command sequence"
+    ]
+  },
+  {
+    "id": "pms5003-silent-revision",
+    "name": "PMS5003 internal revision shipped under identical markings",
+    "category": "hardware_trap",
+    "summary": "Plantower shipped a PMS5003 with a new internal board and MCU while keeping the casing, the part number and the markings unchanged. The new units divide the smallest particle bin by three and read low indoors, so two identical-looking sensors disagree with no error and no flag.",
+    "aliases": [
+      "pms5003",
+      "pms7003",
+      "plantower",
+      "purpleair",
+      "airgradient",
+      "particle count ratio",
+      "0.3 um bin",
+      "0.5 um bin",
+      "pm2.5 biased low",
+      "laser particle counter",
+      "compteur de particules",
+      "batch code",
+      "cf_1"
+    ],
+    "facts": [
+      "Use data the sensor already reports: divide the count of particles at or above 0.3 um by the count at or above 0.5 um. A ratio under 2 indicates the new hardware, over 3 the old",
+      "The ratio works because Plantower divided the 0.3 um bin counts by three in the new design",
+      "The low bias appears below 16 micrograms per cubic metre of raw PM2.5 and reaches half or more, while the two designs agree above that, so a bench check at high concentration hides it",
+      "Roughly one tenth of the PurpleAir fleet was affected, and those units can be corrected with a linear relationship rather than replaced",
+      "This is the maker changing the silicon under an unchanged part number, not a third party counterfeit, which is why no marking betrays it"
+    ]
+  },
+  {
+    "id": "vl53l0x-vs-vl53l1x",
+    "name": "VL53L0X and VL53L1X share one silkscreen and one address",
+    "category": "hardware_trap",
+    "summary": "GY-530 and GY-53 carriers ship with either a VL53L0X or a VL53L1X, both answering at 0x29 behind an identical footprint. Their register maps are incompatible, so a VL53L0X driver talking to a VL53L1X hangs or ranges garbage.",
+    "aliases": [
+      "vl53l0x",
+      "vl53l1x",
+      "vl53l4cd",
+      "gy-530",
+      "gy530",
+      "gy-53",
+      "0x29",
+      "0xee",
+      "0xea",
+      "0xeacc",
+      "identification_model_id",
+      "time of flight ranging",
+      "telemetre laser",
+      "8 bit register addressing",
+      "16 bit register addressing"
+    ],
+    "facts": [
+      "Read 8-bit register 0xC0, the model identifier: a VL53L0X answers 0xEE, which is exactly what the Pololu driver checks at init",
+      "Read 16-bit register 0x010F instead: a VL53L1X answers 0xEA, and a 16-bit read across 0x010F and 0x0110 gives 0xEACC",
+      "VL53L0X uses 8-bit register addressing while VL53L1X, VL53L3CX and VL53L4CD use 16-bit, so probing with the wrong width can hang the bus master",
+      "Both parts sit at address 0x29 by default, so the bus scan is never the diagnostic here, the identifier read is",
+      "Tasmota states it plainly: a driver cannot identify which of the two it talks to, and the user must select the family by hand"
+    ]
+  },
+  {
+    "id": "mpu6050-relabelled-icm20689",
+    "name": "GY-521 marked MPU-6050A carrying a different InvenSense die",
+    "category": "hardware_trap",
+    "summary": "A widespread batch of GY-521 boards is silkscreened MPU-6050A but the die answers 0x98 at its identity register, the signature of an ICM-20689. Libraries reject the board at connection test, and patched ones then write to offset registers that live elsewhere.",
+    "aliases": [
+      "mpu6050",
+      "mpu-6050a",
+      "gy-521",
+      "gy521",
+      "icm-20689",
+      "icm20689",
+      "0x98",
+      "0x68",
+      "0x75",
+      "0x34",
+      "0x4c",
+      "invensense",
+      "testconnection",
+      "i2cdevlib",
+      "registres de decalage deplaces"
+    ],
+    "facts": [
+      "Read register 0x75, the identity register: a genuine MPU-6050 answers 0x68, the relabelled parts answer 0x98",
+      "0x98 is impossible on a genuine part, because the MPU-6050 map fixes bit 0 and bit 7 of that register at zero, so any value with bit 7 set proves a different die",
+      "0x98 is the documented identity of the ICM-20689, which is the part actually mounted on those boards",
+      "Libraries compare the masked value, bits 6 down to 1: genuine gives 0x34, and the ElectronicCats library was patched to accept 0x4C too, the masked form of 0x98",
+      "Beyond identity the offset registers are relocated, so calibration sketches written for an MPU-6050 write to the wrong addresses in silence"
+    ]
+  },
+  {
+    "id": "ina219-vs-ina226",
+    "name": "INA219 and INA226 share an address block and a shape",
+    "category": "hardware_trap",
+    "summary": "Both current monitors occupy the same address block on interchangeable breakouts, but their register maps differ. An INA219 driver pointed at an INA226 returns plausible numbers off by a fixed factor, which is worse than returning nothing.",
+    "aliases": [
+      "ina219",
+      "ina226",
+      "0x399f",
+      "0x4127",
+      "0x5449",
+      "0x2260",
+      "manufacturer identity register",
+      "die identity register",
+      "shunt voltage lsb",
+      "calibration register",
+      "moniteur de courant",
+      "current monitor breakout",
+      "readings scaled by four"
+    ],
+    "facts": [
+      "Read register 0x00 after power-up: an INA219 resets to 0x399F, an INA226 resets to 0x4127, which separates the two on its own",
+      "An INA226 answers 0x5449 at register 0xFE and 0x2260 at register 0xFF; the INA219 map stops at 0x05 and has no equivalent",
+      "Shunt voltage steps are 10 microvolts on the INA219 against 2.5 on the INA226, and bus voltage 4 millivolts against 1.25, so the wrong driver scales readings by four and by 3.2 while staying believable",
+      "An INA219 needs its calibration register at 0x05 programmed before current and power mean anything, while an INA226 converts straight out of reset"
+    ]
+  },
+  {
+    "id": "sx127x-vs-sx126x-ra01",
+    "name": "Ai-Thinker Ra-01 family mixes SX127x and SX126x radios",
+    "category": "hardware_trap",
+    "summary": "Ra-01 and Ra-02 carry an SX1278 and Ra-01H an SX1276, but Ra-01S carries an SX1268 and Ra-01SH an SX1262, a wholly different command architecture on the same footprint. An SX127x library aborts because the register it probes is absent.",
+    "aliases": [
+      "sx1276",
+      "sx1278",
+      "sx1268",
+      "sx1262",
+      "ra-01",
+      "ra-02",
+      "ra-01s",
+      "ra-01sh",
+      "ra-01h",
+      "llcc68",
+      "regversion 0x42",
+      "radiolib",
+      "spreading factor 12",
+      "facteur d etalement",
+      "lora begin returns zero"
+    ],
+    "facts": [
+      "SX127x drivers probe RegVersion at 0x42 and expect 0x12; SX126x parts are opcode driven with no register there, so begin returns zero and the board looks absent",
+      "Ai-Thinker documents the split: Ra-01 and Ra-02 hold an SX1278, Ra-01H an SX1276, Ra-01S an SX1268 and Ra-01SH an SX1262",
+      "RegVersion cannot separate an SX1276 from an SX1278, since Semtech documents them as identical apart from the supported radio bands, so a board matched for 433 MHz driven at 868 transmits outside its network",
+      "RadioLib needs a different class per family, and an Ra-01SH marked LLCC68 has to be driven through the SX1262 class",
+      "Parts marked LLCC68 support spreading factors 5 to 11 only, where SX1262 and SX1268 reach 12, so a spreading factor of 12 fails to configure in silence"
+    ]
+  },
+  {
+    "id": "tm1637-6digit-reversed",
+    "name": "Six-digit TM1637 boards address digits in two reversed blocks",
+    "category": "hardware_trap",
+    "summary": "Four-digit and six-digit TM1637 boards share the chip, the two-wire interface and the product name, but the six-digit board wires its digits as two reversed groups of three. Writing 123456 prints 321654.",
+    "aliases": [
+      "tm1637",
+      "six digit display",
+      "321654",
+      "digit order reversed",
+      "ordre des chiffres inverse",
+      "blocks of three digits",
+      "tm1637tinydisplay",
+      "setbitdelay",
+      "tm1637_6d",
+      "pull up on dio",
+      "afficheur six chiffres",
+      "digit remap table"
+    ],
+    "facts": [
+      "Reproducible test: write 123456. A six-digit board renders 321654, because the two blocks of three digits are internally reversed",
+      "The remedy is a digit remap table, not a different library call; libraries supporting both ship that map explicitly",
+      "Clone boards omit the 10 kilohm pull-ups the TM1637 datasheet calls for on the data and clock lines; a 1 kilohm pull-up from data to 3.3 volts fixes the corrupted transfers",
+      "The bit delay defaults to 10 microseconds: lowering it to zero works on some boards and corrupts data on pull-up-less clones, because the data line never reaches a valid high",
+      "Two four-digit variants also circulate under one name, one with a decimal point per digit and one with a colon in the middle; the colon is a segment bit of the second digit, not a separate device"
+    ]
+  },
+  {
+    "id": "tm1638-led-key-vs-qyf",
+    "name": "TM1638 boards needing different driver classes",
+    "category": "hardware_trap",
+    "summary": "Several boards carry a TM1638 and are all sold as TM1638 module, yet one drives a common cathode display with eight buttons and another a common anode display with a sixteen key pad. One class on the other board garbles the digits.",
+    "aliases": [
+      "tm1638",
+      "led and key",
+      "qyf-tm1638",
+      "lkm1638",
+      "common anode display",
+      "sixteen key pad",
+      "eight buttons",
+      "tm1638plus",
+      "tm16xx",
+      "chiffres illisibles",
+      "clavier seize touches",
+      "interleaved key numbering"
+    ],
+    "facts": [
+      "Three boards circulate: one with eight digits, eight red lights and eight buttons, one common anode with sixteen keys as a four by four pad, and one with eight bi-colour lights",
+      "Common anode transposes the digit and segment axes, so the sixteen key board needs its own driver class rather than a parameter",
+      "Key numbering on the eight button board is interleaved rather than sequential, which reads as random buttons until the mapping is applied",
+      "The sixteen key board returns its keys as a sixteen bit value through a dedicated method, which the eight button read cannot express",
+      "The eight button board has no short circuit diodes, so pressing more than two keys at once returns wrong results by design"
+    ]
+  },
+  {
+    "id": "28byj48-gearbox-ratio-mismatch",
+    "name": "The 28BYJ-48 gearbox ratio differs from the printed figure",
+    "category": "hardware_trap",
+    "summary": "The stepper shipped with every ULN2003 board is specified as a 64 to 1 reduction but measures 63.68395 to 1, so step counts taken from the marking accumulate a positional error. Two coil voltages also ship in the same blue can.",
+    "aliases": [
+      "28byj-48",
+      "28byj48",
+      "uln2003",
+      "63.68395",
+      "2038 steps",
+      "4076 steps",
+      "stride angle",
+      "in1 in3 in2 in4",
+      "phase resistance",
+      "derive angulaire",
+      "moteur pas a pas bleu",
+      "gearbox ratio"
+    ],
+    "facts": [
+      "The measured gearbox is 63.68395 to 1, giving 2038 full steps per output turn rather than the 2048 the nominal figure predicts, so about half a percent of drift accumulates every revolution",
+      "The stride angle printed on the label derives from the nominal figure and inherits the same error",
+      "Two coil voltages share an identical blue housing: measure the phase resistance, the five volt unit is specified near 50 ohms while twelve volt units measure several times that",
+      "The harm is asymmetric: a twelve volt unit driven at five volts merely loses torque, a five volt unit driven at twelve overheats",
+      "Pin order does not follow the connector order: the Arduino Stepper constructor must be given in one, in three, in two, in four, or the shaft vibrates instead of turning"
+    ]
+  },
+  {
+    "id": "ina3221-breakout-shared-rail",
+    "name": "Common INA3221 breakouts bridge all three inputs to one pin",
+    "category": "hardware_trap",
+    "summary": "The widely cloned INA3221 breakout ties its three positive inputs together to a single supply pin, so the three channels cannot watch three independent rails. The chip is genuine; the board removes the very feature it is bought for.",
+    "aliases": [
+      "ina3221",
+      "cjmcu-3221",
+      "three channels one rail",
+      "shared positive input",
+      "r100 shunt",
+      "r010 shunt",
+      "identical bus voltage across channels",
+      "cut trace rework",
+      "trois voies une alimentation",
+      "triple channel monitor"
+    ],
+    "facts": [
+      "Reproducible check without opening anything: feed three different voltages and read the three bus voltage registers. Identical readings across channels prove the bridge",
+      "On the affected layout the three positive inputs are bridged to one supply pin and every ground is common, so the channels necessarily share one rail",
+      "Purple and black boards are electrically identical; on the purple ones the traces are easier to follow, which is how owners check their own revision",
+      "The documented remedy is cutting the traces on both faces where the shunts meet the shared pours, then wiring separate connectors",
+      "The default shunt on these boards is 0.1 ohm, and reworking it to 0.01 for higher current changes the scaling the software must apply"
+    ]
+  },
+  {
+    "id": "mq135-ppm-without-referent",
+    "name": "MQ-135 parts per million rest on a reference nobody measures",
+    "category": "hardware_trap",
+    "summary": "The MQ-135 is one tin dioxide element whose datasheet reference point is defined in ammonia, not in carbon dioxide, and must be measured on each individual unit. The library everyone copies ships a placeholder reference, so its parts per million figure has no referent.",
+    "aliases": [
+      "mq-135",
+      "mq135",
+      "rzero 76.63",
+      "rload 10.0",
+      "atmoco2 397.13",
+      "ratio rs ro",
+      "100 ppm ammonia",
+      "ammoniac",
+      "tin dioxide element",
+      "ppm sans referent",
+      "cross sensitivity",
+      "capteur de gaz non etalonne"
+    ],
+    "facts": [
+      "The datasheet defines the reference resistance in clean air at 100 parts per million of ammonia, at 20 degrees and 65 percent humidity, with a 20 kilohm load, so every figure is a ratio against an ammonia anchor rather than a carbon dioxide one",
+      "The widely copied library hardcodes a reference of 76.63 and a load of 10 kilohms, half the datasheet standard, and its own source carries the author note doubting the datasheet",
+      "That reference varies unit to unit even within one batch, so it has to be measured per element rather than copied",
+      "One element responds to ammonia, nitrogen oxides, alcohol, benzene, smoke and carbon dioxide at once, so a single resistance cannot attribute the change to any one of them",
+      "The baseline constant 397.13 is a frozen 2014 outdoor figure, and ambient carbon dioxide has since moved past 420, so even a calibrated unit drifts against its own anchor"
+    ]
+  },
+  {
+    "id": "mfrc522-clone-version-register",
+    "name": "MFRC522 clones announce themselves in the version register",
+    "category": "hardware_trap",
+    "summary": "A large share of RC522 breakouts carry a Fudan FM17522 die or an outright counterfeit instead of the NXP part on the listing. The reference library already names the part for you, but only in the one sketch nobody runs first.",
+    "aliases": [
+      "mfrc522",
+      "rc522",
+      "fm17522",
+      "fudan",
+      "versionreg",
+      "version register 0x37",
+      "firmware version 0x92",
+      "firmware version 0x88",
+      "pcd_dumpversiontoserial",
+      "pcd_performselftest",
+      "firmware_check sketch",
+      "rfid tag never scanned",
+      "carte rfid jamais lue"
+    ],
+    "facts": [
+      "Run the firmware_check sketch: it reads the version register at 0x37 and prints the raw byte. Genuine NXP parts answer 0x90, 0x91 or 0x92",
+      "A version byte of 0x88 is a Fudan FM17522 clone, which the library source labels as such and prints as clone; a byte of 0x12 prints as counterfeit",
+      "A reading of 0x00 or 0xFF is a wiring fault rather than a fake, and the library says so: check the SPI link before blaming the die",
+      "Any other value prints as unknown, and if that reading is permanent rather than intermittent the board is fake or defective",
+      "The self test compares 64 buffer bytes against a per-version table and gives up for any version outside the four known ones, so a clone with an unlisted version cannot be validated at all"
+    ]
+  },
+  {
+    "id": "ds3231-module-charges-the-coin-cell",
+    "name": "The ZS-042 board charges a cell that must never be charged",
+    "category": "hardware_trap",
+    "summary": "The DS3231 die holds no charger at all: the charging path is drawn by the module designer, from the supply through a 200 ohm resistor and a diode into the cell holder. It was sized for a rechargeable cell, and the boards circulate with primary cells fitted.",
+    "aliases": [
+      "zs-042",
+      "zs042",
+      "lir2032",
+      "cr2032",
+      "coin cell swollen",
+      "pile bombee",
+      "200 ohm charging resistor",
+      "1n4148 charging path",
+      "rtc backup cell charged",
+      "remove the charging resistor",
+      "ds3231 pin 14",
+      "clock module battery holder"
+    ],
+    "facts": [
+      "Measurement that decides it: power the module from 5 volts and meter the coin cell in place. Above 3.3 volts means the charging path is live and the cell is being pushed",
+      "The path is external to the chip, a 200 ohm resistor plus a diode between the supply and the cell holder, which is why the DS3231 datasheet says nothing about it",
+      "On a 5 volt rail roughly 5 milliamps flow into a chemistry rated for zero charging current; the cell swells, vents or bursts, and a bulging cell should be discarded",
+      "Remedy: unsolder either the 200 ohm resistor or the diode, taking care NOT to cut the track that runs from the cell to pin 14 of the DS3231",
+      "Running the board from 3.3 volts leaves no headroom past the diode drop, so no charging occurs without any modification at all"
+    ]
+  },
+  {
+    "id": "motor-shield-v2-all-call-address",
+    "name": "Motor Shield V2 answers a second address nobody assigned it",
+    "category": "hardware_trap",
+    "summary": "The shield replies to the address set by its jumpers and also to the all-call address, which is enabled at power-up and which no jumper controls. Anything else parked there collides with a shield that appears, by its silkscreen, to be elsewhere.",
+    "aliases": [
+      "motor shield v2",
+      "pca9685",
+      "all call address",
+      "allcalladr",
+      "mode1 allcall bit",
+      "shield answers twice",
+      "jumper address 0x60",
+      "backpack address clash",
+      "scan lists the shield twice",
+      "adresse en double",
+      "stacked boards collide"
+    ],
+    "facts": [
+      "Run a bus scanner with the shield fitted: it reports the shield twice, once at its jumper address and once at the all-call address 0x70",
+      "The controller datasheet states the hazard itself: the default all-call address must not be used as a regular slave address, because it is enabled at power-up",
+      "The board vendor documents the consequence in its own answers: display backpacks defaulting to 0x70 clash with the shield until re-addressed",
+      "Remedy: re-address the other device, or clear the all-call bit, bit 0 of the mode register, after init; its power-up default is 1"
+    ]
+  },
+  {
+    "id": "lsm303-name-hides-five-chips",
+    "name": "LSM303 names five chips with three incompatible register maps",
+    "category": "hardware_trap",
+    "summary": "A board silkscreened LSM303 can carry a DLH, DLM, DLHC, D or AGR die. The AGR answers on exactly the same two addresses as the DLHC but puts its magnetometer output in a different register block, so a DLHC driver reads sound accelerometer values beside a mute compass.",
+    "aliases": [
+      "lsm303",
+      "lsm303dlhc",
+      "lsm303agr",
+      "lsm303dlh",
+      "lsm303dlm",
+      "lsm303d",
+      "gy-511",
+      "which lsm303 do i have",
+      "identify register 0x0f returns 0x33",
+      "mag output at 0x68",
+      "axis order x z y",
+      "compass plausible but wrong",
+      "quel lsm303 ai-je"
+    ],
+    "facts": [
+      "Probe the accelerometer at address 0x19 and read register 0x0F: an AGR returns 0x33, while a DLHC has no identity register there at all. That one read separates the two chips that share both addresses",
+      "On an AGR the magnetometer identity sits at register 0x4F returning 0x40, and its output starts at register 0x68 in X, Y, Z order, not at register 0x03 like the DLHC",
+      "On DLM and DLHC parts the output at registers 0x03 to 0x08 is ordered X, Z, Y, while on the DLH it is X, Y, Z, so reading six bytes in order swaps two axes and yields a heading that looks plausible and is wrong",
+      "An LSM303D returns 0x49 at register 0x0F, answers at a single address and puts its magnetometer data at register 0x08; it is not even pin compatible with the earlier carriers",
+      "DLH, DLM and DLHC all return the same identity triplet at registers 0x0A to 0x0C, so that triplet proves the link works and proves nothing about which of the three you hold"
+    ]
+  },
+  {
+    "id": "l3g4200d-gy50-three-gyros",
+    "name": "The GY-50 outline ships as L3G4200D, L3GD20 or L3GD20H",
+    "category": "hardware_trap",
+    "summary": "Successor gyros moved the bus address, so a board sold under one module name simply does not answer where the older sketch looks. The identity register settles it in one read, and a popular driver actively refuses the older die.",
+    "aliases": [
+      "l3g4200d",
+      "l3gd20",
+      "l3gd20h",
+      "gy-50",
+      "gy50",
+      "identity 0xd3",
+      "identity 0xd4",
+      "identity 0xd7",
+      "gyro answers at 0x6a",
+      "device_4200d",
+      "pololu l3g",
+      "245 dps versus 250 dps",
+      "gyroscope autodetect"
+    ],
+    "facts": [
+      "Read register 0x0F: 0xD3 is an L3G4200D, 0xD4 an L3GD20, 0xD7 an L3GD20H",
+      "The address blocks differ: an L3G4200D answers at 0x68 or 0x69 while the successors answer at 0x6A or 0x6B, so a scan finding nothing at 0x68 should look higher before wiring is blamed",
+      "A widely used Adafruit driver accepts only 0xD4 and 0xD7 and rejects an L3G4200D outright, while the Pololu library accepts all three and picks the address itself",
+      "Full scale wording shifts too, 250 degrees per second on the older part against 245 on the successors, so a hardcoded scaling constant is only approximate across the swap"
+    ]
+  },
+  {
+    "id": "hmc6352-eight-bit-address",
+    "name": "The HMC6352 address printed everywhere is the eight-bit form",
+    "category": "hardware_trap",
+    "summary": "The vendor documents the slave address as 0x42 to write and 0x43 to read, the eight-bit form with the direction bit already in place. Arduino takes seven-bit addresses, so the value that works is 0x21, and a scanner reporting 0x21 makes a beginner conclude the module is faulty.",
+    "aliases": [
+      "hmc6352",
+      "address 0x42 write 0x43 read",
+      "use 0x21 with wire",
+      "eight bit address shifted",
+      "scanner shows 0x21",
+      "heading in tenths of a degree",
+      "value 0 to 3599",
+      "command byte a",
+      "adresse decalee d un bit",
+      "no atan2 needed"
+    ],
+    "facts": [
+      "Pass 0x21 to the wire library, which is 0x42 shifted right by one bit; both numbers describe the same chip",
+      "Run a scanner: a healthy part shows at 0x21 and nowhere else, so seeing 0x21 while every tutorial says 0x42 is the expected state, not a fault",
+      "The address lives in memory location 0x00 and is user changeable within 0x10 to 0xF6, so a second hand module can genuinely sit elsewhere and the scan is the only way to know",
+      "The part answers with a heading already computed in tenths of a degree from 0 to 3599, so dividing by ten is the whole conversion and no angle maths is needed"
+    ]
+  },
+  {
+    "id": "itg3200-reserved-full-scale-at-reset",
+    "name": "ITG-3200 boots in a reserved full scale and its scale factor does not apply",
+    "category": "hardware_trap",
+    "summary": "The power-on value of the full scale field is zero, and the datasheet marks codes 0, 1 and 2 as reserved: only code 3 has a specified range and a specified scale factor. Readings still respond to motion, so nothing looks broken while every value in degrees per second is off by an unspecified factor.",
+    "aliases": [
+      "itg-3200",
+      "itg3200",
+      "fs_sel reserved",
+      "set fs_sel to 03h",
+      "dlpf_fs register 0x16",
+      "scale factor 14.375",
+      "pwr_mgm register 0x3e",
+      "internal relaxation oscillator",
+      "pll with x gyro reference",
+      "gyro angle drifts after calibration"
+    ],
+    "facts": [
+      "Write 0x18 to register 0x16: the datasheet says the reset value is zero and instructs to set the full scale field to 3 for proper operation",
+      "The 14.375 counts per degree per second that every tutorial divides by is specified only under that setting, so applied to a chip left at reset it has no stated meaning",
+      "Write 0x01 to register 0x3E: the power-up clock is the internal relaxation oscillator, and the datasheet highly recommends one of the gyros or an external clock instead, for stability",
+      "An integrated angle built on the reset clock drifts for a reason no amount of zero-rate calibration removes",
+      "Register 0 is not a fixed signature: it holds the bus address and is writable, so a matching value proves an address rather than a part"
+    ]
+  },
+  {
+    "id": "mcp41xxx-is-not-a-mechanical-pot",
+    "name": "Digital potentiometers carry one milliamp and forget their setting",
+    "category": "hardware_trap",
+    "summary": "The name digital potentiometer promises a knob you can command, and it is not one: the wiper is rated one milliamp, the lowest code is tens of ohms rather than zero, and the wiper snaps back to mid scale at every power-up.",
+    "aliases": [
+      "mcp41010",
+      "mcp42010",
+      "mcp41xxx",
+      "mcp42xxx",
+      "wiper current one milliamp",
+      "wiper reset to mid scale",
+      "code 00h is 52 ohms",
+      "volatile wiper register",
+      "digital pot forgets setting",
+      "potentiometre numerique",
+      "rs pin returns to mid scale",
+      "cannot drive a load"
+    ],
+    "facts": [
+      "The wiper current is specified between minus and plus one milliamp, so driving a light, a motor or a speaker through the wiper is outside spec by an order of magnitude where a mechanical knob passes tens",
+      "Wiper resistance at the lowest code is 52 ohms typical and 100 maximum on the 10 kilohm parts, and 125 typical on the 50 kilohm parts, so turning it all the way down never reaches zero",
+      "The datasheet is explicit that the wiper resets to mid scale at power-up and that the reset pin does the same in hardware: the setting is volatile and any project surviving a power cycle must re-send it at boot",
+      "Reproducible check: set a distinctive code, cut power, restore it and read the divider. Mid rail means this family; the stored value means a different, non volatile family"
+    ]
+  },
+  {
+    "id": "ads7830-interleaved-channels",
+    "name": "ADS7830 channel numbers are interleaved in the command byte",
+    "category": "hardware_trap",
+    "summary": "The die is genuine and in production; the trap is entirely in the command byte. Single-ended channel numbers are interleaved, so indexing them in order samples the wrong physical pin on six channels out of eight, with plausible values throughout.",
+    "aliases": [
+      "ads7830",
+      "interleaved channel order",
+      "command byte channel",
+      "canaux entrelaces",
+      "single ended selection",
+      "reads the wrong pin",
+      "pd1 bit",
+      "internal reference off",
+      "reference tied to vin",
+      "eight channel converter",
+      "adafruit_ads7830",
+      "scale by vin not by 2.5"
+    ],
+    "facts": [
+      "The reference library spells the interleaving out: channel 0 is command 0x08, channel 2 is 0x09, channel 4 is 0x0A, channel 6 is 0x0B, then channel 1 is 0x0C. Only channels 0 and 7 fall where naive indexing expects them",
+      "Asking for channel 1 by shifting the index actually samples physical channel 2, and asking for channel 2 samples channel 4",
+      "The internal reference defaults to OFF at power-up, so the PD1 bit must be set on every conversion when using it, and the first read after enabling it is invalid and should be discarded",
+      "The Adafruit breakout ties its reference pin to the supply, while its own library defaults to the internal reference ON, which the datasheet forbids in that configuration. Pass the external reference mode explicitly and scale by the supply, not by 2.5 volts",
+      "Address 0x48 identifies nothing here: an ADS1115 and a PCF8591 occupy the same address block, and one kit ships either part under one name"
+    ]
+  },
+  {
+    "id": "tsl2561-library-checks-the-wrong-nibble",
+    "name": "TSL2561 driver tests the revision nibble instead of the part number",
+    "category": "hardware_trap",
+    "summary": "The die is genuine, but the reference driver identifies the part by masking the revision half of the identity register rather than the part-number half. It therefore refuses sound parts and welcomes dies of an entirely different family.",
+    "aliases": [
+      "tsl2561",
+      "identity register 0x0a",
+      "revision nibble",
+      "part number nibble",
+      "no tsl2561 detected",
+      "mask 0x05",
+      "quartet de revision",
+      "saturation returns 65536",
+      "overload printout",
+      "adafruit_tsl2561",
+      "tsl2591 replacement"
+    ],
+    "facts": [
+      "The driver reads the identity register then tests it against mask 0x05, whose two bits both live inside the revision half, so the part number is never examined at all",
+      "A datasheet-conformant part reads 0x5R. Of the sixteen possible revisions twelve are refused by that mask, while 0x00 -- a different chip entirely -- passes",
+      "Real boards are reported returning 0x0A from that register across different years and vendors, so the refusal message names neither a wiring fault nor a counterfeit: check the library version first",
+      "An earlier attempt to fix this shipped an operator precedence slip and bricked previously sound boards, so pinning an older release is a real remedy",
+      "Saturation is the mirror image: the driver returns 65536 when the part is blinded, while its own shipped example tests for a reading of zero and prints an overload message in darkness instead"
+    ]
+  },
+  {
+    "id": "mmc5603-identity-register-reads-zero",
+    "name": "MMC5603 identity register reads zero and the driver accepts it",
+    "category": "hardware_trap",
+    "summary": "The product identifier that should name the chip reads 0x00 on real parts, so the driver was patched to accept 0x00 and now reports success for almost any device at that address, including a different magnetometer that shares it.",
+    "aliases": [
+      "mmc5603",
+      "mmc5983ma",
+      "identity reads zero",
+      "product id register 0x39",
+      "identity register 0x2f",
+      "begin returns true proves nothing",
+      "continuous mode frozen",
+      "data rate must be non zero",
+      "auto set reset",
+      "axes swapped on the silkscreen",
+      "axes inverses serigraphie",
+      "memsic magnetometer"
+    ],
+    "facts": [
+      "Read the product identifier at register 0x39 yourself and log it: 0x10 confirms an MMC5603, while 0x00 is ambiguous and could be anything",
+      "An MMC5603 and an MMC5983MA both answer at address 0x30, so a bus scan separates nothing; read 0x39 expecting 0x10 and 0x2F expecting 0x30, and exactly one should match",
+      "Setting continuous mode without first setting a non zero data rate freezes the readings forever, because the chip refuses continuous mode at rate zero while the driver reports it as active from a software cache",
+      "Symptom of that: X, Y and Z identical on every read, and the temperature reading coming back as no number at all",
+      "The Adafruit breakout has X and Y swapped on its silkscreen, reported by two people and still open, so verify empirically which printed axis tracks north before writing any heading code"
+    ]
+  },
+  {
+    "id": "ina169-shunt-100x",
+    "name": "INA169 breakouts ship two shunt values a hundred apart",
+    "category": "hardware_trap",
+    "summary": "Two vendors sell an INA169 board with the same chip and different sense resistors, 10 ohms against 0.1. Neither silkscreen says so, and the same sketch moved between them reports a current wrong by a factor of one hundred.",
+    "aliases": [
+      "ina169",
+      "shunt 10 ohm",
+      "shunt 0.1 ohm",
+      "sen-12040",
+      "one volt per amp",
+      "courant cent fois trop grand",
+      "3.5 ma to 35 ma",
+      "sense resistor value",
+      "resistance de shunt",
+      "current breakout saturates",
+      "swap the shunt"
+    ],
+    "facts": [
+      "The SparkFun board ships with a 10 ohm sense resistor giving a span of 3.5 to 35 milliamps, and its own example sketch hardcodes that value",
+      "The Adafruit board ships with a 0.1 ohm resistor scaled at one volt per amp up to 5 amps, which is exactly one hundred times apart",
+      "Reproducible check: draw a few hundred milliamps. If the output pins near the rail, the board carries the 10 ohm shunt",
+      "The vendor documents swapping it: 10 ohms for 3.5 to 35 milliamps, 1 ohm for 35 to 350, 0.1 ohm for 350 milliamps to 3.5 amps",
+      "Read the value off the board rather than assuming it from the part name, then apply the formula with that number"
+    ]
+  },
+  {
+    "id": "tmc2209-eighth-step-default",
+    "name": "TMC2209 idles at one eighth step and has no full step mode",
+    "category": "hardware_trap",
+    "summary": "Sold as an A4988-shaped drop-in, the TMC2209 does the opposite of an A4988 when its mode pins are grounded: it selects one eighth microstepping where the A4988 selects full step, so a motor commanded two hundred steps advances an eighth of a turn.",
+    "aliases": [
+      "tmc2209",
+      "silentstepstick",
+      "one eighth microstep",
+      "no full step mode",
+      "ms1 ms2 uart address",
+      "stealthchop",
+      "spreadcycle",
+      "huitieme de pas",
+      "moteur tourne trop peu",
+      "steps per mm eight times off",
+      "drop-in a4988"
+    ],
+    "facts": [
+      "The vendor configuration table shows both mode pins grounded selecting one eighth steps with interpolation, and there is NO combination that yields full step at all",
+      "The pins carry internal pull-downs, so leaving them unconnected also selects one eighth",
+      "The A4988 table gives full step for the same all-low combination, which is what makes the swap silently wrong: every commanded move comes out eight times too short",
+      "Enable the serial interface and those same two pins stop choosing microsteps entirely: they carry the slave address, bit 0 and bit 1, giving four addresses",
+      "Reproducible check: command exactly two hundred pulses on a 1.8 degree motor. Less than a full turn at the shaft confirms a microstepped mode"
+    ]
+  },
+  {
+    "id": "stspin220-ten-volt-ceiling",
+    "name": "STSPIN220 has the A4988 footprint but dies above ten volts",
+    "category": "hardware_trap",
+    "summary": "This carrier matches the A4988 in size, pinout and interface, so it drops into the same socket. Its motor supply tops out at ten volts where the A4988 accepts thirty-five, so the twelve volts a stepper normally runs on destroys it.",
+    "aliases": [
+      "stspin220",
+      "stspin820",
+      "ten volt ceiling",
+      "motor supply 1.8 to 10",
+      "mode3 mode4 latched",
+      "microstep latched at power up",
+      "detruit par 12 volts",
+      "drop-in socket a4988",
+      "standby release latches"
+    ],
+    "facts": [
+      "Motor supply is specified from 1.8 to 10 volts, and the vendor steers higher voltage users to the STSPIN820, which runs from 7 to 45",
+      "The A4988 it physically replaces runs from 8 to 35 volts, so the two overlap only between 8 and 10 and the usual 12 or 24 volt supply is outside the range entirely",
+      "The vendor hedges its compatibility claim with phrases easy to miss: the pinout matches in most respects, and it drops in for many applications",
+      "Microstep selection is latched rather than static: two of the resolution inputs share pins with step and direction, and their values are read at power-up or when standby is released",
+      "Consequence: rewiring those pins while the driver runs changes nothing, because they are already acting as step and direction"
+    ]
+  },
+  {
+    "id": "tca9548a-collides-at-its-own-address",
+    "name": "The multiplexer bought to fix address clashes arrives in one",
+    "category": "hardware_trap",
+    "summary": "The TCA9548A defaults to an address that a servo driver, a display backpack and a humidity part also answer. Worse, the servo driver replies there through its all-call address whatever its own is set to, so the clash cannot be fixed from that side.",
+    "aliases": [
+      "tca9548a",
+      "i2c multiplexer address",
+      "multiplexeur i2c",
+      "strap to 0x71",
+      "a0 a1 a2 straps",
+      "qwiic mux",
+      "channel select acknowledged by the wrong chip",
+      "downstream devices never enumerate",
+      "mux et carte servo",
+      "tca9548a conflit d adresse",
+      "tca9548a address clash",
+      "multiplexeur reste seul au scan"
+    ],
+    "facts": [
+      "The multiplexer ships at address 0x70 and straps from 0x70 to 0x77 via its three address pins; pulling the first one high clears the clash",
+      "A public device directory lists eight parts at that address, including a display backpack, a servo driver and a humidity part",
+      "The servo driver case cannot be fixed by re-addressing it: its all-call address is enabled at power-up and every one of them acknowledges there until firmware disables it. The multiplexer is the part that must move",
+      "Symptom: a scan shows a device at 0x70 and the multiplexer seems to answer, but channel writes are acknowledged by the other chip, so nothing downstream ever appears",
+      "Sequence when a servo driver and a multiplexer share a bus: move the multiplexer first, confirm two separate addresses in a scan, then bring up the channels"
+    ]
+  },
+  {
+    "id": "guva-s12sd-gain-varies",
+    "name": "GUVA-S12SD boards amplify the same photocurrent very differently",
+    "category": "hardware_trap",
+    "summary": "The die outputs a photocurrent and every breakout wraps it in its own amplifier: 4.3 volts per microamp on one board, about six times that on another, and ten times more again on an older run of the same board. The index formula copied into every tutorial fits only one of them.",
+    "aliases": [
+      "guva-s12sd",
+      "guva s12sd",
+      "uv index formula",
+      "indice uv",
+      "4.3 volts per microamp",
+      "second stage gain",
+      "1m versus 10m feedback",
+      "output rails in sunlight",
+      "photocurrent to voltage",
+      "bypass the second stage"
+    ],
+    "facts": [
+      "One vendor board is a single stage at 4.3 volts per microamp, so one microamp of photocurrent gives 4.3 volts out",
+      "Another adds a second stage of about six times, so the same light gives roughly six times the reading, and an older run of that board used a ten times larger feedback resistor on the first stage",
+      "The two circulating index formulas both assume the low gain configuration, so on a two stage board the index is only valid after physically bypassing the second stage",
+      "Reproducible check: read the output in direct midday sun. A few hundred millivolts is the low gain build; a reading pinned near the supply is a high gain build and any index computed from it is meaningless"
+    ]
+  },
+  {
+    "id": "lps28-fs-mode-halves-sensitivity",
+    "name": "LPS28DFW halves its counts per hectopascal in the second range",
+    "category": "hardware_trap",
+    "summary": "The part has two full scale ranges, and switching to the wider one changes the conversion constant from 4096 to 2048 counts per hectopascal. Code that keeps dividing by the first reports exactly half the true pressure, with no flag and a plausible number.",
+    "aliases": [
+      "lps28dfw",
+      "lps28",
+      "4096 counts per hectopascal",
+      "2048 counts per hectopascal",
+      "fs_mode bit",
+      "pression divisee par deux",
+      "506 hpa at sea level",
+      "dual full scale barometer",
+      "threshold scales with mode"
+    ],
+    "facts": [
+      "Sensitivity is 4096 counts per hectopascal in the narrow range and 2048 in the wide one, so the divisor must follow the active mode",
+      "Signature symptom: a sea level reading near 506 rather than about 1013 hectopascals, an exact halving rather than drift or noise",
+      "The interrupt threshold register scales the same way, so a threshold ported between modes fires at the wrong pressure too",
+      "The default address is 0x5C with an alternate selectable by jumper, so a scan cannot tell a mis-scaled part from a sound one"
+    ]
+  },
+  {
+    "id": "sen5x-sel-pin-selects-i2c",
+    "name": "SEN5x stays mute unless its select pin is grounded",
+    "category": "hardware_trap",
+    "summary": "The module powers up in serial mode and speaks the two-wire bus only if its select pin is tied to ground, before or as it powers up. Wire the bus perfectly and the module stays absent from a scan, unexplained by anything printed on the board.",
+    "aliases": [
+      "sen5x",
+      "sen50",
+      "sen54",
+      "sen55",
+      "sel pin to ground",
+      "broche de selection",
+      "modbus by default",
+      "absent du scan",
+      "fan will not spin at 3.3",
+      "nox only on sen55"
+    ],
+    "facts": [
+      "Pin 5 is the interface select and must be pulled to ground to choose the two-wire bus; left floating the module answers only on the serial link",
+      "The grounding must happen before or at the moment of power-up: pulling it low afterwards leaves the module on the serial link, so power-cycle after wiring it",
+      "The module needs 5 volts on its supply, since the internal fan requires that rail to spin reliably, while its logic tolerates both levels",
+      "The three variants are pin identical and share the command set but measure different quantities: only the top one reports nitrogen oxides, and asking a lesser one returns an unavailable value rather than an error"
+    ]
+  },
+  {
+    "id": "sht15-two-wire-is-not-i2c",
+    "name": "The SHT15 clock and data pins are not an I2C bus",
+    "category": "hardware_trap",
+    "summary": "The breakout exposes supply, ground, clock and data, so it gets wired to the I2C pins and driven with the standard library. The datasheet states the part cannot be addressed by I2C at all: a scanner will never list it, because it has no slave address.",
+    "aliases": [
+      "sht15",
+      "sht10",
+      "sht11",
+      "sht1x",
+      "sensirion two wire",
+      "absent du scanner i2c",
+      "no slave address exists",
+      "transmission start sequence",
+      "connection reset nine pulses",
+      "bit bang protocol library",
+      "pull up on data line"
+    ],
+    "facts": [
+      "The datasheet says it outright: the sensor cannot be addressed by I2C, though it can share the wires without disturbing other devices. An empty scan is the EXPECTED result for a healthy part",
+      "The frame carries no address byte: a transmission start sequence, then three address bits of which only all-zero is supported, then five command bits",
+      "The data line needs an external pull-up around 10 kilohms, and the host must only ever drive it low, never high",
+      "After a measure command the host waits for the sensor to pull data low, up to 320 milliseconds at the finest resolution. Recovery is the vendor's own connection reset: hold data high and toggle the clock nine times or more",
+      "Self-heating budget: the part should be active under a tenth of the time, so about one measurement per second, or the readings run warm"
+    ]
+  },
+  {
+    "id": "sht25-unpowered-clamps-the-bus",
+    "name": "An unpowered SHT25 pulls the bus lines to ground",
+    "category": "hardware_trap",
+    "summary": "The datasheet states that with its supply at zero volts the clock and data pads are pulled to ground as well, blocking the bus. A loose supply wire, or switching the part off from a pin to save power, silently removes every OTHER device.",
+    "aliases": [
+      "sht25",
+      "sht2x",
+      "capteur non alimente bloque le bus",
+      "clamps the bus lines",
+      "scanner trouve plus rien",
+      "hold master clock stretching",
+      "no hold master polling",
+      "adresse fixe 0x40",
+      "alimenter depuis une broche"
+    ],
+    "facts": [
+      "The datasheet is explicit: with the supply set to zero volts the clock and data pads are pulled to ground too, and the bus is blocked for as long as that lasts",
+      "Diagnostic: if a scanner lists NOTHING at all after this part joined a previously sound bus, meter both lines. Near zero with pull-ups fitted means something is clamping them; unplug this part's supply and see whether the others reappear",
+      "This rules out the common trick of powering a part from a digital pin to sleep it: driving that supply low is exactly the blocking condition",
+      "Its address is fixed at 0x40 with no address pin, shared with a whole family, so two of them need a multiplexer and a scan cannot say which family member answered",
+      "Hold-master commands keep the clock low for the whole conversion, which some bus controllers time out on; the no-hold variants leave the bus free and are polled instead"
+    ]
+  },
+  {
+    "id": "us100-jumper-selects-serial-mode",
+    "name": "The US-100 rear jumper switches it out of trigger and echo mode",
+    "category": "hardware_trap",
+    "summary": "It looks and pins out like the common ultrasonic module, so it gets wired as one and driven with pulse timing. A shunt on the rear header selects the protocol: fitted, the module answers only on a serial link and the timing code waits forever.",
+    "aliases": [
+      "us-100",
+      "us100",
+      "cavalier a l arriere",
+      "jumper on the back",
+      "commande 0x55",
+      "commande 0x50",
+      "distance en millimetres",
+      "trig tx echo rx",
+      "pulse timing returns zero",
+      "temperature compensated ultrasonic"
+    ],
+    "facts": [
+      "With the rear jumper removed it behaves like the classic module, trigger and echo. With the jumper fitted the same two pins carry a serial link at 9600 baud",
+      "On the serial link, send 0x55 and read two bytes giving the distance in millimetres, most significant first; send 0x50 for the temperature byte. No trigger pulse exists in that mode",
+      "Diagnostic without rewiring: hook a terminal at 9600 baud to the two signal pins and send 0x55. Two bytes back proves the jumper is fitted",
+      "Its echo output follows the supply rail rather than being fixed at five volts, so copying the divider wiring used for the classic module adds an error on a 3.3 volt board",
+      "It carries a temperature sensor and compensates the speed of sound, so a disagreement with the classic module as ambient changes is this part behaving correctly"
+    ]
+  },
+  {
+    "id": "drv8825-vref-differs-from-a4988",
+    "name": "A DRV8825 in an A4988 socket runs hotter at the same trimmer setting",
+    "category": "hardware_trap",
+    "summary": "The carrier shares the footprint and control interface, so it is swapped in without touching the current trimmer. The two boards convert the reference voltage to coil current with different constants, and the pin that fed the older part its logic supply is now a fault output.",
+    "aliases": [
+      "drv8825",
+      "reference voltage times two",
+      "trimmer relocated",
+      "fault output replaces logic supply",
+      "moteur chauffe apres swap",
+      "sense resistor 0.100",
+      "sense resistor 0.068",
+      "one thirty second microstep",
+      "orienter par les broches marquees",
+      "reglage de courant driver"
+    ],
+    "facts": [
+      "On this carrier the current limit is simply the reference voltage times two, while the A4988 divides it by eight times its sense resistor",
+      "At an untouched reference of 0.80 volts that gives 1.60 amps here against 1.00 on a common A4988 clone, sixty percent more current into the same motor",
+      "The pin that supplied logic voltage on the A4988 is this part's fault output, since it needs no logic supply, so a board feeding it there is back-driving an open-drain pin",
+      "The current trimmer sits at a different end of the board, so orient by the labelled direction, ground, enable and motor pins, never by the trimmer position",
+      "Microstepping differs too, reaching one thirty-second where the older part stops at one sixteenth, so the same mode jumpers give a different step count"
+    ]
+  },
+  {
+    "id": "sim800l-wants-a-four-volt-rail",
+    "name": "SIM800L wants 3.4 to 4.4 volts, so neither board rail feeds it",
+    "category": "hardware_trap",
+    "summary": "The bare breakout has a supply pin like any module, but the specification is 3.4 to 4.4 volts: the five volt rail is over the maximum and the 3.3 volt rail is under the shutdown floor. Transmit bursts pull up to two amps.",
+    "aliases": [
+      "sim800l",
+      "3.4 to 4.4 volts",
+      "burst of two amps",
+      "s eteint tout seul",
+      "powers itself down",
+      "vbat bulk capacitor",
+      "buck converter set to four volts",
+      "impedance under 150 milliohms",
+      "module gsm redemarre",
+      "registration drops the rail"
+    ],
+    "facts": [
+      "The vendor specifies 3.4 to 4.4 volts with 4.0 recommended, and states the module powers itself down outside that window. The five volt pin exceeds the maximum and the 3.3 volt pin is below the minimum",
+      "The transmitting burst causes a voltage drop and the supply must deliver up to two amps, which is why a switching converter is recommended over a linear regulator",
+      "Total impedance between a lithium cell and the supply pins must stay under 150 milliohms: long jumper wires and a breadboard rail already blow that budget, so an adequate battery still browns out",
+      "Reproducible check: watch the supply pin while the module registers on the network. A dip crossing 3.4 volts that coincides with the module going quiet is it powering itself down, rather than a firmware fault",
+      "Standard remedy: a two amp switching converter set to 4.0 volts plus a large bulk capacitor across the supply pins, physically close"
+    ]
+  },
+  {
+    "id": "esp8266-needs-more-than-the-board-rail",
+    "name": "The board 3.3 volt pin is rated 50 mA, the radio draws 170",
+    "category": "hardware_trap",
+    "summary": "An ESP-01 wired to the board's 3.3 volt pin powers up and answers commands, then resets the instant the radio transmits. The chip is rated 170 milliamps typical transmitting, the pin 50 maximum: a shortfall of more than three times.",
+    "aliases": [
+      "esp-01",
+      "esp8266",
+      "170 milliamps transmitting",
+      "50 milliamps pin rating",
+      "reset au moment de rejoindre le wifi",
+      "repond aux commandes puis coupe",
+      "tension de service 2.5 a 3.6",
+      "regulateur separe 3.3",
+      "diviseur resistif interdit",
+      "broche rx limitee a 3.6 volts"
+    ],
+    "facts": [
+      "The chip datasheet gives 170 milliamps typical while transmitting and about 50 receiving, while the board specification rates its 3.3 volt pin at 50 maximum",
+      "Signature symptom that separates this from a wiring fault: the module replies to commands while it merely receives, then cuts out on the first join or connect, which is the first moment the radio transmits at full power",
+      "Supply range runs from 2.5 to 3.6 volts, so the five volt rail sits outside the absolute maximum and the chip tolerates 3.6 at most",
+      "Its receive pin tops out at 3.6 volts too, so a five volt transmit line needs a level shifter independently of the supply question",
+      "The remedy is a separate regulator sized for the burst, around half an amp, with grounds tied together. A resistor divider off five volts collapses under a 170 milliamp step"
+    ]
+  },
+  {
+    "id": "wiz820io-is-a-w5200",
+    "name": "WIZ820io runs a W5200, which the old Ethernet library cannot drive",
+    "category": "hardware_trap",
+    "summary": "Bought as the compact stand-in for the classic Ethernet shield, this module carries a different controller with a different register layout. Every stock example compiles, and the begin call fails without saying why on any library older than 2.0.",
+    "aliases": [
+      "wiz820io",
+      "w5200",
+      "w5100",
+      "w5500",
+      "wiz850io",
+      "version register 0x001f",
+      "ethernet library 2.0.0",
+      "begin echoue sans message",
+      "not recommended for new design",
+      "module ethernet 3.3 volts"
+    ],
+    "facts": [
+      "The controller inside is a W5200, not the W5100 of the classic shield, and the vendor lists the module as not recommended for new design with support ended",
+      "The check that settles which controller is present: the W5200 has a version register at 0x001F reading 0x03. The W5100 has no version register at all, and the W5500 keeps its at 0x0039 reading 0x04",
+      "The Arduino library only gained automatic detection of the three controllers in version 2.0.0, so anything older drives the W5100 exclusively: check the library version before re-checking the wiring",
+      "The module is 3.3 volt only, with no regulator or level translation on board, so both power and the serial bus must be handled at that level",
+      "The successor in the same footprint carries a W5500, so migrating is a controller and library change rather than a re-layout"
+    ]
+  },
+  {
+    "id": "tmp102-half-degree-is-typical",
+    "name": "The TMP102 half-degree figure is typical, the guarantee is two",
+    "category": "hardware_trap",
+    "summary": "The front page of the datasheet advertises half a degree without calibration, and that number is copied into every listing. In the electrical table it sits in the typical column: the guaranteed maximum is two degrees over the useful range.",
+    "aliases": [
+      "tmp102",
+      "tmp112",
+      "typique contre maximum",
+      "guaranteed two degrees",
+      "resolution 0.0625",
+      "ecart d un degre au thermometre",
+      "extended mode bit",
+      "supply 1.4 to 3.6 volts",
+      "pin compatible accurate version"
+    ],
+    "facts": [
+      "The electrical table gives half a degree typical and TWO degrees maximum between minus twenty-five and eighty-five, and one typical against three maximum over the full range. A part reading one and a half degrees off a reference is inside specification",
+      "The vendor's own comparison table lists the TMP112 at half a degree MAXIMUM in the same pin-compatible package: if the guarantee is what you need, the part number is wrong rather than the wiring",
+      "Resolution is not accuracy: one step is 0.0625 degrees, so the reading shows four convincing digits wrapped around a two degree guarantee",
+      "Supply is 1.4 to 3.6 volts, so the five volt rail is over the absolute maximum, while the open-drain bus itself needs no level shifter",
+      "While debugging a suspicious value, read the mode bit of the second temperature byte: it says whether the part is in twelve or thirteen bit alignment, so the shift can be checked rather than assumed"
+    ]
+  },
+  {
+    "id": "tmp006-object-temperature-is-uncalibrated",
+    "name": "TMP006 returns a thermopile voltage, not an object temperature",
+    "category": "hardware_trap",
+    "summary": "The part has no object temperature register. It gives a raw thermopile voltage and a die temperature, and the object figure is a polynomial whose leading constant belongs to each individual sensor and its window. Every board ships one hardcoded value.",
+    "aliases": [
+      "tmp006",
+      "tmp007",
+      "thermopile voltage",
+      "constante s0",
+      "two point calibration",
+      "emissivity above 0.7",
+      "champ de vision 110 degres",
+      "surface brillante",
+      "polynome code en dur",
+      "abandonne par le fabricant"
+    ],
+    "facts": [
+      "The library reads exactly two registers, the thermopile voltage and the die temperature, and computes the rest in software from constants that are identical on every board sold",
+      "The vendor guide says the leading constant is found by a two-point calibration, meaning per assembled system: a shared literal is a placeholder, and no averaging in the sketch improves it",
+      "Default coefficients assume a black body of emissivity 0.95 and a 110 degree field of view; the vendor guideline is to use it only above 0.7, so polished metal is out of range while the part still returns a confident number",
+      "That field of view means a cone average rather than a spot: at ten centimetres it averages a patch roughly twenty-eight across, so aiming at a small object mostly measures its background",
+      "The maker declared the family end-of-life citing the complexity of system calibration for its customers, with no replacement planned"
+    ]
+  },
+  {
+    "id": "si1145-uv-index-is-inferred",
+    "name": "The SI1145 has no ultraviolet photodiode at all",
+    "category": "hardware_trap",
+    "summary": "Sold as a digital ultraviolet index part, it contains no ultraviolet sensing element: the index is computed from its visible and infrared channels using solar coefficients. Away from direct sun the number is an extrapolation with no ultraviolet content behind it.",
+    "aliases": [
+      "si1145",
+      "indice uv calcule",
+      "aucune photodiode ultraviolette",
+      "approximates from visible and infrared",
+      "ucoef registers",
+      "veml6075 instead",
+      "ltr390 instead",
+      "indice eleve sous une lampe",
+      "derriere une vitre",
+      "obsolete chez silicon labs"
+    ],
+    "facts": [
+      "The vendor states it plainly: the part contains no actual ultraviolet sensing element and approximates the index from visible and infrared light from the sun",
+      "Reproducible check: the reported index rises under an incandescent lamp, which has strong infrared and no ultraviolet, and collapses in sun behind infrared-blocking glazing, where real ultraviolet is present. A true ultraviolet photodiode behaves the opposite way in both tests",
+      "The derivation rests on four coefficient registers holding factory constants tuned for a solar spectrum, and the maker revised the recommended defaults at a later datasheet revision, so two drivers calibrate identical hardware differently",
+      "The visible and infrared channels are real measurements and remain trustworthy; only the index is derived",
+      "Both order codes are obsolete and the breakout is discontinued, so a board in a drawer is old stock that no library update will change"
+    ]
+  },
+  {
+    "id": "hdc3021-tape-still-over-the-element",
+    "name": "The HDC3021 ships with protective tape over its element",
+    "category": "hardware_trap",
+    "summary": "It leaves the factory with tape bonded over the humidity element to survive reflow and washing, and boards ship with it still attached. Its successor carries a white filter that must STAY on, so one guide carries two opposite instructions.",
+    "aliases": [
+      "hdc3021",
+      "hdc3022",
+      "hdc3020",
+      "ruban de protection",
+      "protective sticker remove before use",
+      "polyimide tape",
+      "filtre ptfe blanc a garder",
+      "humidite figee",
+      "temperature juste humidite plate",
+      "peler vers le haut"
+    ],
+    "facts": [
+      "The vendor warns that the part comes with a protective sticker on top which must be removed before use; the board arrives with it on, and neither the part number nor the silkscreen mentions it",
+      "The maker gives the reason and the obligation: the tape shields the element from manufacturing pollutants and must be removed after the final stages of assembly for accurate readings. It survives three reflow cycles, which is why it is still there",
+      "Symptom is a half-measuring part: temperature tracks a reference correctly while relative humidity sits near a fixed value and barely moves when you breathe on the board. Look at the element under a light before suspecting the bus or the driver",
+      "Removal technique matters because the element scratches: grip the adhesive-free tab at a corner with tweezers and peel diagonally upward rather than sliding across the surface",
+      "The opposite rule applies to the successor sold on the same listing: an amber clear tape is peeled off, a white porous disc is left alone"
+    ]
+  },
+  {
+    "id": "hdc1008-successor-drops-the-address-pins",
+    "name": "The HDC1080 that replaces the HDC1008 loses its address pins",
+    "category": "hardware_trap",
+    "summary": "The older part is end of life, and the one people buy instead is no drop-in twin: it has no address-select pins, so it is stuck at one address, and it answers the identity check with a different value that older drivers refuse.",
+    "aliases": [
+      "hdc1008",
+      "hdc1080",
+      "hdc1050",
+      "identity 0x1000",
+      "identity 0x1050",
+      "plus de broches d adresse",
+      "deux capteurs sur un seul bus",
+      "bibliotheque trop ancienne",
+      "manufacturer identity 0x5449"
+    ],
+    "facts": [
+      "The older part has two address-select pins giving four addresses, so up to four share one bus. The newer one has none and is fixed at a single address, so a two-part design needs a multiplexer after the swap",
+      "The identity check moved: the value reported by the identity register changed from 0x1000 to 0x1050 with the newer family, and older drivers refuse anything outside their accepted list",
+      "Diagnostic for the confusing case, where a scanner finds a device but the driver reports nothing there: read the maker identity register, which must give 0x5449, then the device identity. A value of 0x1050 with a refusing driver means the library is too old",
+      "The maker marks the older part as end of life while keeping it available to existing customers"
+    ]
+  },
+  {
+    "id": "si4713-mute-until-reset-is-pulsed",
+    "name": "The Si4713 answers nothing until a pin toggles its reset line",
+    "category": "hardware_trap",
+    "summary": "The transmitter stays silent on the bus until its reset line has been driven low and back high by a microcontroller pin, so a scan at power-up returns an empty bus and the board seems absent. Its address is strapped rather than fixed.",
+    "aliases": [
+      "si4713",
+      "reset a basculer avant tout dialogue",
+      "toggle reset before communicating",
+      "scan vide au demarrage",
+      "sen strap pin",
+      "adresse 0x63 ou 0x11",
+      "emetteur fm rds",
+      "aucune adresse au demarrage"
+    ],
+    "facts": [
+      "The vendor is explicit: the reset pin must toggle before you start communicating with the chip. Leaving it unconnected yields an empty scan with no message",
+      "Correct order: drive reset low, brief delay, drive it high, brief delay, and only then start the bus or run the scanner",
+      "The address is strapped rather than fixed: pulled high by default it answers at 0x63, shorted to ground it answers at 0x11, so a stray solder bridge relocates it",
+      "Diagnostic: scan once before pulsing reset and once after. An empty result before and a device after confirms a sound board and a missing reset"
+    ]
+  },
+  {
+    "id": "ds3502-powers-up-writing-to-eeprom",
+    "name": "The DS3502 wakes in the mode where every wiper write burns memory",
+    "category": "hardware_trap",
+    "summary": "Its control register is volatile and comes up cleared, which puts the part in the mode where a wiper write is also programmed into nonvolatile memory. A driver that skips the mode bit turns a fade into tens of thousands of writes, and the part degrades gradually.",
+    "aliases": [
+      "ds3502",
+      "mode bit du registre de controle",
+      "wiper write burns eeprom",
+      "endurance 50000 ecritures",
+      "positions cessent d etre prises",
+      "write only to wiper",
+      "initial value register",
+      "fondu qui use le composant"
+    ],
+    "facts": [
+      "Two registers decide it: the wiper at 0x00 and the control register at 0x02, whose top bit selects volatile-only writes. With that bit clear, every wiper write is also programmed into nonvolatile memory",
+      "The control register is volatile and powers up cleared, so the memory-writing mode is active on every single power-up, and the board gives no sign of it",
+      "Endurance is rated and finite: a minimum of fifty thousand writes at 70 degrees. A sweep of a hundred and twenty-eight steps is one write per step, so a sustained fade reaches the rating in minutes, and the decline is gradual rather than a clean error",
+      "The vendor drivers already guard this by writing the top bit at initialisation, yet neither documents why, so a hand-rolled driver omits it silently",
+      "Diagnostic: after your driver initialises, read back the control register. A cleared value means every wiper update is being burned in"
+    ]
+  },
+  {
+    "id": "adxl335-is-ratiometric-to-its-regulator",
+    "name": "The five-volt-ready ADXL335 board never swings near five volts",
+    "category": "hardware_trap",
+    "summary": "The board takes five volts in and regulates them to 3.3, and the outputs are ratiometric to that lower rail, so on a five-volt-referenced converter zero gravity lands nowhere near mid-scale. The product page also overstates the span.",
+    "aliases": [
+      "adxl335",
+      "gy-61",
+      "ratiometrique au regulateur",
+      "zero g at 1.65 volts",
+      "338 counts a plat",
+      "330 millivolts per g",
+      "aref externe",
+      "0.66 to 2.64 volts",
+      "angle d inclinaison decale",
+      "analogreference external"
+    ],
+    "facts": [
+      "Reproducible bench check with the stock five volt reference and a ten-bit converter: lay the board flat and still. Two axes should read about 338 counts and the vertical one about 405. A sketch assuming 512 means zero carries a constant offset near 2.6 g",
+      "The outputs are ratiometric to the regulated 3.3 volts, so zero gravity sits at 1.65 volts rather than half of five",
+      "The datasheet contradicts the product page on the span: at 3.3 volts sensitivity is about 330 millivolts per g, so plus or minus three g occupies 0.66 to 2.64 volts rather than the full rail. Mapping the whole rail under-reads by about 1.67 times, and mapping five volts by 2.5",
+      "With the five volt reference the whole range occupies about 406 of 1024 counts, so sixty percent of the converter is thrown away for nothing",
+      "Fix: feed the board's own 3.3 volt output to the reference pin and select the external reference. Do it BEFORE the first analog read, or the internal and external references are shorted together and the microcontroller can be damaged"
+    ]
+  },
+  {
+    "id": "gy33-mcu-in-front-of-tcs34725",
+    "name": "The GY-33 hides its TCS34725 behind an onboard microcontroller",
+    "category": "hardware_trap",
+    "summary": "Sold under the name of the colour chip it carries, this board interposes its own microcontroller: it answers at 0x5A while the bare chip sits at 0x29, unreachable from outside. A driver written for the chip therefore addresses an empty slot.",
+    "aliases": [
+      "gy-33",
+      "gy33",
+      "reponse a 0x5a",
+      "silence a 0x29",
+      "microcontroleur intercale",
+      "tcs34725 introuvable au scan",
+      "mode uart selectionne sur la carte",
+      "bibliotheque de la puce inoperante",
+      "carte couleur a microcontroleur",
+      "adafruit tcs34725 finds an empty address"
+    ],
+    "facts": [
+      "The board carries its own microcontroller between the host bus and the colour chip, so what answers on the bus is that microcontroller, and the TCS34725 stays behind it",
+      "Addresses are the visible signature: this board answers at 0x5A, while a transparent TCS34725 breakout answers at 0x29",
+      "Reproducible check: run a bus scan. A device at 0x5A with silence at 0x29 identifies this board; a transparent breakout shows exactly the reverse",
+      "Consequence for the driver: a library written for the bare chip talks to 0x29, reports an absent device, and the message reads as a wiring fault when the wiring is sound",
+      "The board also offers a serial interface, selected on the board itself, and a dedicated library exists for it precisely because the chip's own library cannot drive it -- the existence of a board-specific library IS the warning sign",
+      "Public reports show the raw chip address never appearing in a scan of this board, which is what an interposed controller produces"
+    ]
+  },
+  {
+    "id": "mhz19b-black-pcb-imitation",
+    "name": "A black MH-Z19B board is an imitation, and its CO2 reads LOW",
+    "category": "hardware_trap",
+    "summary": "Winsen builds this CO2 module on a GREEN board. Imitations use a black one, and they under-report ppm -- the dangerous direction, since a room that needs airing then reads as acceptable. The giveaway is visible before any code runs.",
+    "aliases": [
+      "mh-z19b",
+      "mhz19b",
+      "mhz19",
+      "co2 ppm trop bas",
+      "circuit imprime noir",
+      "black pcb imitation",
+      "boitier lisse sans relief",
+      "1500 ppm au lieu de 2500",
+      "cable livre incorrect",
+      "brochage imprime divergent",
+      "capteur co2 winsen contrefait",
+      "ndir co2 module"
+    ],
+    "facts": [
+      "Board colour is the first check and it costs nothing: a genuine MH-Z19B is GREEN, and a BLACK pcb is the sign reported across an entire specialist review of these CO2 imitations",
+      "Housing differs too: the genuine casing carries raised contours and embossed texturing, while the imitation is completely smooth and often slightly yellowish, and it lacks the RoHS marking",
+      "Measured side by side in one published comparison, genuine units read about 2400 to 2600 ppm while an imitation read 1500 ppm in the same air. The error runs LOW, so poor air quality reads as fine",
+      "Imitations ship with the wrong cable, and the pin labels printed on them disagree with the real arrangement, so verify the pinout against Winsen documentation BEFORE applying power",
+      "⚠️ Two claims often repeated about these imitations were checked on 2026-08-27 and appear on NO source that could be opened: a 10000 ppm range reported at startup, and a calibration constant of 436 in place of 410. Rely on the visible signs above; treat those two as rumour"
+    ]
+  },
+  {
+    "id": "mcp23017-vs-mcp23s17",
+    "name": "The MCP23S17 shares the MCP23017 pinout and speaks SPI, never I2C",
+    "category": "hardware_trap",
+    "summary": "One letter separates two chips that share a package, a pinout and a register map. The MCP23017 speaks I2C; the MCP23S17 speaks SPI only. Put an MCP23S17 on an I2C bus and the scan stays empty, which looks like a wiring mistake and is none.",
+    "aliases": [
+      "mcp23017",
+      "mcp23s17",
+      "expandeur de broches muet sur i2c",
+      "scan i2c vide 0x20 a 0x27",
+      "un s au milieu de la reference",
+      "broche 11 cs ou libre",
+      "port expander spi contre i2c",
+      "meme brochage interface differente",
+      "gpio expander 16 broches",
+      "i2c scanner empty for a port expander"
+    ],
+    "facts": [
+      "Microchip documents both chips in a SINGLE datasheet and states the difference in one line: they differ only in the serial interface, I2C for the MCP23017 and SPI for the MCP23S17. Same 28-pin package, same register map, same 16 gpio lines",
+      "The one visible difference on the board is pin 11: chip select on the SPI part, left unconnected on the I2C part",
+      "Consequence, and it is total: an MCP23S17 answers NOTHING on I2C. The scan finds an empty bus, which looks exactly like a missing pull-up or a swapped SDA and SCL pair",
+      "Diagnostic that settles it in ten seconds: read the marking printed on the chip itself. An S between 23 and 17 means the SPI variant, and rewiring I2C will never help",
+      "Three address straps give 0x20 through 0x27 on the I2C part, so an empty scan across that WHOLE block points at the chip rather than at one address"
+    ]
+  }
+]

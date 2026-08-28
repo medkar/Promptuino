@@ -1,0 +1,2828 @@
+{
+  "schema_version": 2,
+  "results": [
+    {
+      "prompt": "je veux savoir a quelle altitude je suis quand je pars randonner",
+      "lang": "fr",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "i want to know how high up i am when i go hiking",
+      "lang": "en",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "quiero saber a que altura estoy cuando salgo de excursion",
+      "lang": "es",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "voglio sapere a che altezza mi trovo quando vado in escursione",
+      "lang": "it",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "lire l'altitude avec un BMP085",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "read the altitude with a BMP085",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "leer la altitud con un BMP085",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "leggere l'altitudine con un BMP085",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "savoir si le temps va changer dans les prochaines heures",
+      "lang": "fr",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "know if the weather is going to change in the next few hours",
+      "lang": "en",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "saber si el tiempo va a cambiar en las proximas horas",
+      "lang": "es",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "sapere se il tempo cambiera nelle prossime ore",
+      "lang": "it",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "faire une petite station meteo avec un BMP180",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "build a small weather station with a BMP180",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "hacer una pequena estacion meteorologica con un BMP180",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "fare una piccola stazione meteo con un BMP180",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "afficher vers quel point cardinal mon robot avance",
+      "lang": "fr",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "show which cardinal direction my robot is heading",
+      "lang": "en",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "mostrar hacia que punto cardinal avanza mi robot",
+      "lang": "es",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "mostrare verso quale punto cardinale avanza il mio robot",
+      "lang": "it",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "lire le cap en degres avec un HMC6352",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "read the heading in degrees with an HMC6352",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "leer el rumbo en grados con un HMC6352",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "leggere la rotta in gradi con un HMC6352",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "savoir si ma carte est penchee et de quel cote elle regarde",
+      "lang": "fr",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "know if my board is tilted and which way it is facing",
+      "lang": "en",
+      "band_label": "described/vague",
+      "outcome": "wrong",
+      "stray": [
+        "adxl345"
+      ]
+    },
+    {
+      "prompt": "saber si mi placa esta inclinada y hacia donde mira",
+      "lang": "es",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "sapere se la mia scheda e inclinata e da che parte guarda",
+      "lang": "it",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "utiliser un LSM303 pour connaitre l'orientation",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "use an LSM303 to get the orientation",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "usar un LSM303 para conocer la orientacion",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "usare un LSM303 per conoscere l'orientamento",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "afficher le pourcentage de batterie qui reste sur mon projet portable",
+      "lang": "fr",
+      "band_label": "described/vague",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "show the battery percentage left on my portable project",
+      "lang": "en",
+      "band_label": "described/vague",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "mostrar el porcentaje de bateria que queda en mi proyecto portatil",
+      "lang": "es",
+      "band_label": "described/vague",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "mostrare la percentuale di batteria rimasta sul mio progetto portatile",
+      "lang": "it",
+      "band_label": "described/vague",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "lire l'etat de charge avec un MAX17048",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "read the state of charge with a MAX17048",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "leer el estado de carga con un MAX17048",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "leggere lo stato di carica con un MAX17048",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "enregistrer mes mesures dans un fichier que j'ouvrirai sur mon ordinateur",
+      "lang": "fr",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "save my readings into a file i can open later on my computer",
+      "lang": "en",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "guardar mis mediciones en un archivo que abrire luego en el ordenador",
+      "lang": "es",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "salvare le mie misure in un file da aprire poi sul computer",
+      "lang": "it",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "brancher un microSD card module pour stocker mes donnees",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "wire a microSD card module to store my data",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "conectar un microSD card module para guardar mis datos",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "collegare un microSD card module per salvare i miei dati",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "detecter quand ma boite est secouee ou renversee",
+      "lang": "fr",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "detect when my box gets shaken or knocked over",
+      "lang": "en",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "detectar cuando mi caja se agita o se vuelca",
+      "lang": "es",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "rilevare quando la mia scatola viene scossa o rovesciata",
+      "lang": "it",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "detecter les chocs avec un MMA8452Q",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "detect knocks with an MMA8452Q",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "detectar golpes con un MMA8452Q",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "rilevare gli urti con un MMA8452Q",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "compter le nombre d'etages que j'ai montes a pied",
+      "lang": "fr",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "count how many floors i climbed on foot",
+      "lang": "en",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "contar cuantos pisos he subido a pie",
+      "lang": "es",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "contare quanti piani ho salito a piedi",
+      "lang": "it",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "mesurer le denivele avec un MPL3115A2",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "measure the elevation change with an MPL3115A2",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "medir el desnivel con un MPL3115A2",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "misurare il dislivello con un MPL3115A2",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "faire douze touches sensibles au doigt, sans rien de mecanique a enfoncer",
+      "lang": "fr",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "make twelve finger touch keys with nothing mechanical to press",
+      "lang": "en",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "hacer doce teclas sensibles al dedo sin ningun boton mecanico",
+      "lang": "es",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "fare dodici tasti sensibili al dito senza nessun pulsante meccanico",
+      "lang": "it",
+      "band_label": "described/vague",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "gerer mes touches tactiles avec un MPR121",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "handle my touch keys with an MPR121",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "gestionar mis teclas tactiles con un MPR121",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "gestire i miei tasti tattili con un MPR121",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "declencher le ventilateur de la salle de bain quand il y a trop de vapeur",
+      "lang": "fr",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "turn on the bathroom fan when there is too much steam",
+      "lang": "en",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "encender el ventilador del bano cuando hay demasiado vapor",
+      "lang": "es",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "accendere il ventilatore del bagno quando c'e troppo vapore",
+      "lang": "it",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "lire l'air ambiant avec un SHT25",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "read the ambient air with an SHT25",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "leer el aire ambiente con un SHT25",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "leggere l'aria ambiente con un SHT25",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "imprimer un petit ticket en papier quand quelqu'un appuie dessus",
+      "lang": "fr",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "print a small paper receipt when someone presses on it",
+      "lang": "en",
+      "band_label": "described/vague",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "imprimir un pequeno ticket de papel cuando alguien pulsa el boton",
+      "lang": "es",
+      "band_label": "described/vague",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "stampare un piccolo scontrino di carta quando qualcuno preme il pulsante",
+      "lang": "it",
+      "band_label": "described/vague",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "piloter un module thermal printer pour mes tickets",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "drive a thermal printer module for my receipts",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "controlar un modulo thermal printer para mis tickets",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "pilotare un modulo thermal printer per i miei scontrini",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "surveiller la temperature dans mon armoire electrique",
+      "lang": "fr",
+      "band_label": "described/vague",
+      "outcome": "wrong",
+      "stray": [
+        "dallas-temperature",
+        "mcp9808",
+        "max6675"
+      ]
+    },
+    {
+      "prompt": "keep an eye on the temperature inside my electrical cabinet",
+      "lang": "en",
+      "band_label": "described/vague",
+      "outcome": "wrong",
+      "stray": [
+        "max6675",
+        "mcp9808",
+        "mlx90614"
+      ]
+    },
+    {
+      "prompt": "vigilar la temperatura dentro de mi armario electrico",
+      "lang": "es",
+      "band_label": "described/vague",
+      "outcome": "wrong",
+      "stray": [
+        "max6675",
+        "mcp9808",
+        "dallas-temperature"
+      ]
+    },
+    {
+      "prompt": "tenere d'occhio la temperatura dentro il mio quadro elettrico",
+      "lang": "it",
+      "band_label": "described/vague",
+      "outcome": "wrong",
+      "stray": [
+        "dallas-temperature",
+        "mcp9808",
+        "max6675"
+      ]
+    },
+    {
+      "prompt": "lire la temperature avec un TMP102",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "read the temperature with a TMP102",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "leer la temperatura con un TMP102",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "leggere la temperatura con un TMP102",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "brancher mon montage au reseau de la maison avec un cable au lieu du wifi",
+      "lang": "fr",
+      "band_label": "described/vague",
+      "outcome": "wrong",
+      "stray": [
+        "nrf24l01"
+      ]
+    },
+    {
+      "prompt": "connect my project to the home network with a cable instead of wifi",
+      "lang": "en",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "conectar mi montaje a la red de casa con un cable en lugar de wifi",
+      "lang": "es",
+      "band_label": "described/vague",
+      "outcome": "wrong",
+      "stray": [
+        "nrf24l01"
+      ]
+    },
+    {
+      "prompt": "collegare il mio progetto alla rete di casa con un cavo invece del wifi",
+      "lang": "it",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "utiliser un module WIZ820io pour le reseau",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "use a WIZ820io module for the network",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "usar un modulo WIZ820io para la red",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "usare un modulo WIZ820io per la rete",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "envoyer mes mesures vers mon telephone par le wifi de la maison",
+      "lang": "fr",
+      "band_label": "described/vague",
+      "outcome": "wrong",
+      "stray": [
+        "nrf24l01"
+      ]
+    },
+    {
+      "prompt": "send my readings to my phone over the home wifi",
+      "lang": "en",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "enviar mis mediciones a mi telefono por el wifi de casa",
+      "lang": "es",
+      "band_label": "described/vague",
+      "outcome": "wrong",
+      "stray": [
+        "nrf24l01"
+      ]
+    },
+    {
+      "prompt": "inviare le mie misure al telefono tramite il wifi di casa",
+      "lang": "it",
+      "band_label": "described/vague",
+      "outcome": "wrong",
+      "stray": [
+        "nrf24l01"
+      ]
+    },
+    {
+      "prompt": "ajouter le wifi avec un ESP8266 en ESP-01",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "add wifi with an ESP8266 in its ESP-01 form",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "anadir wifi con un ESP8266 en formato ESP-01",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "aggiungere il wifi con un ESP8266 in versione ESP-01",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "recevoir un message sur mon portable quand la pompe s'arrete, il n'y a pas de wifi la-bas",
+      "lang": "fr",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "get a text on my phone when the pump stops, there is no wifi out there",
+      "lang": "en",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "recibir un mensaje en mi movil cuando la bomba se para, alli no hay wifi",
+      "lang": "es",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "ricevere un messaggio sul cellulare quando la pompa si ferma, li non c'e wifi",
+      "lang": "it",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "envoyer un sms avec un SIM800L",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "send an sms with a SIM800L",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "enviar un sms con un SIM800L",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "inviare un sms con un SIM800L",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "declencher une alarme s'il y a de la fumee ou une fuite de gaz dans la cuisine",
+      "lang": "fr",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "sound an alarm if there is smoke or a gas leak in the kitchen",
+      "lang": "en",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "hacer sonar una alarma si hay humo o una fuga de gas en la cocina",
+      "lang": "es",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "far suonare un allarme se c'e fumo o una fuga di gas in cucina",
+      "lang": "it",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "lire la sortie analogique d'un MQ-2",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "read the analog output of an MQ-2",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "leer la salida analogica de un MQ-2",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "leggere l'uscita analogica di un MQ-2",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "compter combien de litres passent dans le tuyau de mon arrosage",
+      "lang": "fr",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "count how many liters go through my garden hose",
+      "lang": "en",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "contar cuantos litros pasan por la manguera del riego",
+      "lang": "es",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "contare quanti litri passano nel tubo dell'irrigazione",
+      "lang": "it",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "utiliser un water flow sensor YF-S201",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "use a YF-S201 water flow sensor",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "usar un water flow sensor YF-S201",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "usare un water flow sensor YF-S201",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "faire avancer un gros moteur qui tourne pas a pas sur ma petite cnc sans qu'il chauffe trop",
+      "lang": "fr",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "drive a big stepper motor on my small cnc without it getting too hot",
+      "lang": "en",
+      "band_label": "described/vague",
+      "outcome": "wrong",
+      "stray": [
+        "stepper"
+      ]
+    },
+    {
+      "prompt": "mover un motor paso a paso grande en mi cnc pequena sin que se caliente demasiado",
+      "lang": "es",
+      "band_label": "described/vague",
+      "outcome": "wrong",
+      "stray": [
+        "accelstepper"
+      ]
+    },
+    {
+      "prompt": "far avanzare un grosso motore passo passo sulla mia piccola cnc senza che scaldi troppo",
+      "lang": "it",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "piloter le moteur avec un DRV8825",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": [
+        "nema17"
+      ]
+    },
+    {
+      "prompt": "drive the motor with a DRV8825",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": [
+        "nema17"
+      ]
+    },
+    {
+      "prompt": "controlar el motor con un DRV8825",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": [
+        "nema17"
+      ]
+    },
+    {
+      "prompt": "pilotare il motore con un DRV8825",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": [
+        "nema17"
+      ]
+    },
+    {
+      "prompt": "mesurer la chaleur d'une casserole sans la toucher",
+      "lang": "fr",
+      "band_label": "described/vague",
+      "outcome": "wrong",
+      "stray": [
+        "max6675"
+      ]
+    },
+    {
+      "prompt": "measure how hot a pan is without touching it",
+      "lang": "en",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "medir lo caliente que esta una sarten sin tocarla",
+      "lang": "es",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "misurare quanto e calda una pentola senza toccarla",
+      "lang": "it",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "mesurer a distance avec un TMP006",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "measure from a distance with a TMP006",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "medir a distancia con un TMP006",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "misurare a distanza con un TMP006",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "prendre la temperature du front a quelques centimetres de distance",
+      "lang": "fr",
+      "band_label": "described/vague",
+      "outcome": "wrong",
+      "stray": [
+        "mcp9808"
+      ]
+    },
+    {
+      "prompt": "take a forehead temperature from a few centimeters away",
+      "lang": "en",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "tomar la temperatura de la frente a unos centimetros de distancia",
+      "lang": "es",
+      "band_label": "described/vague",
+      "outcome": "wrong",
+      "stray": [
+        "mcp9808",
+        "mlx90614",
+        "adt7410"
+      ]
+    },
+    {
+      "prompt": "misurare la temperatura della fronte a qualche centimetro di distanza",
+      "lang": "it",
+      "band_label": "described/vague",
+      "outcome": "wrong",
+      "stray": [
+        "mcp9808",
+        "aht20",
+        "mlx90614"
+      ]
+    },
+    {
+      "prompt": "prendre la temperature avec un TMP007",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "take the temperature with a TMP007",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "tomar la temperatura con un TMP007",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "prendere la temperatura con un TMP007",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "savoir si le soleil est dangereux pour la peau avant de sortir",
+      "lang": "fr",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "know if the sun is dangerous for the skin before going outside",
+      "lang": "en",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "saber si el sol es peligroso para la piel antes de salir",
+      "lang": "es",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "sapere se il sole e pericoloso per la pelle prima di uscire",
+      "lang": "it",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "lire l'indice uv avec un SI1145",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "read the uv index with an SI1145",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "leer el indice uv con un SI1145",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "leggere l'indice uv con un SI1145",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "afficher la temperature de la piece au dixieme de degre pres",
+      "lang": "fr",
+      "band_label": "described/vague",
+      "outcome": "wrong",
+      "stray": [
+        "mcp9808",
+        "dallas-temperature"
+      ]
+    },
+    {
+      "prompt": "show the room temperature down to a tenth of a degree",
+      "lang": "en",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "mostrar la temperatura de la habitacion con una decima de grado",
+      "lang": "es",
+      "band_label": "described/vague",
+      "outcome": "wrong",
+      "stray": [
+        "mcp9808",
+        "aht20"
+      ]
+    },
+    {
+      "prompt": "mostrare la temperatura della stanza fino al decimo di grado",
+      "lang": "it",
+      "band_label": "described/vague",
+      "outcome": "wrong",
+      "stray": [
+        "mcp9808"
+      ]
+    },
+    {
+      "prompt": "mesurer finement avec un ADT7410",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "measure finely with an ADT7410",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "medir con finura con un ADT7410",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "misurare con precisione con un ADT7410",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "regler le volume depuis le code au lieu de tourner une molette a la main",
+      "lang": "fr",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "set the volume from code instead of turning a knob by hand",
+      "lang": "en",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "ajustar el volumen desde el codigo en vez de girar una rueda a mano",
+      "lang": "es",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "regolare il volume dal codice invece di girare una manopola a mano",
+      "lang": "it",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "regler la valeur avec un DS3502",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "set the value with a DS3502",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "ajustar el valor con un DS3502",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "regolare il valore con un DS3502",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "garder un compteur meme apres une coupure de courant, il est reecrit des milliers de fois par jour",
+      "lang": "fr",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "keep a counter through a power cut even though it is rewritten thousands of times a day",
+      "lang": "en",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "guardar un contador tras un corte de luz aunque se reescriba miles de veces al dia",
+      "lang": "es",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "conservare un contatore dopo un'interruzione di corrente anche riscrivendolo migliaia di volte al giorno",
+      "lang": "it",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "stocker mes valeurs dans une memoire FRAM en i2c",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "store my values in an i2c FRAM memory",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "guardar mis valores en una memoria FRAM por i2c",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "salvare i miei valori in una memoria FRAM in i2c",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "connaitre le niveau d'eau dans une cuve grace a la pression dans un tuyau plonge dedans",
+      "lang": "fr",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "find the water level in a tank from the pressure inside a tube dipped in it",
+      "lang": "en",
+      "band_label": "described/vague",
+      "outcome": "correct",
+      "stray": [
+        "lps28"
+      ]
+    },
+    {
+      "prompt": "conocer el nivel de agua de un deposito por la presion en un tubo sumergido",
+      "lang": "es",
+      "band_label": "described/vague",
+      "outcome": "wrong",
+      "stray": [
+        "lps28"
+      ]
+    },
+    {
+      "prompt": "conoscere il livello dell'acqua in una cisterna dalla pressione in un tubo immerso",
+      "lang": "it",
+      "band_label": "described/vague",
+      "outcome": "wrong",
+      "stray": [
+        "lps28"
+      ]
+    },
+    {
+      "prompt": "lire la pression avec un MPRLS",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "read the pressure with an MPRLS",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "leer la presion con un MPRLS",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "leggere la pressione con un MPRLS",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "surveiller l'air de ma petite serre pour que mes semis ne sechent pas",
+      "lang": "fr",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "watch the air in my small greenhouse so my seedlings do not dry out",
+      "lang": "en",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "vigilar el aire de mi pequeno invernadero para que mis plantulas no se sequen",
+      "lang": "es",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "controllare l'aria della mia piccola serra perche le piantine non secchino",
+      "lang": "it",
+      "band_label": "described/vague",
+      "outcome": "wrong",
+      "stray": [
+        "mq135"
+      ]
+    },
+    {
+      "prompt": "lire l'humidite avec un HDC1008",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "read the humidity with an HDC1008",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "leer la humedad con un HDC1008",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "leggere l'umidita con un HDC1008",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "mesurer les vibrations de ma machine a laver sur des entrees analogiques",
+      "lang": "fr",
+      "band_label": "described/vague",
+      "outcome": "wrong",
+      "stray": [
+        "drv2605"
+      ]
+    },
+    {
+      "prompt": "measure the vibration of my washing machine on analog inputs",
+      "lang": "en",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "medir las vibraciones de mi lavadora en entradas analogicas",
+      "lang": "es",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "misurare le vibrazioni della mia lavatrice su ingressi analogici",
+      "lang": "it",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "lire les trois axes d'un ADXL335",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "read the three axes of an ADXL335",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "leer los tres ejes de un ADXL335",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "leggere i tre assi di un ADXL335",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "piloter mon montage depuis une application sur mon telephone sans fil",
+      "lang": "fr",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "control my project from an app on my phone without wires",
+      "lang": "en",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "controlar mi montaje desde una aplicacion del movil sin cables",
+      "lang": "es",
+      "band_label": "described/vague",
+      "outcome": "wrong",
+      "stray": [
+        "drv8833"
+      ]
+    },
+    {
+      "prompt": "pilotare il mio progetto da un'app del telefono senza fili",
+      "lang": "it",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "utiliser un module Bluefruit LE",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "use a Bluefruit LE module",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "usar un modulo Bluefruit LE",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "usare un modulo Bluefruit LE",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "stocker des sons et des images directement sur la carte sans carte memoire",
+      "lang": "fr",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "store sounds and pictures on the board itself without a memory card",
+      "lang": "en",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "guardar sonidos e imagenes en la propia placa sin tarjeta de memoria",
+      "lang": "es",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "salvare suoni e immagini sulla scheda stessa senza schedina di memoria",
+      "lang": "it",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "ecrire des fichiers dans une memoire SPI flash",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "write files into an SPI flash memory",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": [
+        "sharp_memory_display"
+      ]
+    },
+    {
+      "prompt": "escribir archivos en una memoria SPI flash",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": [
+        "sharp_memory_display",
+        "eeprom"
+      ]
+    },
+    {
+      "prompt": "scrivere file in una memoria SPI flash",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": [
+        "sharp_memory_display",
+        "fram"
+      ]
+    },
+    {
+      "prompt": "animer un ruban lumineux tres vite pour dessiner des images en agitant le bras",
+      "lang": "fr",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "animate a lighted strip very fast to draw pictures by waving my arm",
+      "lang": "en",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "animar una tira luminosa muy rapido para dibujar moviendo el brazo",
+      "lang": "es",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "animare una striscia luminosa molto veloce per disegnare agitando il braccio",
+      "lang": "it",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "piloter un ruban DotStar en APA102",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "drive a DotStar strip in APA102",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "controlar una tira DotStar en APA102",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "pilotare una striscia DotStar in APA102",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "mesurer la lumiere en lux de facon precise pour mes plantes d'interieur",
+      "lang": "fr",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "measure the light in lux accurately for my indoor plants",
+      "lang": "en",
+      "band_label": "described/vague",
+      "outcome": "wrong",
+      "stray": [
+        "bh1750"
+      ]
+    },
+    {
+      "prompt": "medir la luz en lux con precision para mis plantas de interior",
+      "lang": "es",
+      "band_label": "described/vague",
+      "outcome": "wrong",
+      "stray": [
+        "bh1750"
+      ]
+    },
+    {
+      "prompt": "misurare la luce in lux con precisione per le mie piante da interno",
+      "lang": "it",
+      "band_label": "described/vague",
+      "outcome": "wrong",
+      "stray": [
+        "bh1750"
+      ]
+    },
+    {
+      "prompt": "lire la luminosite avec un TSL2561",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "read the brightness with a TSL2561",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "leer la luminosidad con un TSL2561",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "leggere la luminosita con un TSL2561",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "un afficheur toujours allume qui ne vide pas la pile et se lit en plein soleil",
+      "lang": "fr",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "a display that stays on all the time, barely drains the battery and reads in bright sun",
+      "lang": "en",
+      "band_label": "described/vague",
+      "outcome": "correct",
+      "stray": [
+        "pcd8544",
+        "sh1106"
+      ]
+    },
+    {
+      "prompt": "una pantalla siempre encendida que casi no gasta pila y se lee a pleno sol",
+      "lang": "es",
+      "band_label": "described/vague",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "un display sempre acceso che quasi non consuma la pila e si legge in pieno sole",
+      "lang": "it",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "afficher sur un SHARP Memory Display",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": [
+        "eink_display"
+      ]
+    },
+    {
+      "prompt": "draw on a SHARP Memory Display",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "dibujar en un SHARP Memory Display",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": [
+        "ssd1351"
+      ]
+    },
+    {
+      "prompt": "disegnare su uno SHARP Memory Display",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "mettre mon montage sur internet pour envoyer des donnees vers un site web",
+      "lang": "fr",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "put my project on the internet to send data to a website",
+      "lang": "en",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "poner mi montaje en internet para enviar datos a una pagina web",
+      "lang": "es",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "mettere il mio progetto su internet per inviare dati a un sito web",
+      "lang": "it",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "se connecter au wifi avec un WINC1500",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "connect to wifi with a WINC1500",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "conectarse al wifi con un WINC1500",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "collegarsi al wifi con un WINC1500",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "diffuser ma musique sur la radio de la voiture garee devant chez moi",
+      "lang": "fr",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "broadcast my music to the radio of the car parked in front of my house",
+      "lang": "en",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "emitir mi musica a la radio del coche aparcado delante de casa",
+      "lang": "es",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "trasmettere la mia musica alla radio dell'auto parcheggiata davanti a casa",
+      "lang": "it",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "emettre en fm avec un Si4713",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "transmit on fm with an Si4713",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "emitir en fm con un Si4713",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "trasmettere in fm con un Si4713",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "lire huit capteurs analogiques alors que ma carte n'a plus d'entrees libres",
+      "lang": "fr",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "read eight analog sensors when my board has no free inputs left",
+      "lang": "en",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "leer ocho sensores analogicos cuando mi placa no tiene entradas libres",
+      "lang": "es",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "leggere otto sensori analogici quando la mia scheda non ha piu ingressi liberi",
+      "lang": "it",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "ajouter des entrees avec un ADS7830",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "add inputs with an ADS7830",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "anadir entradas con un ADS7830",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "aggiungere ingressi con un ADS7830",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "faire une boite a rythme avec seize touches carrees qui s'allument sous le doigt",
+      "lang": "fr",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "build a drum machine with sixteen square keys that light up under the finger",
+      "lang": "en",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "hacer una caja de ritmos con dieciseis teclas cuadradas que se iluminan bajo el dedo",
+      "lang": "es",
+      "band_label": "described/vague",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "fare una drum machine con sedici tasti quadrati che si illuminano sotto il dito",
+      "lang": "it",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "lire les touches d'un Trellis",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "read the keys of a Trellis",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "leer las teclas de un Trellis",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "leggere i tasti di un Trellis",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "detecter le passage d'un aimant sans aucun contact",
+      "lang": "fr",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "detect a magnet going past without any contact",
+      "lang": "en",
+      "band_label": "described/vague",
+      "outcome": "wrong",
+      "stray": [
+        "as5600"
+      ]
+    },
+    {
+      "prompt": "detectar el paso de un iman sin ningun contacto",
+      "lang": "es",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "rilevare il passaggio di una calamita senza alcun contatto",
+      "lang": "it",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "lire le champ magnetique avec un MMC5603",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "read the magnetic field with an MMC5603",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "leer el campo magnetico con un MMC5603",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "leggere il campo magnetico con un MMC5603",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "controler tres precisement l'air dans l'etui de ma guitare pour ne pas abimer le bois",
+      "lang": "fr",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "check very accurately the air inside my guitar case so the wood does not warp",
+      "lang": "en",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "controlar con mucha precision el aire dentro del estuche de mi guitarra para no danar la madera",
+      "lang": "es",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "controllare con molta precisione l'aria dentro la custodia della chitarra per non rovinare il legno",
+      "lang": "it",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "mesurer avec un HDC3021",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "measure with an HDC3021",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "medir con un HDC3021",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "misurare con un HDC3021",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "mesurer le tres faible courant que consomme mon montage sur pile pour estimer son autonomie",
+      "lang": "fr",
+      "band_label": "described/vague",
+      "outcome": "wrong",
+      "stray": [
+        "max17043"
+      ]
+    },
+    {
+      "prompt": "measure the very small current my battery powered project draws to guess how long it lasts",
+      "lang": "en",
+      "band_label": "described/vague",
+      "outcome": "wrong",
+      "stray": [
+        "max17043"
+      ]
+    },
+    {
+      "prompt": "medir la corriente muy pequena que consume mi montaje con pilas para estimar su autonomia",
+      "lang": "es",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "misurare la corrente molto piccola che consuma il mio progetto a pile per stimarne l'autonomia",
+      "lang": "it",
+      "band_label": "described/vague",
+      "outcome": "wrong",
+      "stray": [
+        "max17043"
+      ]
+    },
+    {
+      "prompt": "suivre la consommation avec un INA228",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "track the power draw with an INA228",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "seguir el consumo con un INA228",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "seguire il consumo con un INA228",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "reconnaitre exactement la teinte d'une peinture pour retrouver la meme au magasin",
+      "lang": "fr",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "tell exactly what shade of paint this is so i can buy the same one",
+      "lang": "en",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "reconocer exactamente el tono de una pintura para comprar el mismo en la tienda",
+      "lang": "es",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "riconoscere esattamente la tinta di una vernice per ricomprare la stessa",
+      "lang": "it",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "mesurer la couleur avec un OPT4048",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "measure the color with an OPT4048",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "medir el color con un OPT4048",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "misurare il colore con un OPT4048",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "faire bouger un tout petit moteur qui avance pas a pas sans bruit dans une maquette",
+      "lang": "fr",
+      "band_label": "described/vague",
+      "outcome": "wrong",
+      "stray": [
+        "accelstepper",
+        "stepper_28byj48"
+      ]
+    },
+    {
+      "prompt": "move a very small stepper motor quietly inside a model",
+      "lang": "en",
+      "band_label": "described/vague",
+      "outcome": "wrong",
+      "stray": [
+        "stepper"
+      ]
+    },
+    {
+      "prompt": "mover un motor paso a paso muy pequeno sin ruido dentro de una maqueta",
+      "lang": "es",
+      "band_label": "described/vague",
+      "outcome": "wrong",
+      "stray": [
+        "accelstepper",
+        "stepper_28byj48",
+        "stepper"
+      ]
+    },
+    {
+      "prompt": "muovere un motorino passo passo senza rumore dentro un plastico",
+      "lang": "it",
+      "band_label": "described/vague",
+      "outcome": "wrong",
+      "stray": [
+        "accelstepper",
+        "dc_motor",
+        "stepper"
+      ]
+    },
+    {
+      "prompt": "commander le moteur avec un STSPIN220",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "command the motor with an STSPIN220",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "mandar el motor con un STSPIN220",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "comandare il motore con uno STSPIN220",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "rendre les moteurs de mon imprimante 3d silencieux et les regler par le port serie",
+      "lang": "fr",
+      "band_label": "described/vague",
+      "outcome": "wrong",
+      "stray": [
+        "thermal_printer"
+      ]
+    },
+    {
+      "prompt": "make my 3d printer motors silent and tune them over the serial port",
+      "lang": "en",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "hacer silenciosos los motores de mi impresora 3d y ajustarlos por el puerto serie",
+      "lang": "es",
+      "band_label": "described/vague",
+      "outcome": "wrong",
+      "stray": [
+        "thermal_printer"
+      ]
+    },
+    {
+      "prompt": "rendere silenziosi i motori della mia stampante 3d e regolarli dalla porta seriale",
+      "lang": "it",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "configurer un TMC2209",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "configure a TMC2209",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "configurar un TMC2209",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "configurare un TMC2209",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "brancher quatre capteurs identiques qui ont tous la meme adresse sur le meme bus",
+      "lang": "fr",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "connect four identical sensors that all share the same address on one bus",
+      "lang": "en",
+      "band_label": "described/vague",
+      "outcome": "wrong",
+      "stray": [
+        "apds9960"
+      ]
+    },
+    {
+      "prompt": "conectar cuatro sensores identicos que tienen todos la misma direccion en el mismo bus",
+      "lang": "es",
+      "band_label": "described/vague",
+      "outcome": "wrong",
+      "stray": [
+        "apds9960",
+        "adxl345",
+        "bno055"
+      ]
+    },
+    {
+      "prompt": "collegare quattro sensori identici che hanno tutti lo stesso indirizzo sullo stesso bus",
+      "lang": "it",
+      "band_label": "described/vague",
+      "outcome": "wrong",
+      "stray": [
+        "apds9960"
+      ]
+    },
+    {
+      "prompt": "repartir mes capteurs avec un I2C multiplexer TCA9548A",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "spread my sensors with an I2C multiplexer TCA9548A",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "repartir mis sensores con un I2C multiplexer TCA9548A",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "distribuire i miei sensori con un I2C multiplexer TCA9548A",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "verifier que mon boitier etanche ne prend pas l'eau en surveillant la pression a l'interieur",
+      "lang": "fr",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "check my waterproof box stays sealed by watching the pressure inside it",
+      "lang": "en",
+      "band_label": "described/vague",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "comprobar que mi caja estanca no entra agua vigilando la presion de dentro",
+      "lang": "es",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "verificare che la mia scatola stagna non prenda acqua controllando la pressione interna",
+      "lang": "it",
+      "band_label": "described/vague",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "lire la pression avec un LPS28",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "read the pressure with an LPS28",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "leer la presion con un LPS28",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "leggere la pressione con un LPS28",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "une etiquette qui garde son texte affiche meme quand tout est debranche",
+      "lang": "fr",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "a label that keeps showing its text even when everything is unplugged",
+      "lang": "en",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "una etiqueta que sigue mostrando su texto aunque todo este desenchufado",
+      "lang": "es",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "un'etichetta che continua a mostrare il testo anche con tutto scollegato",
+      "lang": "it",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "afficher mon texte sur un e-ink display",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "show my text on an e-ink display",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "mostrar mi texto en un e-ink display",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "mostrare il mio testo su un e-ink display",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "peser un objet au gramme pres avec un petit capteur de poids branche en i2c",
+      "lang": "fr",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "weigh an object to the gram with a small weight sensor wired over i2c",
+      "lang": "en",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "pesar un objeto al gramo con un pequeno sensor de peso conectado por i2c",
+      "lang": "es",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "pesare un oggetto al grammo con un piccolo sensore di peso collegato in i2c",
+      "lang": "it",
+      "band_label": "described/vague",
+      "outcome": "wrong",
+      "stray": [
+        "lps28"
+      ]
+    },
+    {
+      "prompt": "lire ma balance avec un NAU7802",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "read my scale with a NAU7802",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "leer mi bascula con un NAU7802",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "leggere la mia bilancia con un NAU7802",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "savoir si l'air de la chambre est mauvais a respirer, avec les poussieres et les odeurs",
+      "lang": "fr",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "know if the air in the bedroom is bad to breathe, with the dust and the smells",
+      "lang": "en",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "saber si el aire del dormitorio es malo para respirar, con el polvo y los olores",
+      "lang": "es",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "sapere se l'aria della camera e cattiva da respirare, con le polveri e gli odori",
+      "lang": "it",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "utiliser un capteur Sensirion SEN55",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "use a Sensirion SEN55 sensor",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "usar un sensor Sensirion SEN55",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "usare un sensore Sensirion SEN55",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "afficher un cadran rond comme une montre sur un petit ecran",
+      "lang": "fr",
+      "band_label": "described/vague",
+      "outcome": "correct",
+      "stray": [
+        "st7735"
+      ]
+    },
+    {
+      "prompt": "show a round dial like a watch face on a small screen",
+      "lang": "en",
+      "band_label": "described/vague",
+      "outcome": "correct",
+      "stray": [
+        "pcd8544"
+      ]
+    },
+    {
+      "prompt": "mostrar una esfera redonda como un reloj en una pantalla pequena",
+      "lang": "es",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "mostrare un quadrante rotondo come un orologio su un piccolo schermo",
+      "lang": "it",
+      "band_label": "described/vague",
+      "outcome": "silent",
+      "stray": []
+    },
+    {
+      "prompt": "dessiner sur un ecran GC9A01",
+      "lang": "fr",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "draw on a GC9A01 screen",
+      "lang": "en",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "dibujar en una pantalla GC9A01",
+      "lang": "es",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    },
+    {
+      "prompt": "disegnare su uno schermo GC9A01",
+      "lang": "it",
+      "band_label": "named",
+      "outcome": "correct",
+      "stray": []
+    }
+  ],
+  "ceiling": {
+    "by_case": []
+  }
+}

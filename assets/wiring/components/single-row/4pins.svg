@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="135" height="137.5" viewBox="0 0 135 137.5" version="1.1">
+  <g id="component">
+    <rect id="component-body" x="21" y="1.5" width="112" height="134.5" ry="10" style="fill:#ffffff;stroke:#000083;stroke-width:2"/>
+    <text id="component-name" x="77.0" y="11.5" style="font-size:8px;font-weight:bold;text-anchor:middle;fill:#000083"><tspan x="77.0" y="11.5">Composant</tspan></text>
+    <path d="M 21,33 H 3" style="fill:none;stroke:#000083;stroke-width:2;stroke-linecap:round"/>
+    <circle id="pin-1-pos" cx="3" cy="33" r="2" style="fill:#000083;stroke:#000083"/>
+    <text id="pin-1-label" x="27" y="35.5" style="font-size:8px;text-anchor:start;fill:#000083"><tspan x="27" y="35.5">pin1</tspan></text>
+    <path d="M 21,61 H 3" style="fill:none;stroke:#000083;stroke-width:2;stroke-linecap:round"/>
+    <circle id="pin-2-pos" cx="3" cy="61" r="2" style="fill:#000083;stroke:#000083"/>
+    <text id="pin-2-label" x="27" y="63.5" style="font-size:8px;text-anchor:start;fill:#000083"><tspan x="27" y="63.5">pin2</tspan></text>
+    <path d="M 21,89 H 3" style="fill:none;stroke:#000083;stroke-width:2;stroke-linecap:round"/>
+    <circle id="pin-3-pos" cx="3" cy="89" r="2" style="fill:#000083;stroke:#000083"/>
+    <text id="pin-3-label" x="27" y="91.5" style="font-size:8px;text-anchor:start;fill:#000083"><tspan x="27" y="91.5">pin3</tspan></text>
+    <path d="M 21,117 H 3" style="fill:none;stroke:#000083;stroke-width:2;stroke-linecap:round"/>
+    <circle id="pin-4-pos" cx="3" cy="117" r="2" style="fill:#000083;stroke:#000083"/>
+    <text id="pin-4-label" x="27" y="119.5" style="font-size:8px;text-anchor:start;fill:#000083"><tspan x="27" y="119.5">pin4</tspan></text>
+  </g>
+</svg>

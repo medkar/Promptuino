@@ -1,0 +1,86 @@
+# .superpowers/ : espace de travail des chantiers pilotes par sous-agents
+# (journal, briefs, rapports d'implementation, paquets de revue).
+# VOLONTAIREMENT SUIVI depuis le 2026-07-31 : c'est le seul endroit ou vit
+# le contexte d'un chantier en cours -- le journal des decisions, les
+# rapports des implementeurs, les constatations des revues. L'ignorer
+# rendait impossible de reprendre un chantier sur une autre machine.
+# Les fichiers review-*.diff sont regenerables depuis git ; le reste, non.
+
+# EXCEPTION : les maquettes HTML du compagnon visuel de brainstorming. Elles
+# sont jetables (une par ecran, jamais reutilisee) et la spec qui en sort est
+# ce qui merite d'etre versionne, pas les brouillons qui y menent.
+.superpowers/brainstorm/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+.eggs/
+
+# Captures de QA produites par scripts/screenshot_modals.py et
+# scripts/capture_ui_screenshots.py : REGENERABLES a la commande, donc pas
+# versionnees. A ne pas confondre avec docs/refonte-visuelle/, qui EST suivi :
+# ce sont les captures datees du 2026-06-21, la trace de l'etat d'avant la
+# refonte Direction B -- une preuve, pas un artefact.
+docs/screenshots/
+
+# Installer build : on versionne uniquement les sources (.spec, .iss, .ps1)
+# pas les artefacts (PyInstaller workdir, sortie ISCC, binaire arduino-cli).
+build/*
+!build/*.spec
+!build/*.iss
+!build/*.ps1
+!build/.gitkeep
+build/third_party/arduino-cli.exe
+
+# Environnements virtuels
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+.aider*
+
+# Claude Code local state (project-scoped settings, agents, etc.)
+.claude/
+
+# RAG ONNX model weights (~450 MB) — generated locally via
+# scripts/export_onnx_model.py. Too large for GitHub (>100 MB).
+# tokenizer.json (16 MB) and small configs stay versioned so dev setup is
+# `pip install -r requirements.txt && python scripts/export_onnx_model.py`.
+assets/rag/model/model.onnx
+
+# Cloudflare wrangler — config de déploiement locale (database_id spécifique
+# au compte) + état local de wrangler. Servait au backend de télémétrie,
+# supprimé le 2026-08-28 (TODO #72) ; ignoré par prudence.
+wrangler.toml
+.wrangler/
+
+# Sorties BRUTES des bancs de mesure (scripts/bench_api_ceiling*.py) : les
+# generations une par une, 73 fichiers pour le seul banc du TODO #66.
+#
+# Ignore et non supprime, parce que le dossier REVIENT TOUT SEUL -- la suite de
+# tests le recree. Le supprimer ne ferait que le voir reapparaitre au prochain
+# run_all_tests, et ces trois lignes de `git status` sont exactement le bruit
+# qui rend la discipline `git commit --only` plus fragile : il faut les filtrer
+# a l'oeil a chaque verification d'arbre.
+#
+# Ce qu'on ne perd pas : les CONCLUSIONS de ces bancs sont versionnees dans
+# docs/superpowers/measures/ (2026-08-26-66-plafond-tout-injecter.md pour
+# celui-ci). La matiere premiere, elle, se regenere en rejouant le banc.
+scripts/out/

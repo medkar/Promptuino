@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="146" height="471.0" viewBox="0 0 146 471.0" version="1.1">
+  <g id="component">
+    <rect id="component-body" x="11" y="1.5" width="124" height="468.0" ry="10" style="fill:#ffffff;stroke:#000083;stroke-width:2"/>
+    <text id="component-name" x="73.0" y="11.5" style="font-size:8px;font-weight:bold;text-anchor:middle;fill:#000083"><tspan x="73.0" y="11.5">Composant</tspan></text>
+    <path d="M 11,33 H 3" style="fill:none;stroke:#000083;stroke-width:2;stroke-linecap:round"/>
+    <circle id="pin-1-pos" cx="3" cy="33" r="2" style="fill:#000083;stroke:#000083"/>
+    <text id="pin-1-label" x="17" y="35.5" style="font-size:8px;text-anchor:start;fill:#000083"><tspan x="17" y="35.5">pin1</tspan></text>
+    <path d="M 11,61 H 3" style="fill:none;stroke:#000083;stroke-width:2;stroke-linecap:round"/>
+    <circle id="pin-2-pos" cx="3" cy="61" r="2" style="fill:#000083;stroke:#000083"/>
+    <text id="pin-2-label" x="17" y="63.5" style="font-size:8px;text-anchor:start;fill:#000083"><tspan x="17" y="63.5">pin2</tspan></text>
+    <path d="M 11,89 H 3" style="fill:none;stroke:#000083;stroke-width:2;stroke-linecap:round"/>
+    <circle id="pin-3-pos" cx="3" cy="89" r="2" style="fill:#000083;stroke:#000083"/>
+    <text id="pin-3-label" x="17" y="91.5" style="font-size:8px;text-anchor:start;fill:#000083"><tspan x="17" y="91.5">pin3</tspan></text>
+    <path d="M 11,117 H 3" style="fill:none;stroke:#000083;stroke-width:2;stroke-linecap:round"/>
+    <circle id="pin-4-pos" cx="3" cy="117" r="2" style="fill:#000083;stroke:#000083"/>
+    <text id="pin-4-label" x="17" y="119.5" style="font-size:8px;text-anchor:start;fill:#000083"><tspan x="17" y="119.5">pin4</tspan></text>
+    <path d="M 11,145 H 3" style="fill:none;stroke:#000083;stroke-width:2;stroke-linecap:round"/>
+    <circle id="pin-5-pos" cx="3" cy="145" r="2" style="fill:#000083;stroke:#000083"/>
+    <text id="pin-5-label" x="17" y="147.5" style="font-size:8px;text-anchor:start;fill:#000083"><tspan x="17" y="147.5">pin5</tspan></text>
+    <path d="M 11,173 H 3" style="fill:none;stroke:#000083;stroke-width:2;stroke-linecap:round"/>
+    <circle id="pin-6-pos" cx="3" cy="173" r="2" style="fill:#000083;stroke:#000083"/>
+    <text id="pin-6-label" x="17" y="175.5" style="font-size:8px;text-anchor:start;fill:#000083"><tspan x="17" y="175.5">pin6</tspan></text>
+    <path d="M 11,201 H 3" style="fill:none;stroke:#000083;stroke-width:2;stroke-linecap:round"/>
+    <circle id="pin-7-pos" cx="3" cy="201" r="2" style="fill:#000083;stroke:#000083"/>
+    <text id="pin-7-label" x="17" y="203.5" style="font-size:8px;text-anchor:start;fill:#000083"><tspan x="17" y="203.5">pin7</tspan></text>
+    <path d="M 11,229 H 3" style="fill:none;stroke:#000083;stroke-width:2;stroke-linecap:round"/>
+    <circle id="pin-8-pos" cx="3" cy="229" r="2" style="fill:#000083;stroke:#000083"/>
+    <text id="pin-8-label" x="17" y="231.5" style="font-size:8px;text-anchor:start;fill:#000083"><tspan x="17" y="231.5">pin8</tspan></text>
+    <path d="M 11,257 H 3" style="fill:none;stroke:#000083;stroke-width:2;stroke-linecap:round"/>
+    <circle id="pin-9-pos" cx="3" cy="257" r="2" style="fill:#000083;stroke:#000083"/>
+    <text id="pin-9-label" x="17" y="259.5" style="font-size:8px;text-anchor:start;fill:#000083"><tspan x="17" y="259.5">pin9</tspan></text>
+    <path d="M 11,285 H 3" style="fill:none;stroke:#000083;stroke-width:2;stroke-linecap:round"/>
+    <circle id="pin-10-pos" cx="3" cy="285" r="2" style="fill:#000083;stroke:#000083"/>
+    <text id="pin-10-label" x="17" y="287.5" style="font-size:8px;text-anchor:start;fill:#000083"><tspan x="17" y="287.5">pin10</tspan></text>
+    <path d="M 11,313 H 3" style="fill:none;stroke:#000083;stroke-width:2;stroke-linecap:round"/>
+    <circle id="pin-11-pos" cx="3" cy="313" r="2" style="fill:#000083;stroke:#000083"/>
+    <text id="pin-11-label" x="17" y="315.5" style="font-size:8px;text-anchor:start;fill:#000083"><tspan x="17" y="315.5">pin11</tspan></text>
+    <path d="M 11,341 H 3" style="fill:none;stroke:#000083;stroke-width:2;stroke-linecap:round"/>
+    <circle id="pin-12-pos" cx="3" cy="341" r="2" style="fill:#000083;stroke:#000083"/>
+    <text id="pin-12-label" x="17" y="343.5" style="font-size:8px;text-anchor:start;fill:#000083"><tspan x="17" y="343.5">pin12</tspan></text>
+    <path d="M 11,369 H 3" style="fill:none;stroke:#000083;stroke-width:2;stroke-linecap:round"/>
+    <circle id="pin-13-pos" cx="3" cy="369" r="2" style="fill:#000083;stroke:#000083"/>
+    <text id="pin-13-label" x="17" y="371.5" style="font-size:8px;text-anchor:start;fill:#000083"><tspan x="17" y="371.5">pin13</tspan></text>
+    <path d="M 11,397 H 3" style="fill:none;stroke:#000083;stroke-width:2;stroke-linecap:round"/>
+    <circle id="pin-14-pos" cx="3" cy="397" r="2" style="fill:#000083;stroke:#000083"/>
+    <text id="pin-14-label" x="17" y="399.5" style="font-size:8px;text-anchor:start;fill:#000083"><tspan x="17" y="399.5">pin14</tspan></text>
+    <path d="M 11,425 H 3" style="fill:none;stroke:#000083;stroke-width:2;stroke-linecap:round"/>
+    <circle id="pin-15-pos" cx="3" cy="425" r="2" style="fill:#000083;stroke:#000083"/>
+    <text id="pin-15-label" x="17" y="427.5" style="font-size:8px;text-anchor:start;fill:#000083"><tspan x="17" y="427.5">pin15</tspan></text>
+    <path d="M 11,453 H 3" style="fill:none;stroke:#000083;stroke-width:2;stroke-linecap:round"/>
+    <circle id="pin-16-pos" cx="3" cy="453" r="2" style="fill:#000083;stroke:#000083"/>
+    <text id="pin-16-label" x="17" y="455.5" style="font-size:8px;text-anchor:start;fill:#000083"><tspan x="17" y="455.5">pin16</tspan></text>
+    <path d="M 135,453 H 143" style="fill:none;stroke:#000083;stroke-width:2;stroke-linecap:round"/>
+    <circle id="pin-17-pos" cx="143" cy="453" r="2" style="fill:#000083;stroke:#000083"/>
+    <text id="pin-17-label" x="129" y="455.5" style="font-size:8px;text-anchor:end;fill:#000083"><tspan x="129" y="455.5">pin17</tspan></text>
+    <path d="M 135,425 H 143" style="fill:none;stroke:#000083;stroke-width:2;stroke-linecap:round"/>
+    <circle id="pin-18-pos" cx="143" cy="425" r="2" style="fill:#000083;stroke:#000083"/>
+    <text id="pin-18-label" x="129" y="427.5" style="font-size:8px;text-anchor:end;fill:#000083"><tspan x="129" y="427.5">pin18</tspan></text>
+    <path d="M 135,397 H 143" style="fill:none;stroke:#000083;stroke-width:2;stroke-linecap:round"/>
+    <circle id="pin-19-pos" cx="143" cy="397" r="2" style="fill:#000083;stroke:#000083"/>
+    <text id="pin-19-label" x="129" y="399.5" style="font-size:8px;text-anchor:end;fill:#000083"><tspan x="129" y="399.5">pin19</tspan></text>
+    <path d="M 135,369 H 143" style="fill:none;stroke:#000083;stroke-width:2;stroke-linecap:round"/>
+    <circle id="pin-20-pos" cx="143" cy="369" r="2" style="fill:#000083;stroke:#000083"/>
+    <text id="pin-20-label" x="129" y="371.5" style="font-size:8px;text-anchor:end;fill:#000083"><tspan x="129" y="371.5">pin20</tspan></text>
+    <path d="M 135,341 H 143" style="fill:none;stroke:#000083;stroke-width:2;stroke-linecap:round"/>
+    <circle id="pin-21-pos" cx="143" cy="341" r="2" style="fill:#000083;stroke:#000083"/>
+    <text id="pin-21-label" x="129" y="343.5" style="font-size:8px;text-anchor:end;fill:#000083"><tspan x="129" y="343.5">pin21</tspan></text>
+    <path d="M 135,313 H 143" style="fill:none;stroke:#000083;stroke-width:2;stroke-linecap:round"/>
+    <circle id="pin-22-pos" cx="143" cy="313" r="2" style="fill:#000083;stroke:#000083"/>
+    <text id="pin-22-label" x="129" y="315.5" style="font-size:8px;text-anchor:end;fill:#000083"><tspan x="129" y="315.5">pin22</tspan></text>
+    <path d="M 135,285 H 143" style="fill:none;stroke:#000083;stroke-width:2;stroke-linecap:round"/>
+    <circle id="pin-23-pos" cx="143" cy="285" r="2" style="fill:#000083;stroke:#000083"/>
+    <text id="pin-23-label" x="129" y="287.5" style="font-size:8px;text-anchor:end;fill:#000083"><tspan x="129" y="287.5">pin23</tspan></text>
+    <path d="M 135,257 H 143" style="fill:none;stroke:#000083;stroke-width:2;stroke-linecap:round"/>
+    <circle id="pin-24-pos" cx="143" cy="257" r="2" style="fill:#000083;stroke:#000083"/>
+    <text id="pin-24-label" x="129" y="259.5" style="font-size:8px;text-anchor:end;fill:#000083"><tspan x="129" y="259.5">pin24</tspan></text>
+    <path d="M 135,229 H 143" style="fill:none;stroke:#000083;stroke-width:2;stroke-linecap:round"/>
+    <circle id="pin-25-pos" cx="143" cy="229" r="2" style="fill:#000083;stroke:#000083"/>
+    <text id="pin-25-label" x="129" y="231.5" style="font-size:8px;text-anchor:end;fill:#000083"><tspan x="129" y="231.5">pin25</tspan></text>
+    <path d="M 135,201 H 143" style="fill:none;stroke:#000083;stroke-width:2;stroke-linecap:round"/>
+    <circle id="pin-26-pos" cx="143" cy="201" r="2" style="fill:#000083;stroke:#000083"/>
+    <text id="pin-26-label" x="129" y="203.5" style="font-size:8px;text-anchor:end;fill:#000083"><tspan x="129" y="203.5">pin26</tspan></text>
+    <path d="M 135,173 H 143" style="fill:none;stroke:#000083;stroke-width:2;stroke-linecap:round"/>
+    <circle id="pin-27-pos" cx="143" cy="173" r="2" style="fill:#000083;stroke:#000083"/>
+    <text id="pin-27-label" x="129" y="175.5" style="font-size:8px;text-anchor:end;fill:#000083"><tspan x="129" y="175.5">pin27</tspan></text>
+    <path d="M 135,145 H 143" style="fill:none;stroke:#000083;stroke-width:2;stroke-linecap:round"/>
+    <circle id="pin-28-pos" cx="143" cy="145" r="2" style="fill:#000083;stroke:#000083"/>
+    <text id="pin-28-label" x="129" y="147.5" style="font-size:8px;text-anchor:end;fill:#000083"><tspan x="129" y="147.5">pin28</tspan></text>
+    <path d="M 135,117 H 143" style="fill:none;stroke:#000083;stroke-width:2;stroke-linecap:round"/>
+    <circle id="pin-29-pos" cx="143" cy="117" r="2" style="fill:#000083;stroke:#000083"/>
+    <text id="pin-29-label" x="129" y="119.5" style="font-size:8px;text-anchor:end;fill:#000083"><tspan x="129" y="119.5">pin29</tspan></text>
+    <path d="M 135,89 H 143" style="fill:none;stroke:#000083;stroke-width:2;stroke-linecap:round"/>
+    <circle id="pin-30-pos" cx="143" cy="89" r="2" style="fill:#000083;stroke:#000083"/>
+    <text id="pin-30-label" x="129" y="91.5" style="font-size:8px;text-anchor:end;fill:#000083"><tspan x="129" y="91.5">pin30</tspan></text>
+    <path d="M 135,61 H 143" style="fill:none;stroke:#000083;stroke-width:2;stroke-linecap:round"/>
+    <circle id="pin-31-pos" cx="143" cy="61" r="2" style="fill:#000083;stroke:#000083"/>
+    <text id="pin-31-label" x="129" y="63.5" style="font-size:8px;text-anchor:end;fill:#000083"><tspan x="129" y="63.5">pin31</tspan></text>
+    <path d="M 135,33 H 143" style="fill:none;stroke:#000083;stroke-width:2;stroke-linecap:round"/>
+    <circle id="pin-32-pos" cx="143" cy="33" r="2" style="fill:#000083;stroke:#000083"/>
+    <text id="pin-32-label" x="129" y="35.5" style="font-size:8px;text-anchor:end;fill:#000083"><tspan x="129" y="35.5">pin32</tspan></text>
+  </g>
+</svg>

@@ -1,0 +1,974 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   width="240"
+   height="200"
+   viewBox="0 0 240 200"
+   version="1.1"
+   id="svg107"
+   sodipodi:docname="uln2003.svg"
+   inkscape:version="1.4.2 (f4327f4, 2025-05-13)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview107"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:zoom="1.426588"
+     inkscape:cx="-53.273967"
+     inkscape:cy="-107.59939"
+     inkscape:window-width="1920"
+     inkscape:window-height="1009"
+     inkscape:window-x="1376"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="g1" />
+  <!-- ULN2003 stepper driver module (28BYJ-48 companion).
+       PCB vert classique, IC ULN2003A en DIP-16 VERTICAL au centre,
+       header 7-pin (IN1-IN7) a gauche, JST 5-pin blanc accole a droite
+       de l'IC, 4 LEDs jaunes A/B/C/D sur le bord droit (1 par phase),
+       alim 2-pin en bas avec silkscreen "5-12V".
+       Pins repartis sur 3 faces :
+        - Gauche : IN1-IN4 (4 premieres entrees du header 7-pin)
+        - Droite : OUT1-4 (cote LEDs, vers stepper via JST interne)
+        - Bas    : VCC / GND (alim) -->
+  <defs
+     id="defs15">
+    <linearGradient
+       id="uln-pcb"
+       x1="7.9404645"
+       y1="22.604471"
+       x2="7.9404645"
+       y2="211.63875"
+       gradientTransform="scale(1.1712161,0.85381338)"
+       gradientUnits="userSpaceOnUse">
+      <stop
+         offset="0%"
+         stop-color="#2d7a2d"
+         id="stop1" />
+      <stop
+         offset="55%"
+         stop-color="#1c5d1c"
+         id="stop2" />
+      <stop
+         offset="100%"
+         stop-color="#0c3a0c"
+         id="stop3" />
+    </linearGradient>
+    <linearGradient
+       id="uln-ic"
+       x1="82.454989"
+       y1="22.951795"
+       x2="82.454989"
+       y2="106.64982"
+       gradientTransform="scale(0.72403139,1.3811556)"
+       gradientUnits="userSpaceOnUse">
+      <stop
+         offset="0%"
+         stop-color="#3a3a3a"
+         id="stop4" />
+      <stop
+         offset="50%"
+         stop-color="#1a1a1a"
+         id="stop5" />
+      <stop
+         offset="100%"
+         stop-color="#080808"
+         id="stop6" />
+    </linearGradient>
+    <linearGradient
+       id="uln-jst"
+       x1="197.71725"
+       y1="23.376931"
+       x2="197.71725"
+       y2="76.294698"
+       gradientTransform="scale(0.6557344,1.5250077)"
+       gradientUnits="userSpaceOnUse">
+      <stop
+         offset="0%"
+         stop-color="#ffffff"
+         id="stop7" />
+      <stop
+         offset="60%"
+         stop-color="#dcdcdc"
+         id="stop8" />
+      <stop
+         offset="100%"
+         stop-color="#9a9a9a"
+         id="stop9" />
+    </linearGradient>
+    <radialGradient
+       id="uln-led"
+       cx="0.5"
+       cy="0.5"
+       r="0.5">
+      <stop
+         offset="0%"
+         stop-color="#fff5a0"
+         id="stop10" />
+      <stop
+         offset="60%"
+         stop-color="#f3c300"
+         id="stop11" />
+      <stop
+         offset="100%"
+         stop-color="#7a6a00"
+         id="stop12" />
+    </radialGradient>
+    <linearGradient
+       id="uln-cap"
+       x1="48.409576"
+       y1="209.80229"
+       x2="48.409576"
+       y2="224.368"
+       gradientTransform="scale(1.4005493,0.71400555)"
+       gradientUnits="userSpaceOnUse">
+      <stop
+         offset="0%"
+         stop-color="#f5d878"
+         id="stop13" />
+      <stop
+         offset="60%"
+         stop-color="#d4a832"
+         id="stop14" />
+      <stop
+         offset="100%"
+         stop-color="#7a6018"
+         id="stop15" />
+    </linearGradient>
+    <radialGradient
+       inkscape:collect="always"
+       xlink:href="#uln-led"
+       id="radialGradient1"
+       cx="200"
+       cy="44"
+       r="5.25"
+       fx="200"
+       fy="44"
+       gradientUnits="userSpaceOnUse" />
+    <radialGradient
+       inkscape:collect="always"
+       xlink:href="#uln-led"
+       id="radialGradient2"
+       cx="200"
+       cy="62"
+       r="5.25"
+       fx="200"
+       fy="62"
+       gradientUnits="userSpaceOnUse" />
+    <radialGradient
+       inkscape:collect="always"
+       xlink:href="#uln-led"
+       id="radialGradient3"
+       cx="200"
+       cy="80"
+       r="5.25"
+       fx="200"
+       fy="80"
+       gradientUnits="userSpaceOnUse" />
+    <radialGradient
+       inkscape:collect="always"
+       xlink:href="#uln-led"
+       id="radialGradient4"
+       cx="200"
+       cy="98"
+       r="5.25"
+       fx="200"
+       fy="98"
+       gradientUnits="userSpaceOnUse" />
+  </defs>
+  <g
+     id="component">
+    <!-- Rotation 180° autour du centre du SVG (120, 100). Aligne les
+         pins OUT (originellement en haut-droit) sur le bas-gauche, plus
+         proche du stepper place a gauche. Les pin-N-pos individuels
+         portent un transform de contre-rotation pour que leurs cx/cy
+         (= ce que lit le loader) refletent la position canvas finale. -->
+    <g
+       transform="rotate(180,119.86857,100.61335)"
+       id="g1">
+      <!-- ─── PCB et chassis ─── -->
+      <!-- Corps PCB vert (gradient vertical) -->
+      <rect
+         id="component-body"
+         x="10"
+         y="20"
+         width="220"
+         height="160"
+         fill="url(#uln-pcb)"
+         stroke="#062306"
+         stroke-width="1.4"
+         rx="4"
+         style="fill:url(#uln-pcb)" />
+      <!-- 4 trous de montage aux coins -->
+      <circle
+         cx="20"
+         cy="30"
+         r="3.5"
+         fill="#1a1a1a"
+         stroke="#aaaaaa"
+         stroke-width="0.5"
+         id="circle15" />
+      <circle
+         cx="220"
+         cy="30"
+         r="3.5"
+         fill="#1a1a1a"
+         stroke="#aaaaaa"
+         stroke-width="0.5"
+         id="circle16" />
+      <circle
+         cx="20"
+         cy="170"
+         r="3.5"
+         fill="#1a1a1a"
+         stroke="#aaaaaa"
+         stroke-width="0.5"
+         id="circle17" />
+      <circle
+         cx="220"
+         cy="170"
+         r="3.5"
+         fill="#1a1a1a"
+         stroke="#aaaaaa"
+         stroke-width="0.5"
+         id="circle18" />
+      <!-- ─── Header 7-pin a gauche (IN1-IN7) ─── -->
+      <!-- Silkscreen labels (a gauche du header) -->
+      <text
+         x="-26.074764"
+         y="-47.076103"
+         text-anchor="start"
+         font-family="sans-serif"
+         font-size="6px"
+         font-weight="bold"
+         fill="#ffffff"
+         transform="scale(-1)"
+         id="text18">IN1</text>
+      <text
+         x="-26.21246"
+         y="-61.156361"
+         text-anchor="start"
+         font-family="sans-serif"
+         font-size="6px"
+         font-weight="bold"
+         fill="#ffffff"
+         transform="scale(-1)"
+         id="text19">IN2</text>
+      <text
+         x="-26.155331"
+         y="-75.400681"
+         text-anchor="start"
+         font-family="sans-serif"
+         font-size="6px"
+         font-weight="bold"
+         fill="#ffffff"
+         transform="scale(-1)"
+         id="text20">IN3</text>
+      <text
+         x="-26.243221"
+         y="-89.571762"
+         text-anchor="start"
+         font-family="sans-serif"
+         font-size="6px"
+         font-weight="bold"
+         fill="#ffffff"
+         transform="scale(-1)"
+         id="text21">IN4</text>
+      <!-- Bandeau header noir (rectangle vertical) -->
+      <rect
+         x="36"
+         y="40"
+         width="10"
+         height="98"
+         fill="#181818"
+         stroke="#000000"
+         stroke-width="0.4"
+         rx="1"
+         id="rect24" />
+      <!-- 7 contacts dores -->
+      <rect
+         x="38"
+         y="42"
+         width="6"
+         height="4"
+         fill="#bda14a"
+         stroke="#7a6a3a"
+         stroke-width="0.3"
+         id="rect25" />
+      <rect
+         x="38"
+         y="56"
+         width="6"
+         height="4"
+         fill="#bda14a"
+         stroke="#7a6a3a"
+         stroke-width="0.3"
+         id="rect26" />
+      <rect
+         x="38"
+         y="70"
+         width="6"
+         height="4"
+         fill="#bda14a"
+         stroke="#7a6a3a"
+         stroke-width="0.3"
+         id="rect27" />
+      <rect
+         x="38"
+         y="84"
+         width="6"
+         height="4"
+         fill="#bda14a"
+         stroke="#7a6a3a"
+         stroke-width="0.3"
+         id="rect28" />
+      <!-- ─── IC ULN2003A (DIP-16 vertical) au centre ─── -->
+      <rect
+         x="60"
+         y="32"
+         width="60"
+         height="115"
+         fill="url(#uln-ic)"
+         stroke="#000000"
+         stroke-width="0.6"
+         rx="1"
+         id="rect32"
+         style="fill:url(#uln-ic)" />
+      <!-- Notch indicateur de pin 1 (cercle au sommet) -->
+      <circle
+         cx="90"
+         cy="34"
+         r="2.5"
+         fill="#0c3a0c"
+         id="circle32" />
+      <!-- 8 pins du DIP cote gauche (petits rectangles metalliques) -->
+      <rect
+         x="56"
+         y="38"
+         width="6"
+         height="4"
+         fill="#cccccc"
+         stroke="#666666"
+         stroke-width="0.3"
+         id="rect33" />
+      <rect
+         x="56"
+         y="51"
+         width="6"
+         height="4"
+         fill="#cccccc"
+         stroke="#666666"
+         stroke-width="0.3"
+         id="rect34" />
+      <rect
+         x="56"
+         y="64"
+         width="6"
+         height="4"
+         fill="#cccccc"
+         stroke="#666666"
+         stroke-width="0.3"
+         id="rect35" />
+      <rect
+         x="56"
+         y="77"
+         width="6"
+         height="4"
+         fill="#cccccc"
+         stroke="#666666"
+         stroke-width="0.3"
+         id="rect36" />
+      <rect
+         x="56"
+         y="90"
+         width="6"
+         height="4"
+         fill="#cccccc"
+         stroke="#666666"
+         stroke-width="0.3"
+         id="rect37" />
+      <rect
+         x="56"
+         y="103"
+         width="6"
+         height="4"
+         fill="#cccccc"
+         stroke="#666666"
+         stroke-width="0.3"
+         id="rect38" />
+      <rect
+         x="56"
+         y="116"
+         width="6"
+         height="4"
+         fill="#cccccc"
+         stroke="#666666"
+         stroke-width="0.3"
+         id="rect39" />
+      <rect
+         x="56"
+         y="129"
+         width="6"
+         height="4"
+         fill="#cccccc"
+         stroke="#666666"
+         stroke-width="0.3"
+         id="rect40" />
+      <!-- 8 pins du DIP cote droit -->
+      <rect
+         x="118"
+         y="38"
+         width="6"
+         height="4"
+         fill="#cccccc"
+         stroke="#666666"
+         stroke-width="0.3"
+         id="rect41" />
+      <rect
+         x="118"
+         y="51"
+         width="6"
+         height="4"
+         fill="#cccccc"
+         stroke="#666666"
+         stroke-width="0.3"
+         id="rect42" />
+      <rect
+         x="118"
+         y="64"
+         width="6"
+         height="4"
+         fill="#cccccc"
+         stroke="#666666"
+         stroke-width="0.3"
+         id="rect43" />
+      <rect
+         x="118"
+         y="77"
+         width="6"
+         height="4"
+         fill="#cccccc"
+         stroke="#666666"
+         stroke-width="0.3"
+         id="rect44" />
+      <rect
+         x="118"
+         y="90"
+         width="6"
+         height="4"
+         fill="#cccccc"
+         stroke="#666666"
+         stroke-width="0.3"
+         id="rect45" />
+      <rect
+         x="118"
+         y="103"
+         width="6"
+         height="4"
+         fill="#cccccc"
+         stroke="#666666"
+         stroke-width="0.3"
+         id="rect46" />
+      <rect
+         x="118"
+         y="116"
+         width="6"
+         height="4"
+         fill="#cccccc"
+         stroke="#666666"
+         stroke-width="0.3"
+         id="rect47" />
+      <rect
+         x="118"
+         y="129"
+         width="6"
+         height="4"
+         fill="#cccccc"
+         stroke="#666666"
+         stroke-width="0.3"
+         id="rect48" />
+      <!-- Reflet vertical sur l'IC -->
+      <rect
+         x="62"
+         y="34"
+         width="2"
+         height="111"
+         fill="#ffffff"
+         fill-opacity="0.18"
+         rx="1"
+         id="rect49" />
+      <!-- Marquage de l'IC (rotated -90 pour verticalite) -->
+      <text
+         x="-177.60892"
+         y="-142.30692"
+         text-anchor="middle"
+         font-family="sans-serif"
+         font-size="8px"
+         font-weight="bold"
+         fill="#dddddd"
+         letter-spacing="0.5"
+         transform="scale(-1)"
+         id="text49">ULN2003</text>
+      <!-- ─── JST 5-pin connecteur blanc accole a l'IC (a droite) ─── -->
+      <!-- Pitch 12 px entre les 5 holes (cy local 52, 64, 76, 88, 100),
+           centre local Y = 76 (= 125.22 visuel apres rotation 180° de
+           g1). Pitch identique au stepper_motor pour aligner les pins
+           1-a-1 sur les holes. rect50 raccourci a height=64 pour matcher
+           la nouvelle hauteur du group de holes. -->
+      <rect
+         x="130"
+         y="44"
+         width="34"
+         height="64"
+         fill="url(#uln-jst)"
+         stroke="#666666"
+         stroke-width="0.7"
+         rx="1.5"
+         id="rect50"
+         style="fill:url(#uln-jst)" />
+      <!-- 5 trous noirs verticaux (les phases A/B/C/D + COM) -->
+      <!-- Reflet JST -->
+      <rect
+         x="133"
+         y="46"
+         width="28"
+         height="2"
+         fill="#ffffff"
+         fill-opacity="0.5"
+         rx="1"
+         id="rect54" />
+      <!-- Labels A/B/C/D des phases (silkscreen entre JST et LEDs).
+         OUT1=A, OUT2=B, OUT3=C, OUT4=D. La 5e patte (cy=108) est COM,
+         partage le rail VCC/BAT_5V via le netlist (connectee au stepper). -->
+      <text
+         id="pin-7-label"
+         x="-170.35048"
+         y="-64.275"
+         text-anchor="start"
+         font-family="sans-serif"
+         font-size="6px"
+         font-weight="bold"
+         fill="#ffffff"
+         transform="scale(-1)">A</text>
+      <text
+         id="pin-7-label-9"
+         x="-180.33485"
+         y="-52.275"
+         text-anchor="start"
+         font-family="sans-serif"
+         font-size="6px"
+         font-weight="bold"
+         fill="#ffffff"
+         transform="scale(-1)">COM</text>
+      <text
+         id="pin-8-label"
+         x="-170.35048"
+         y="-76.275"
+         text-anchor="start"
+         font-family="sans-serif"
+         font-size="6px"
+         font-weight="bold"
+         fill="#ffffff"
+         transform="scale(-1)">B</text>
+      <text
+         id="pin-9-label"
+         x="-170.35048"
+         y="-88.275"
+         text-anchor="start"
+         font-family="sans-serif"
+         font-size="6px"
+         font-weight="bold"
+         fill="#ffffff"
+         transform="scale(-1)">C</text>
+      <text
+         id="pin-10-label"
+         x="-170.35048"
+         y="-100.275"
+         text-anchor="start"
+         font-family="sans-serif"
+         font-size="6px"
+         font-weight="bold"
+         fill="#ffffff"
+         transform="scale(-1)">D</text>
+      <!-- ─── 4 LEDs jaunes indicatrices (bord droit, alignees A/B/C/D) ─── -->
+      <circle
+         cx="200"
+         cy="44"
+         r="5"
+         fill="url(#uln-led)"
+         stroke="#7a6500"
+         stroke-width="0.5"
+         id="circle57"
+         style="fill:url(#radialGradient1)" />
+      <circle
+         cx="200"
+         cy="42.5"
+         r="2"
+         fill="#ffffff"
+         fill-opacity="0.7"
+         id="circle58" />
+      <circle
+         cx="200"
+         cy="62"
+         r="5"
+         fill="url(#uln-led)"
+         stroke="#7a6500"
+         stroke-width="0.5"
+         id="circle59"
+         style="fill:url(#radialGradient2)" />
+      <circle
+         cx="200"
+         cy="60.5"
+         r="2"
+         fill="#ffffff"
+         fill-opacity="0.7"
+         id="circle60" />
+      <circle
+         cx="200"
+         cy="80"
+         r="5"
+         fill="url(#uln-led)"
+         stroke="#7a6500"
+         stroke-width="0.5"
+         id="circle61"
+         style="fill:url(#radialGradient3)" />
+      <circle
+         cx="200"
+         cy="78.5"
+         r="2"
+         fill="#ffffff"
+         fill-opacity="0.7"
+         id="circle62" />
+      <circle
+         cx="200"
+         cy="98"
+         r="5"
+         fill="url(#uln-led)"
+         stroke="#7a6500"
+         stroke-width="0.5"
+         id="circle63"
+         style="fill:url(#radialGradient4)" />
+      <circle
+         cx="200"
+         cy="96.5"
+         r="2"
+         fill="#ffffff"
+         fill-opacity="0.7"
+         id="circle64" />
+      <!-- ─── Capacite ceramique jaune (sous l'IC, oblong) ─── -->
+      <ellipse
+         cx="78"
+         cy="155"
+         rx="10"
+         ry="5"
+         fill="url(#uln-cap)"
+         stroke="#5a4515"
+         stroke-width="0.4"
+         id="ellipse64"
+         style="fill:url(#uln-cap)" />
+      <ellipse
+         cx="78"
+         cy="153.5"
+         rx="6"
+         ry="1.2"
+         fill="#ffffff"
+         fill-opacity="0.45"
+         id="ellipse65" />
+      <!-- ─── 4 petites resistances horizontales (4x 470Ω, 1 par LED) ─── -->
+      <!-- Pattes argentees -->
+      <!-- Corps capsules beige -->
+      <!-- Bandes couleurs (4 par R : jaune/violet/marron/dore = 470Ω) -->
+      <!-- ─── Connecteur alim 2-pin + jumper en bas-gauche ─── -->
+      <!-- Header 2-pin noir -->
+      <rect
+         x="32"
+         y="156"
+         width="22"
+         height="10"
+         fill="#181818"
+         stroke="#000000"
+         stroke-width="0.3"
+         rx="1"
+         id="rect92" />
+      <rect
+         x="35"
+         y="159"
+         width="4"
+         height="4"
+         fill="#bda14a"
+         stroke="#7a6a3a"
+         stroke-width="0.2"
+         id="rect93" />
+      <rect
+         x="47"
+         y="159"
+         width="4"
+         height="4"
+         fill="#bda14a"
+         stroke="#7a6a3a"
+         stroke-width="0.2"
+         id="rect94" />
+      <!-- Jumper plastique noir a cote (cap de selection) -->
+      <rect
+         x="56"
+         y="158"
+         width="10"
+         height="6"
+         fill="#1a1a1a"
+         stroke="#000000"
+         stroke-width="0.3"
+         rx="1"
+         id="rect95" />
+      <!-- Labels alim externe (au-dessus du connecteur 2-pin).
+         pin-1 = VCC (alim externe, p.ex. BAT_5V pour stepper),
+         pin-2 = GND (masse commune avec Arduino). -->
+      <text
+         id="pin-2-label"
+         x="-34.984707"
+         y="-151.46735"
+         text-anchor="middle"
+         font-family="sans-serif"
+         font-size="5px"
+         font-weight="bold"
+         fill="#ffffff"
+         letter-spacing="0.5"
+         transform="scale(-1)">GND</text>
+      <text
+         id="pin-1-label"
+         x="-52.242008"
+         y="-151.4649"
+         text-anchor="middle"
+         font-family="sans-serif"
+         font-size="5px"
+         font-weight="bold"
+         fill="#ffffff"
+         letter-spacing="0.5"
+         transform="scale(-1)">VCC</text>
+      <!-- Silkscreen modele en bas-droit (comme la photo) -->
+      <!-- ─── PINS exposes pour routage ──────────────────────────────────
+         IN1-IN4 a gauche (sur le 7-pin header), OUT1-OUT4 a droite
+         (cote LEDs vers stepper), VCC/GND en bas (sur connecteur alim). -->
+      <!-- Pins IN (gauche, sur header 7-pin — IN1 a IN4 routes, IN5/6/7 ignores) -->
+      <line
+         x1="2"
+         y1="44"
+         x2="36"
+         y2="44"
+         stroke="#444444"
+         stroke-width="2"
+         stroke-linecap="round"
+         id="line98" />
+      <line
+         x1="2"
+         y1="58"
+         x2="36"
+         y2="58"
+         stroke="#444444"
+         stroke-width="2"
+         stroke-linecap="round"
+         id="line99" />
+      <circle
+         id="pin-3-pos"
+         cx="238"
+         cy="156"
+         r="2"
+         fill="#000083"
+         stroke="#000083"
+         stroke-width="0.5"
+         transform="rotate(180,120,100)" />
+      <line
+         x1="2"
+         y1="72"
+         x2="36"
+         y2="72"
+         stroke="#444444"
+         stroke-width="2"
+         stroke-linecap="round"
+         id="line100" />
+      <circle
+         id="pin-4-pos"
+         cx="238"
+         cy="142"
+         r="2"
+         fill="#000083"
+         stroke="#000083"
+         stroke-width="0.5"
+         transform="rotate(180,120,100)" />
+      <line
+         x1="2"
+         y1="86"
+         x2="36"
+         y2="86"
+         stroke="#444444"
+         stroke-width="2"
+         stroke-linecap="round"
+         id="line101" />
+      <circle
+         id="pin-5-pos"
+         cx="238"
+         cy="128"
+         r="2"
+         fill="#000083"
+         stroke="#000083"
+         stroke-width="0.5"
+         transform="rotate(180,120,100)" />
+      <!-- Pins OUT (au cœur du JST blanc — c'est la que se branche le stepper).
+         Les pins sont POSITIONNES sur les trous du connecteur (cx=147) : le
+         moteur stepper viendra y "plugger" ses fils A/B/C/D quand on fera
+         le composant associe. Pas de stub : la pin EST le trou JST. -->
+      <!-- Pin 11 = 5e trou JST (COM / alim moteur). Visuellement a cy=108
+           apres rotation. Partage le bus stepper avec stepper.COM via un
+           net interne dedie (pas relie a BAT_5V dans le netlist pour
+           eviter un wire externe vers la BB). -->
+      <circle
+         cx="147"
+         cy="64"
+         r="2.5999999"
+         fill="#1a1a1a"
+         stroke="#666666"
+         stroke-width="0.4"
+         id="circle50" />
+      <circle
+         id="pin-7-pos"
+         cx="92.73714"
+         cy="137.22670"
+         r="2"
+         fill="#000083"
+         stroke="#000083"
+         stroke-width="0.5"
+         transform="rotate(180,119.86857,100.61335)" />
+      <circle
+         cx="147"
+         cy="76"
+         r="2.5999999"
+         fill="#1a1a1a"
+         stroke="#666666"
+         stroke-width="0.4"
+         id="circle51" />
+      <circle
+         id="pin-8-pos"
+         cx="92.73714"
+         cy="125.22670"
+         r="2"
+         fill="#000083"
+         stroke="#000083"
+         stroke-width="0.5"
+         transform="rotate(180,119.86857,100.61335)" />
+      <circle
+         cx="147"
+         cy="88"
+         r="2.5999999"
+         fill="#1a1a1a"
+         stroke="#666666"
+         stroke-width="0.4"
+         id="circle52" />
+      <circle
+         id="pin-9-pos"
+         cx="92.73714"
+         cy="113.22670"
+         r="2"
+         fill="#000083"
+         stroke="#000083"
+         stroke-width="0.5"
+         transform="rotate(180,119.86857,100.61335)" />
+      <circle
+         cx="147"
+         cy="100"
+         r="2.5999999"
+         fill="#1a1a1a"
+         stroke="#666666"
+         stroke-width="0.4"
+         id="circle53" />
+      <circle
+         id="pin-10-pos"
+         cx="92.73714"
+         cy="101.22670"
+         r="2"
+         fill="#000083"
+         stroke="#000083"
+         stroke-width="0.5"
+         transform="rotate(180,119.86857,100.61335)" />
+      <circle
+         cx="147"
+         cy="52"
+         r="2.5999999"
+         fill="#1a1a1a"
+         stroke="#666666"
+         stroke-width="0.4"
+         id="circle54" />
+      <circle
+         id="pin-11-pos"
+         cx="92.73714"
+         cy="149.22670"
+         r="2"
+         fill="#000083"
+         stroke="#000083"
+         stroke-width="0.5"
+         transform="rotate(180,119.86857,100.61335)" />
+      <!-- Pins alim (en bas, sur connecteur 2-pin) -->
+      <line
+         x1="37"
+         y1="188"
+         x2="37"
+         y2="166"
+         stroke="#444444"
+         stroke-width="2"
+         stroke-linecap="round"
+         id="line106" />
+      <circle
+         id="pin-6-pos"
+         cx="238"
+         cy="114"
+         r="2"
+         fill="#000083"
+         stroke="#000083"
+         stroke-width="0.5"
+         transform="rotate(180,120,100)" />
+      <line
+         x1="49"
+         y1="188"
+         x2="49"
+         y2="166"
+         stroke="#444444"
+         stroke-width="2"
+         stroke-linecap="round"
+         id="line107" />
+      <circle
+         id="pin-2-pos"
+         cx="203"
+         cy="12"
+         r="2"
+         fill="#000083"
+         stroke="#000083"
+         stroke-width="0.5"
+         transform="rotate(180,120,100)" />
+      <!-- Pin label canonical (vide) -->
+      <text
+         id="component-name"
+         x="120"
+         y="4"
+         text-anchor="middle"
+         font-family="sans-serif"
+         font-size="1e-32px"
+         fill="#000000"
+         transform="rotate(180,120,100)" />
+      <circle
+         id="pin-1-pos"
+         cx="191"
+         cy="12"
+         r="2"
+         fill="#000083"
+         stroke="#000083"
+         stroke-width="0.5"
+         transform="rotate(180,120,100)" />
+    </g>
+  </g>
+</svg>
