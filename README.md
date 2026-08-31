@@ -63,10 +63,19 @@ key**, stored in the system keyring.
 
 ### Windows — installer
 
-**No installer has been released yet.** When one is, it will appear under
-the repository *Releases*: a self-contained package that sets up the
-application, its dependencies and `arduino-cli`. A macOS installer is
-planned but does not exist yet either; until then, run from source.
+The installer is published under the repository
+[*Releases*](https://github.com/medkar/Promptuino/releases) — a self-contained
+package (~59 MB) that sets up the application, its dependencies and
+`arduino-cli`.
+
+⚠️ **It is not code-signed.** SmartScreen warns on first run: *More info → Run
+anyway*. Signing requires a certificate the project does not have.
+
+A **Linux archive** is attached to the same releases. It is built by CI and has
+**never been run on a real machine**; serial access also requires membership of
+the `dialout` group. The **macOS** archive published alongside is an unsigned
+*build check*, not a deliverable — Gatekeeper will refuse to open it. On macOS,
+run from source until there is a signed build.
 
 The **embedding model** (`paraphrase-multilingual-MiniLM-L12-v2`, ~449 MB) is
 downloaded from [Hugging Face](https://huggingface.co) during installation
@@ -198,10 +207,21 @@ propre clé**, stockée dans le trousseau du système.
 
 ### Windows — installeur
 
-**Aucun installeur n'est encore publié.** Quand ce sera le cas, il
-apparaîtra dans les *Releases* du dépôt : un paquet autonome qui pose
-l'application, ses dépendances et `arduino-cli`. Un installeur macOS est
-prévu mais n'existe pas non plus ; d'ici là, lancer depuis les sources.
+L'installeur est publié dans les
+[*Releases*](https://github.com/medkar/Promptuino/releases) du dépôt — un
+paquet autonome (~59 Mo) qui pose l'application, ses dépendances et
+`arduino-cli`.
+
+⚠️ **Il n'est pas signé.** SmartScreen affiche un avertissement au premier
+lancement : *Informations complémentaires → Exécuter quand même*. La signature
+demande un certificat que le projet n'a pas.
+
+Une **archive Linux** accompagne les mêmes releases. Elle est construite par la
+CI et **n'a jamais été lancée sur une vraie machine** ; l'accès au port série
+demande en plus d'appartenir au groupe `dialout`. L'archive **macOS** publiée à
+côté est une *vérification de construction* non signée, pas un livrable —
+Gatekeeper refusera de l'ouvrir. Sur macOS, lancer depuis les sources en
+attendant une version signée.
 
 Le **modèle d'embeddings** (`paraphrase-multilingual-MiniLM-L12-v2`, ~449 Mo)
 est téléchargé depuis [Hugging Face](https://huggingface.co) pendant
