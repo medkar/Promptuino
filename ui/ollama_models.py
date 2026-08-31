@@ -34,6 +34,7 @@ import subprocess
 import sys
 import urllib.error
 import urllib.request
+from .subprocess_flags import NO_CONSOLE
 
 BASE_URL = "http://127.0.0.1:11434"
 PAGE_LIBRARY = "https://ollama.com/library"
@@ -177,7 +178,7 @@ def vram_totale() -> "int | None":
         r = subprocess.run(
             ["nvidia-smi", "--query-gpu=memory.total", "--format=csv,noheader"],
             capture_output=True, text=True, timeout=8,
-            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)
+            creationflags=NO_CONSOLE
             if sys.platform == "win32" else 0)
         if r.returncode != 0:
             return None

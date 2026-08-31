@@ -4,6 +4,7 @@ import subprocess
 import sys
 import threading
 from .base import AIBackend
+from ..subprocess_flags import NO_CONSOLE
 
 # Generation can be long for complex requests; align with the other backends
 # (Ollama / openai_compat use 300 s). The chat watchdog can cancel() earlier.
@@ -145,6 +146,7 @@ class ClaudeCodeBackend(AIBackend):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True, encoding="utf-8", errors="replace",
+            creationflags=NO_CONSOLE,
         )
         with self._process_lock:
             self._process = proc

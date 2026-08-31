@@ -16,6 +16,7 @@ import subprocess
 from pathlib import Path
 
 from .session import session
+from .subprocess_flags import NO_CONSOLE
 
 # env_id → displayed folder name
 _ENV_DIRS: dict[str, str] = {
@@ -93,6 +94,7 @@ class WorkspaceManager:
             r = subprocess.run(
                 [cli, "config", "get", "directories.data"],
                 capture_output=True, text=True, timeout=10,
+                creationflags=NO_CONSOLE,
             )
             if r.returncode == 0:
                 return r.stdout.strip()

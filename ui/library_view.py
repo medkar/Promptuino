@@ -45,6 +45,7 @@ from . import icons as IC
 from .workspace import workspace_manager
 from .board_manager import board_manager
 from .arduino_cli import is_available as cli_is_available, arduino_cli_path
+from .subprocess_flags import NO_CONSOLE
 
 
 SEARCH_DEBOUNCE_MS = 350
@@ -106,6 +107,7 @@ def _run_json(cmd: list[str], timeout: int = 60) -> tuple[int, dict | list, str]
             capture_output=True, text=True,
             encoding="utf-8", errors="replace",
             timeout=timeout,
+            creationflags=NO_CONSOLE,
         )
     except subprocess.TimeoutExpired:
         return -1, {}, "timeout"
@@ -223,6 +225,7 @@ class _InstallLibWorker(QThread):
                 capture_output=True, text=True,
                 encoding="utf-8", errors="replace",
                 timeout=180,
+                creationflags=NO_CONSOLE,
             )
         except subprocess.TimeoutExpired:
             self.done.emit(self._name, False, "timeout")
@@ -260,6 +263,7 @@ class _UninstallLibWorker(QThread):
                 capture_output=True, text=True,
                 encoding="utf-8", errors="replace",
                 timeout=60,
+                creationflags=NO_CONSOLE,
             )
         except subprocess.TimeoutExpired:
             self.done.emit(self._name, False, "timeout")

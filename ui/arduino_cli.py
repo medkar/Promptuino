@@ -22,6 +22,7 @@ from PyQt6.QtCore import QThread, pyqtSignal
 from .board_manager import board_manager, get_fqbn, _KNOWN_DEVICES
 from .i18n import lang_manager
 from .workspace import workspace_manager, fqbn_to_env
+from .subprocess_flags import NO_CONSOLE
 
 # Mapping language code → English name for the AI prompts
 _LANG_NAMES: dict[str, str] = {
@@ -690,6 +691,7 @@ def _run(cmd: list[str], cwd: str | None = None, register=None) -> tuple[int, st
         encoding="utf-8",
         errors="replace",
         cwd=cwd,
+        creationflags=NO_CONSOLE,
     )
     if register is not None:
         register(proc)
