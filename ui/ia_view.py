@@ -826,6 +826,10 @@ class _BackendSection(QWidget):
             self._lbl_ctx_help.setStyleSheet(
                 f"color: {c.text_secondary}; font-size: 9pt;")
             self._ctx_slider.setStyleSheet(slider_qss(c))
+            # Oubli releve par l'utilisateur : le bouton etait le seul
+            # widget NU de la section. Primaire, comme << Enregistrer >>
+            # de la section cloud -- c'est l'action principale du rang.
+            self._btn_dl_model.setStyleSheet(_primary_btn_qss(c))
 
     # ── Language ─────────────────────────────────────────────────
 
@@ -843,7 +847,7 @@ class _BackendSection(QWidget):
 
         if self._is_ollama:
             self._lbl_model_label.setText(s.ia_ollama_model_label)
-            self._btn_dl_model.setText(s.md_download)
+            self._btn_dl_model.setText(s.md_manage)
             self._lbl_ctx_label.setText(s.ia_ollama_ctx_label)
             self._lbl_ctx_help.setText(s.ia_ollama_ctx_help)
         # No refresh_availability here: would make a blocking HTTP call

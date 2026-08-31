@@ -175,19 +175,24 @@ def _analyze_and_apply(code, fiches, prompt="branche mon capteur"):
 def _display(nl):
     """(info_refs, info_tooltips) tels que le dialogue les calculerait.
 
-    Le dialogue entier n'est pas requis : ces deux methodes ne lisent que
-    `self._netlist` et deux constantes de classe.
+    Le dialogue ENTIER n'est pas construit : son `__init__` monte toute la
+    scene graphique. On HERITE au lieu de recopier des methodes une a une.
+
+    ⚠️ Le stub recopiait deux methodes et deux constantes, en documentant
+    qu'elles ne lisaient rien d'autre. C'est devenu faux le 2026-08-31 (la
+    pastille lit desormais les warnings, via deux methodes de plus) et le
+    test s'est casse sur un `AttributeError` -- pas sur son sujet. Heriter
+    fait suivre les dependances internes toutes seules ; c'est le sujet du
+    test qui doit le faire rougir, pas sa plomberie.
     """
     from ui.wiring.wiring_diagram_dialog import WiringDiagramDialog as W
 
-    class _Stub:
-        _netlist = nl
-        _INFO_TYPES = W._INFO_TYPES
-        _CONFRONTATION_CODES = W._CONFRONTATION_CODES
-        _compute_info_refs = W._compute_info_refs
-        _compute_info_tooltips = W._compute_info_tooltips
+    class _Stub(W):
+        def __init__(self, netlist):
+            self._netlist = netlist
+            self._mode = "avance"
 
-    stub = _Stub()
+    stub = _Stub(nl)
     refs = stub._compute_info_refs()
     return refs, stub._compute_info_tooltips(refs)
 
@@ -328,7 +333,20 @@ def test_un_litteral_qui_n_est_pas_une_broche_declenche_quand_meme():
 
 def test_la_pastille_d_attention_est_atteignable_pour_une_fiche_declaree():
     """Le composant declare porte bien la pastille, et son infobulle dit la
-    CONTRADICTION -- pas la reassurance.
+    CONTRADICTION EN PREMIER.
+
+    ⚠️ **Ce test exigeait l'ABSENCE de la reassurance jusqu'au 2026-08-31**,
+    et ce n'etait qu'un effet de bord du mecanisme d'alors : l'infobulle ne
+    portait QU'UN warning par composant, donc faire gagner la contradiction
+    revenait a faire disparaitre l'autre. Depuis que chaque warning affiche
+    dans les instructions pose sa pastille, les deux sont montres et
+    NUMEROTES -- et ils ne se contredisent meme pas, ils parlent de broches
+    differentes (D5/D6 au constructeur, LIBRE laissee non connectee).
+    Supprimer la seconde serait maintenant cacher une ligne que le panneau de
+    droite affiche.
+
+    Ce qui reste verrouille est le vrai maillon : l'ORDRE. La contradiction
+    passe devant.
 
     Sans ce test, le maillon 1 decrit dans
     test_la_contradiction_passe_avant_la_reassurance ne serait affirme que
@@ -345,7 +363,9 @@ def test_la_pastille_d_attention_est_atteignable_pour_une_fiche_declaree():
     assert refs == {"U1"}, refs
     tip = tips["U1"]
     assert "constructeur" in tip, tip
-    assert "non connect" not in tip, tip     # la reassurance ne gagne pas
+    # L'ORDRE est ce qui compte : la contradiction est le point 1.
+    assert tip.index("constructeur") < tip.index("non connect"), tip
+    assert "1." in tip and "2." in tip, tip
 
 
 # ─── Tache 2 : collision avec un autre composant du schema ──────────────
@@ -504,12 +524,22 @@ def test_deux_fiches_la_contradiction_bat_le_double_usage_perime():
                        ("VCC", "5V"), ("GND", "GND"), ("OUT", "D7"))],
         prompt="branche mes capteurs")
 
-    # Le decor doit vraiment produire le concurrent, sinon ce test passerait
-    # pour la mauvaise raison -- et il doit le produire AVANT les notres.
+    # ⚠️ **CE TEST A CHANGE DE PREMISSE LE 2026-08-31, et c'est une bonne
+    # nouvelle.** Il exigeait que le concurrent SOIT EMIS, pour verifier que
+    # la contradiction le battait. Le concurrent n'existe plus : brancher les
+    # pastilles sur les warnings l'a rendu si visible qu'on est remonte a sa
+    # source. `_is_signal_net("")` rendait True -- une broche NON CONNECTEE
+    # comptee comme broche de signal --, donc deux placeholders dont toutes
+    # les broches sont vides se denoncaient mutuellement. Corrige dans
+    # `inference`, ou le predicat etait simplement faux.
+    #
+    # On verrouille donc le fait PLUS FORT : ce charabia n'est plus emis du
+    # tout. Il ne pollue plus ni l'infobulle, ni le panneau d'instructions --
+    # ou il s'affichait deja, en severite ERREUR.
     codes = [w.code for w in nl.warnings]
-    assert "pin_double_use" in codes, codes
-    assert (codes.index("pin_double_use")
-            < codes.index("declared_pins_diverge_from_code")), codes
+    assert "pin_double_use" not in codes, (
+        "un net VIDE n'est pas un conflit de broche : %r" % (codes,))
+    assert "declared_pins_diverge_from_code" in codes, codes
 
     refs, tips = _display(nl)
     assert refs == {"U1", "U2"}, refs
@@ -539,16 +569,17 @@ def test_le_clic_montre_la_meme_chose_que_le_survol():
                        ("VCC", "5V"), ("GND", "GND"), ("OUT", "D7"))],
         prompt="branche mes capteurs")
 
-    class _Stub:
-        _netlist = nl
-        _CONFRONTATION_CODES = W._CONFRONTATION_CODES
-        _show_warning_info = W._show_warning_info
+    # Meme raison qu'en haut de ce fichier : on HERITE, on ne recopie pas.
+    class _Stub(W):
+        def __init__(self, netlist):
+            self._netlist = netlist
+            self._mode = "avance"
 
     seen = []
     original = QMessageBox.information
     QMessageBox.information = staticmethod(lambda *a, **k: seen.append(a))
     try:
-        _Stub()._show_warning_info("U1")
+        _Stub(nl)._show_warning_info("U1")
     finally:
         QMessageBox.information = original
     assert seen, "le clic n'a rien ouvert"

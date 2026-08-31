@@ -13,22 +13,24 @@ netlist (in-place mutation).
 """
 from __future__ import annotations
 
-from PyQt6.QtCore import QEvent, QObject, Qt, pyqtSignal
+from PyQt6.QtCore import QEvent, QObject, QRectF, Qt, pyqtSignal
+from PyQt6.QtGui import QColor, QPainter, QPainterPath
 from PyQt6.QtWidgets import (
     QButtonGroup, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFrame,
     QGridLayout, QGroupBox, QHBoxLayout, QLabel, QPushButton, QRadioButton,
-    QScrollArea, QSizePolicy, QVBoxLayout, QWidget,
+    QScrollArea, QSizePolicy, QStackedWidget, QVBoxLayout, QWidget,
 )
 
 from ..i18n import lang_manager, localize_button_box
 from ..theme import (
     theme_manager, primary_button_qss, secondary_button_qss,
-    radio_checkbox_qss,
+    radio_checkbox_qss, bare_button_qss,
 )
 from .categories import category_of, NON_REPLACEABLE
 from .component_replace import replace_component
 from .instructions import _label as _type_label
-from .markers import find_pin_excerpt
+from .markers import (STEPPER_DRIVERS, apply_stepper_driver_swap,
+                      find_pin_excerpt)
 from .netlist import Component, Netlist, Pin
 from ..declared_components import TYPE_PREFIX
 
@@ -175,7 +177,26 @@ def _arduino_signal_pin(c: Component, netlist=None) -> str | None:
     LED.A = NET_X, R.A = D6, R.B = NET_X -> we return D6).
 
     Without netlist, just returns signal_net(c) (no walk-up possible)."""
-    sig = c.pin("A") or c.pin("SIG") or (c.pins[0] if c.pins else None)
+    from .inference import _is_signal_net
+
+    def _walkable(p) -> bool:
+        return p is not None and (_is_signal_net(p.net)
+                                  or p.net.startswith("NET_"))
+
+    # La broche de signal ne peut JAMAIS être un rail. Deux pièges payés en
+    # QA AC (2026-08-31), même pathologie par deux portes : `pins[0]` d'un
+    # écran I2C est VCC (clé de swap `('', '5V')` → un DHT11 héritait du
+    # « led » de l'écran remplacé), et la broche « A » d'un POTENTIOMÈTRE
+    # est sa patte 5V (titre de modale « Broche 5V », même clé dégénérée) —
+    # « A » veut dire anode pour une LED, mais juste « première patte » pour
+    # un pot. On garde donc A/SIG seulement si leur net est un signal (ou un
+    # pont NET_ remontable) ; sinon première broche signal ; repli inchangé
+    # sur `pins[0]` quand rien n'est un signal (placeholder à nets vides :
+    # sa clé dégénérée `('', '')` est un comportement documenté).
+    sig = c.pin("A") or c.pin("SIG")
+    if not _walkable(sig):
+        sig = next((p for p in c.pins if _walkable(p)),
+                   sig or (c.pins[0] if c.pins else None))
     if sig is None:
         return None
     if not sig.net.startswith("NET_") or netlist is None:
@@ -370,29 +391,48 @@ def is_silently_resolved_servo(component: Component) -> bool:
     """True if the prompt names this output as a servo, so the resolver
     peels it off instead of sending it to the modal.
 
-    Single source of truth for that rule: `studio_view._resolve_wiring_netlist`
-    applies the peel-off, and `collect_re_editable` must predict it. Two
-    hand-written copies of the same predicate would let the "Edit choices"
-    button claim there is something to re-decide when there is not."""
+    Point de verite UNIQUE de cette regle : `studio_view.
+    _resolve_wiring_netlist` applique le peel-off, et rien d'autre ne doit le
+    reecrire a la main -- deux copies finiraient par diverger, et la
+    divergence ferait ouvrir la modale sur un servo qui n'y arrive jamais.
+
+    ⚠️ Cette fonction avait un second appelant, `collect_re_editable`, qui
+    decidait l'etat du bouton du schema. Il a disparu le 2026-08-29 : le
+    bouton s'appelle desormais « Modifier les composants » et ouvre TOUT le
+    schema (`collect_all_editable`), donc son etat ne depend plus de
+    l'ambiguite. Le peel-off, lui, n'a pas bouge."""
     return component.attributes.get("_prompt_suggested_type") == "servo"
 
 
-def collect_re_editable(netlist: Netlist) -> list[Component]:
-    """Components that a GLOBAL "Edit choices" (force_remodal, no scoped ref)
-    would actually put in the modal.
+def collect_all_editable(netlist: Netlist,
+                         editable_refs: set[str] | None = None) -> list[Component]:
+    """TOUS les composants du schéma que l'utilisateur peut corriger.
 
-    ⚠️ Takes a FRESHLY ANALYZED netlist, never a resolved one. Resolving
-    clears `_confidence == "low"` (measured 2026-08-17: two ambiguous outputs
-    before `apply_saved_resolution`, zero after), so asking a resolved netlist
-    would always answer "nothing" and would disable the button permanently —
-    the exact opposite of the intent.
+    C'est ce qu'ouvre « Modifier les composants » (ex-« Modifier les choix »),
+    par opposition à `collect_re_editable`, qui ne rendait que les composants
+    **incertains**. Deux raisons de changer, demandées le 2026-08-29 :
 
-    = `collect_ambiguous` minus the servo peel-off. `include_scoped_target`
-    plays no part here: it is a no-op when `scoped_to_ref is None`, which is
-    the case for the global button (the gear has its own path, and it targets
-    components this list deliberately does not contain)."""
-    return [c for c in collect_ambiguous(netlist)
-            if not is_silently_resolved_servo(c)]
+    - on ne pouvait pas revenir sur un composant que le détecteur avait
+      reconnu **avec certitude** ; seul son engrenage y donnait accès, et
+      encore fallait-il le trouver dans le schéma ;
+    - avec deux fonctionnalités ambiguës générées à la suite, la première
+      cessait d'être joignable par ce bouton.
+
+    ⚠️ **Le critère est celui de l'ENGRENAGE, pas une deuxième règle.**
+    `gear_menu_editable` décide déjà quels composants portent un engrenage
+    dans le schéma ; s'en écarter ferait deux populations « modifiables » qui
+    finiraient par diverger. Elle est importée ici plutôt que recopiée, et
+    l'import est local : ce module est chargé par des tests sans Qt utile, et
+    `wiring_diagram_dialog` traîne toute la scène graphique.
+
+    Les composants d'INFRASTRUCTURE restent dehors — résistance de
+    limitation, pile, driver déduit d'un moteur : l'utilisateur ne les a pas
+    choisis (`is_replaceable`, règle du TODO #62).
+    """
+    from .wiring_diagram_dialog import gear_menu_editable
+    refs = editable_refs or set()
+    return [c for c in netlist.components
+            if gear_menu_editable(c, c.ref in refs)]
 
 
 def include_scoped_target(ambiguous: list, netlist, scoped_to_ref):
@@ -615,6 +655,148 @@ def _humanize_pin(net: str) -> str:
 _find_prompt_excerpt = find_pin_excerpt
 
 
+_RAIL_WIDTH = 244
+"""Largeur du rail. Mesuree pour tenir « Moteur suppose 2 » et « Broche
+numerique 11 » sur une ligne dans les quatre langues, sans imposer sa largeur
+au panneau de detail (le picker a besoin de deux colonnes de cards)."""
+
+_RAIL_BAR_W = 3
+_RAIL_RADIUS = 6
+
+
+class _RailRow(QPushButton):
+    """Une ligne du rail des decisions (TODO #73).
+
+    Deux lignes de texte -- le sujet, puis ce qui est actuellement retenu --
+    plus une pastille d'etat, le tout dans un QPushButton pour heriter du
+    CLAVIER : le rail se parcourt a la tabulation et s'active a l'Espace,
+    comme la pile de sections qu'il remplace.
+
+    L'element actif est marque par la seule barre phosphore a gauche, SANS
+    fond plein : c'est la convention maison, tranchee par l'utilisateur le
+    2026-07-08 (cf. `settings_dialog._NavButton` et `sidebar.NavButton`). La
+    maquette de discussion proposait un fond teinte -- la convention gagne.
+
+    ⚠️ `setAutoDefault(False)` + `setDefault(False)` : le piege des modales du
+    cablage (`test_dialog_enter_key.py`). Cette modale contient un champ de
+    saisie (la recherche du picker) et, sans ca, Entree dans ce champ remonte
+    au premier bouton autoDefault de la fenetre -- qui serait desormais une
+    ligne de rail, donc un saut de page au lieu d'une validation.
+    """
+
+    def __init__(self, title: str, value: str, *,
+                 indented: bool = False, parent=None):
+        super().__init__(parent)
+        self._active = False
+        self._hover = False
+        self._done = False
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setAutoDefault(False)
+        self.setDefault(False)
+        self.setSizePolicy(QSizePolicy.Policy.Preferred,
+                           QSizePolicy.Policy.Minimum)
+        # Le bouton ne dessine RIEN lui-meme : la barre active est peinte
+        # dans `paintEvent` et le texte vit dans les libelles enfants. C'est
+        # exactement le contrat de `bare_button_qss` -- transparent, sans
+        # bordure, sans marge interne --, et la propriete doit etre posee
+        # AVANT le premier affichage pour que le selecteur morde.
+        self.setProperty("variant", "bare")
+
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(24 if indented else 9, 7, 9, 7)
+        lay.setSpacing(8)
+
+        # Les libelles ne doivent PAS intercepter la souris, sinon le clic
+        # n'atteint jamais le bouton qui les porte.
+        self._lbl_state = QLabel("")
+        self._lbl_state.setFixedWidth(12)
+        self._lbl_title = QLabel(title)
+        self._lbl_title.setWordWrap(True)
+        self._lbl_value = QLabel(value)
+        self._lbl_value.setWordWrap(True)
+        for lbl in (self._lbl_state, self._lbl_title, self._lbl_value):
+            lbl.setAttribute(
+                Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+
+        lay.addWidget(self._lbl_state, 0, Qt.AlignmentFlag.AlignTop)
+        col = QVBoxLayout()
+        col.setContentsMargins(0, 0, 0, 0)
+        col.setSpacing(1)
+        col.addWidget(self._lbl_title)
+        col.addWidget(self._lbl_value)
+        lay.addLayout(col, 1)
+
+    # -- etat -----------------------------------------------------------
+    def set_texts(self, title: str, value: str) -> None:
+        self._lbl_title.setText(title)
+        self._lbl_value.setText(value)
+
+    def set_active(self, active: bool) -> None:
+        self._active = bool(active)
+        self.apply_theme(theme_manager.current)
+
+    def set_done(self, done: bool) -> None:
+        self._done = bool(done)
+        self.apply_theme(theme_manager.current)
+
+    def is_active(self) -> bool:
+        return self._active
+
+    def is_done(self) -> bool:
+        return self._done
+
+    # -- rendu ----------------------------------------------------------
+    def enterEvent(self, e):
+        self._hover = True
+        self.apply_theme(theme_manager.current)
+        super().enterEvent(e)
+
+    def leaveEvent(self, e):
+        self._hover = False
+        self.apply_theme(theme_manager.current)
+        super().leaveEvent(e)
+
+    def apply_theme(self, c) -> None:
+        if self._active:
+            titre = c.text_primary
+        elif self._hover:
+            titre = c.signal_ok
+        else:
+            titre = c.text_secondary
+        poids = 700 if self._active else 600
+        self.setStyleSheet(bare_button_qss(c))
+        self._lbl_title.setStyleSheet(
+            f"color: {titre}; background: transparent;"
+            f" font-size: 9pt; font-weight: {poids};")
+        self._lbl_value.setStyleSheet(
+            f"color: {c.text_secondary}; background: transparent;"
+            " font-size: 8pt;")
+        # ✓ phosphore quand l'utilisateur a tranche, puce neutre sinon. La
+        # puce n'est PAS ambre : une decision non encore confirmee n'est pas
+        # un avertissement, seulement quelque chose qui reste a faire.
+        self._lbl_state.setText("\u2713" if self._done else "\u25cf")
+        self._lbl_state.setStyleSheet(
+            f"color: {c.signal_ok if self._done else c.disabled_text};"
+            " background: transparent; font-size: 9pt;")
+        self.update()
+
+    def paintEvent(self, e):
+        if self._active:
+            c = theme_manager.current
+            p = QPainter(self)
+            p.setRenderHint(QPainter.RenderHint.Antialiasing)
+            card = QRectF(self.rect())
+            path = QPainterPath()
+            path.addRoundedRect(card, _RAIL_RADIUS, _RAIL_RADIUS)
+            p.setClipPath(path)
+            p.fillRect(
+                QRectF(card.left(), card.top(), _RAIL_BAR_W, card.height()),
+                QColor(c.nav_active_border),
+            )
+            p.end()
+        super().paintEvent(e)
+
+
 class AmbiguityDialog(QDialog):
     """Modal that presents the ambiguous components and collects the
     user choice. After `exec()`:
@@ -649,7 +831,9 @@ class AmbiguityDialog(QDialog):
                  prompts_by_fn: dict | None = None,
                  suggested_dc_driver: str | None = None,
                  netlist: Netlist | None = None,
-                 motors_limit: int | None = None):
+                 motors_limit: int | None = None,
+                 initial_choices: dict[str, str] | None = None,
+                 ungrouped_groupings: list[dict] | None = None):
         super().__init__(parent)
         self._ambiguous = ambiguous
         self._prompt = prompt
@@ -675,6 +859,17 @@ class AmbiguityDialog(QDialog):
         # resolve at apply_choices time, simpler to handle the
         # dc_motor-with-driver case).
         self._chosen_type: dict[str, str] = {}
+        # Refs sur lesquelles l'utilisateur a REELLEMENT tranche. Distinct de
+        # `_chosen_type`, que le prompt ou une session precedente peuvent
+        # remplir : confondre les deux ferait afficher « confirme » sur des
+        # lignes que personne n'a regardees.
+        self._decided: set[str] = set()
+        # ⚠️ INITIALISE ICI, avant toute restitution. Place plus bas, cette
+        # ligne ECRASAIT ce que la restitution des choix venait de poser : a
+        # la reouverture de « Modifier les choix », la ligne « N moteurs DC »
+        # restait grise et il fallait RE-cliquer le pilote deja selectionne
+        # pour la faire passer au vert (QA, 2026-08-29).
+        self._motors_decided = False
         # ref -> driver_type when chosen_type == "dc_motor". Otherwise absent.
         self._chosen_driver: dict[str, str] = {}
         # Pre-checking from the prompt suggestions (set by
@@ -690,6 +885,28 @@ class AmbiguityDialog(QDialog):
             suggested_driver = c.attributes.get("_prompt_suggested_driver")
             if suggested_driver:
                 self._chosen_driver[c.ref] = suggested_driver
+        # Choix DEJA faits par l'utilisateur, restitues par l'appelant.
+        # « Modifier mes choix » (`force_remodal`) rejoue TOUTES les
+        # ambiguites sans appliquer les resolutions sauvegardees -- c'est
+        # voulu, l'utilisateur veut pouvoir tout redecider. Mais sans ceci la
+        # modale rouvrait sur les valeurs par defaut et il PERDAIT ce qu'il
+        # avait deja tranche (retour utilisateur, 2026-08-29). Le pilote de
+        # chaque moteur etait deja restitue de cette facon ; le type ne
+        # l'etait pas.
+        #
+        # Pose APRES les suggestions du prompt : un choix explicite de
+        # l'utilisateur prime sur une deduction. Et marque `_decided` --
+        # il a vraiment choisi, le rail n'a pas a le lui redemander.
+        for _ref, _tid in (initial_choices or {}).items():
+            self._chosen_type[_ref] = _tid
+            # ⚠️ PAS `_decided.add` directement : un moteur groupe n'a pas de
+            # ligne a lui dans le rail, il vit dans la section consolidee qui
+            # lit `_motors_decided`. En marquant au mauvais endroit, la ligne
+            # « N moteurs DC » restait grise a la reouverture de « Modifier
+            # les choix » et il fallait RE-cliquer le pilote deja selectionne
+            # pour la faire passer au vert (QA, 2026-08-29).
+            self._mark_decided(_ref)
+
         # ref -> frame containing the driver cards, for show/hide
         # depending on whether the user checked "Moteur DC" or not.
         self._driver_frames: dict[str, QFrame] = {}
@@ -712,6 +929,18 @@ class AmbiguityDialog(QDialog):
         # que l'onglet « Composants », QA I4).
         self._declare_buttons: dict[str, QPushButton] = {}
 
+        # ── Rail des decisions (TODO #73) ──────────────────────────────
+        # Refs sur lesquelles l'utilisateur a REELLEMENT clique. Distinct de
+        # `_chosen_type`, qui est pre-rempli par la pre-selection du
+        # detecteur des la construction : confondre les deux ferait afficher
+        # « confirme » sur des lignes que personne n'a regardees.
+        # Decision courante, retenue par CLE et non par index : une
+        # reconstruction change la longueur de la liste (degrouper un moteur
+        # y ajoute trois lignes), un index survivrait en pointant ailleurs.
+        self._current_key: str | None = None
+        self._entries: list[dict] = []
+        self._rail_rows: list[_RailRow] = []
+
         # Snapshot of the original groupings (= what the auto-detector
         # found). Used by the "Garder une partie" mode to allow the
         # bidirectional toggle: unchecking a motor ungroups it; re-checking
@@ -731,6 +960,17 @@ class AmbiguityDialog(QDialog):
                     "dirs": list(c.attributes["_grouped_dir_pins"]),
                     "ref": c.ref,
                 })
+        # Groupements que l'APPELANT a deja defaits avant d'ouvrir : sa
+        # pre-passe rejoue une decision « ce n'est pas un moteur » deja
+        # sauvegardee. Sans eux, le rail ignorerait que ces broches ont forme
+        # un moteur et n'offrirait pas « Regrouper en moteur » — la decision
+        # serait irreversible precisement la ou l'utilisateur vient la revoir.
+        _defaits = {g["pwm"] for g in (ungrouped_groupings or [])}
+        _connus = {g["pwm"] for g in self._original_groupings}
+        for g in (ungrouped_groupings or []):
+            if g["pwm"] not in _connus:
+                self._original_groupings.append(dict(g))
+
         # Deterministic sort of the groupings by pin number (D3 < D5 < D9...)
         # so the pre-checking in limit mode is predictable.
         def _pin_order(g):
@@ -764,16 +1004,19 @@ class AmbiguityDialog(QDialog):
         else:
             self._currently_kept_pwms: set[str] = {
                 g["pwm"] for g in self._original_groupings
-            }
+            } - _defaits
         # PWMs declared "these are motors" (vs detector false
         # positives). All declared motor by default since the detector
         # grouped them. The user can uncheck to ungroup the pins into
         # individual ambiguities, without making the row disappear (the
         # row stays visible to allow the re-correction).
         # Unchecking 'Moteur' automatically greys out 'Cabler ce moteur'.
+        # ⚠️ Les groupements DEFAITS en sont exclus : l'utilisateur a deja dit
+        # que ce n'etaient pas des moteurs. Les y mettre les re-proposerait
+        # comme tels, ce qui est exactement le defaut qu'on repare.
         self._motor_declared_real: set[str] = {
             g["pwm"] for g in self._original_groupings
-        }
+        } - _defaits
 
         from .visual_ambiguity_catalog import dialog_label
         self.setWindowTitle(dialog_label("adv_window_title", lang_manager.lang))
@@ -877,62 +1120,110 @@ class AmbiguityDialog(QDialog):
         intro.setWordWrap(True)
         root.addWidget(intro)
 
-        # Scrollable zone for the ambiguity sections. Vertical bar
-        # ALWAYS visible (even when the content fits) to give a clear
-        # visual signal that one can scroll if needed.
-        scroll = QScrollArea()
-        # Nomme pour que la feuille de style de cette modale ne vise QUE ce
-        # panneau-ci. Une regle sur le TYPE `QScrollArea` cascade sur tout
-        # descendant, dialogue ENFANT compris : elle rendait transparent le
-        # bloc de broches du formulaire de declaration ouvert depuis le schema
-        # (mesure : 35,5 % de sa surface differait de la meme modale ouverte
-        # depuis l'onglet « Composants »). Cf. `_apply_control_styles`.
-        scroll.setObjectName("ambiguityScroll")
-        scroll.setWidgetResizable(True)
-        scroll.setHorizontalScrollBarPolicy(
-            Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        scroll.setVerticalScrollBarPolicy(
-            Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
-        scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll_content = QWidget()
-        scroll_lay = QVBoxLayout(scroll_content)
-        scroll_lay.setContentsMargins(0, 0, 0, 0)
-        scroll_lay.setSpacing(10)
-
-        # Identify the N DC motor candidates (= grouped). If N >= 2, we
-        # consolidate into a SINGLE section with 1 global driver choice
-        # (instead of N separate sections, each with its own choice).
-        # Otherwise: classic behavior (1 section per component).
-        # In active partial mode AND >=2 motors originally detected, we
-        # FORCE the consolidated section even if only 0/1 motor stays
-        # currently grouped -- otherwise the checkboxes of the ungrouped
-        # motors disappear and the user can no longer re-check to undo.
+        # ── Rail des decisions + panneau de detail (TODO #73) ─────────────
+        # Avant : toutes les sections empilees dans UN defileur. A trois
+        # broches ambigues, les deux tiers du contenu etaient hors ecran et
+        # rien ne disait combien de decisions attendaient -- il fallait faire
+        # defiler pour le decouvrir.
+        #
+        # ⚠️ LES SECTIONS SONT TOUJOURS TOUTES CONSTRUITES, et ce n'est pas
+        # un reste de l'ancienne structure : c'est ce qui remplit `_pickers`
+        # et, par la pre-selection de `_build_classic_section`,
+        # `_chosen_type`. Ne construire que la page courante rendrait
+        # « Valider » DEFINITIVEMENT gris -- `_update_ok_state` exige un type
+        # par composant, et une section jamais construite n'en pose aucun.
+        # Le seul changement est le CONTENANT.
         grouped_components = [c for c in self._ambiguous
                               if c.attributes.get("_grouped_pwm_pin")]
-        # Show the consolidated section as soon as we have >=2 motors originally
-        # detected -- even if the user has unchecked them all via 'Moteur', the box
-        # stays to allow re-correction (re-checking restores the grouping).
-        consolidate_motors = len(self._original_groupings) >= 2
+        # UNE SEULE vue pour les moteurs, quel qu'en soit le nombre. Le seuil
+        # etait a 2 : un moteur unique passait par `_build_grouped_section`
+        # (radios « Oui c'est un moteur DC / Non c'est autre chose »), deux ou
+        # plus par la section consolidee (cases a cocher). Deux presentations
+        # pour la meme question, et l'utilisateur tombait sur l'une ou l'autre
+        # selon la porte : « la vue est differente entre la modif composant
+        # via engrenage et modifier mes choix » (QA, 2026-08-29).
+        #
+        # La page reste affichee meme si tous les moteurs sont decoches : sans
+        # elle, les cases permettant la correction inverse disparaitraient.
+        consolidate_motors = len(self._original_groupings) >= 1
+
+        self._entries = []
+        self._rail_rows = []
+        self._regroup_buttons: list[QPushButton] = []
+        self._stack = QStackedWidget()
+        self._stack.setObjectName("ambiguityStack")
 
         if consolidate_motors:
-            group = self._build_consolidated_motors_section(grouped_components)
-            scroll_lay.addWidget(group)
+            self._add_decision_page(
+                self._build_consolidated_motors_section(grouped_components),
+                kind="motors", component=None)
+
+        # ⚠️ **Les moteurs de NIVEAU 1 (nommes par le CODE, `signature_
+        # detected`) ont leur section a eux** (QA AB2, 2026-08-31). Ouverts
+        # par « Modifier les composants », ils passaient par la section
+        # classique : deux pages JUMELLES toutes deux titrees « Broche
+        # numerique 9 » — leurs broches remontent au MEME signal Arduino, la
+        # clef degeneree que le #86 (a) documentait — avec un picker offrant
+        # de les requalifier en LED, alors que le code appelle la lib L298N.
+        # Pire : valider aurait ecrit leurs resolutions sous cette clef
+        # PARTAGEE (moteurs + driver confondus), la corruption exacte que le
+        # #86 (a) predisait si une porte d'edition s'ouvrait sans corriger la
+        # clef. Meme patron que la section stepper du T6 : la seule question
+        # legitime est LE PILOTE.
+        lib_motors = [c for c in self._ambiguous
+                      if c.type == "dc_motor"
+                      and c.attributes.get("signature_detected")]
+        if lib_motors:
+            self._add_decision_page(
+                self._build_lib_motors_section(lib_motors),
+                kind="pin", component=lib_motors[0])
 
         for c in self._ambiguous:
-            if consolidate_motors and c in grouped_components:
+            if c in grouped_components:
+                # Les moteurs groupes vivent TOUS dans la section consolidee
+                # ci-dessus, seuls ou a plusieurs (2026-08-29). Il n'existe
+                # plus de section « un seul moteur ».
                 continue
-            if c.attributes.get("_grouped_pwm_pin"):
-                group = self._build_grouped_section(c)
-            else:
-                group = self._build_classic_section(c)
-            scroll_lay.addWidget(group)
-        scroll_lay.addStretch(1)
-        scroll.setWidget(scroll_content)
-        # Generous min height to comfortably see 2-3 sections
-        # without scrolling in the standard case. Max capped by
-        # _cap_height_to_screen.
-        scroll.setMinimumHeight(400)
-        root.addWidget(scroll, stretch=1)
+            if c in lib_motors:
+                continue
+            if c.type in STEPPER_DRIVERS:
+                # Un driver pas-a-pas ne pose pas la question << quelle est
+                # cette broche ? >> : le code l'a nomme. La seule question est
+                # << laquelle de ces quatre variantes ? >>.
+                self._add_decision_page(
+                    self._build_stepper_driver_section(c),
+                    kind="pin", component=c)
+                continue
+            self._add_decision_page(self._build_classic_section(c),
+                                    kind="pin", component=c)
+
+        split = QHBoxLayout()
+        split.setContentsMargins(0, 0, 0, 0)
+        split.setSpacing(12)
+
+        # Le rail est TOUJOURS la, meme pour une seule decision. Il a d'abord
+        # ete masque dans ce cas -- une ligne n'apprend rien et coute 244 px
+        # au picker -- mais la modale changeait alors de FORME selon la porte
+        # par laquelle on entrait : l'engrenage (« Modifier ce composant… »)
+        # n'ouvre qu'un composant et donnait une fenetre sans rien de commun
+        # avec celle de la generation. Une seule mise en page, quelle que soit
+        # la porte (decision utilisateur, QA X4, 2026-08-29).
+        self._rail_host = self._build_rail()
+        split.addWidget(self._rail_host)
+        self._vsep = QWidget()
+        self._vsep.setObjectName("ambiguityVSep")
+        self._vsep.setFixedWidth(1)
+        split.addWidget(self._vsep)
+        split.addWidget(self._stack, stretch=1)
+
+        holder = QWidget()
+        holder.setLayout(split)
+        holder.setMinimumHeight(400)
+        root.addWidget(holder, stretch=1)
+        # Le rail prend sa largeur EN PLUS de celle du picker, qui a besoin
+        # de ses deux colonnes de cards : sans cette reprise, la grille
+        # retombait a une colonne des que le rail apparaissait.
+        self.setMinimumWidth(860)
 
         self._buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok |
@@ -961,6 +1252,332 @@ class AmbiguityDialog(QDialog):
         # Centralized styling of the controls recreated by this build (OK/Cancel +
         # radios + checkboxes). The labels/cards keep their own style.
         self._apply_control_styles(theme_manager.current)
+        # Restaure la decision courante PAR CLE (cf. `_current_key`), sinon
+        # retombe sur la premiere non confirmee -- pas sur la premiere tout
+        # court : rouvrir la modale doit poser l'utilisateur devant ce qui
+        # lui reste a faire.
+        self._select_decision(self._index_for_key(self._current_key))
+
+    # ── Rail des décisions (TODO #73) ─────────────────────────────────
+
+    def _add_decision_page(self, section, *, kind: str,
+                           component: Component | None) -> None:
+        """Enveloppe une section dans SON défileur et l'ajoute à la pile.
+
+        Un défileur par page, pas un seul autour de la pile : chaque page
+        garde ainsi sa position, et une page courte n'hérite pas du vide de
+        la plus longue (`QStackedWidget` prend la taille de son plus grand
+        enfant).
+
+        ⚠️ La barre verticale n'est plus TOUJOURS visible. Elle l'était pour
+        « signaler qu'on peut défiler » — un signal que le rail porte
+        désormais bien mieux, en disant ce qui existe au lieu de suggérer
+        qu'il y a peut-être autre chose. Une barre sur une page qui tient
+        entièrement à l'écran est devenue du bruit.
+        """
+        scroll = QScrollArea()
+        scroll.setObjectName("ambiguityScroll")
+        scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        host = QWidget()
+        lay = QVBoxLayout(host)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.addWidget(section)
+        lay.addStretch(1)
+        scroll.setWidget(host)
+        self._stack.addWidget(scroll)
+        self._entries.append({
+            "kind": kind,
+            "component": component,
+            "sub_of": (self._sub_of(component)
+                       if component is not None else None),
+        })
+
+    def _section_net(self, c: Component) -> str:
+        """Broche Arduino qui NOMME la section de ce composant.
+
+        Même remontée que `_build_classic_section` : sans elle, un composant
+        dont l'inférence a ponté la broche de signal (LED + R série ->
+        `NET_X`) serait « Broche NET_X » dans le rail et « Broche 6 » dans
+        son propre titre.
+        """
+        net = _arduino_signal_pin(c, self._netlist)
+        if net is None:
+            sig = (c.pin("A") or c.pin("SIG") or
+                   (c.pins[0] if c.pins else None))
+            net = sig.net if sig else "?"
+        return net
+
+    def _sub_of(self, c: Component) -> str | None:
+        """Le groupement moteur d'origine d'où cette broche a été libérée,
+        s'il a été dégroupé. C'est ce qui permet au rail de la remettre SOUS
+        son moteur, avec le bouton qui l'y regroupe.
+
+        Couvre aussi le moteur UNIQUE : sa section groupée disparaît dès
+        qu'on le dégroupe (le composant perd ses attributs `_grouped_*`),
+        donc sans le rail il n'existait AUCUN chemin de retour — le trou
+        était le même que pour les moteurs multiples, en plus discret.
+        """
+        if c.attributes.get("_grouped_pwm_pin"):
+            return None
+        net = self._section_net(c)
+        for g in self._original_groupings:
+            if g["pwm"] in self._motor_declared_real:
+                continue
+            if net == g["pwm"] or net in g["dirs"]:
+                return g["pwm"]
+        return None
+
+    @staticmethod
+    def _entry_key(entry: dict) -> str:
+        comp = entry["component"]
+        return "motors" if comp is None else comp.ref
+
+    def _entry_done(self, entry: dict) -> bool:
+        """✓ = l'utilisateur a tranché ET la décision est COMPLÈTE.
+
+        Les deux conditions comptent, et pour des raisons différentes : sans la
+        première, la déduction du détecteur passerait pour un choix ; sans la
+        seconde, le rail annonce ✓ sur une ligne qui continue de bloquer
+        « Valider » — c'est ce que la QA X4 a trouvé, un moteur confirmé dont
+        le pilote n'était pas choisi.
+        """
+        if entry["component"] is None:
+            if not self._motors_decided:
+                return False
+            return all(self._is_complete(c) for c in self._ambiguous
+                       if c.attributes.get("_grouped_pwm_pin"))
+        c = entry["component"]
+        return c.ref in self._decided and self._is_complete(c)
+
+    def _entry_title(self, entry: dict) -> str:
+        from .visual_ambiguity_catalog import dialog_label
+        lang = lang_manager.lang
+        c = entry["component"]
+        if c is None:
+            return dialog_label("motors_detected_title", lang).format(
+                k=len(self._original_groupings))
+        if (c.type == "dc_motor"
+                and c.attributes.get("signature_detected")):
+            # La page des moteurs de NIVEAU 1 : son ancre est un moteur dont
+            # la broche remonte au driver — la titrer « Broche numerique 9 »
+            # donnait deux lignes jumelles (QA AB2, 2026-08-31). Le titre dit
+            # le LOT, comme la section consolidee.
+            k = sum(1 for m in self._ambiguous
+                    if m.type == "dc_motor"
+                    and m.attributes.get("signature_detected"))
+            return dialog_label("motors_detected_title", lang).format(k=k)
+        # Un composant groupe n'a plus d'entree a lui : il est dans la
+        # section consolidee, dont le titre est rendu juste au-dessus.
+        net = self._section_net(c)
+        if not net or net == "?":
+            # Aucune broche cablee -- typiquement un placeholder d'`#include`
+            # inconnu. `_humanize_pin` rendait alors « Broche  », un titre
+            # VIDE et illisible (releve en QA, 2026-08-29). C'est le NOM du
+            # composant qui porte l'information dans ce cas.
+            return _type_label(c.type, lang)
+        return _humanize_pin(net)
+
+    def _entry_value(self, entry: dict) -> str:
+        """Ce qui est actuellement retenu pour cette décision."""
+        from .visual_ambiguity_catalog import dialog_label
+        from .picker_logic import _label_for
+        lang = lang_manager.lang
+        c = entry["component"]
+        if c is None:
+            n = len(self._original_groupings)
+            k = sum(1 for g in self._original_groupings
+                    if g["pwm"] in self._motor_declared_real)
+            if k == n:
+                return dialog_label("rail_motors_all", lang).format(n=n)
+            if k == 0:
+                return dialog_label("rail_motors_none", lang)
+            return dialog_label("rail_motors_some", lang).format(k=k, n=n)
+        tid = self._chosen_type.get(c.ref)
+        if tid is None and c.attributes.get("_grouped_pwm_pin"):
+            tid = "dc_motor"
+        # None = rien n'est retenu. Retomber sur `c.type` reintroduirait dans
+        # le rail la devinette qu'on vient de retirer du picker.
+        if tid is None:
+            return None
+        return _label_for(tid, lang)
+
+    def _rail_value_text(self, entry: dict) -> str:
+        """Le libellé du choix, préfixé de « proposé : » tant que
+        l'utilisateur n'a rien cliqué. La distinction n'est pas cosmétique :
+        toutes les sections arrivent PRÉ-SÉLECTIONNÉES sur la déduction du
+        détecteur, et afficher celle-ci comme un choix ferait dire à
+        l'utilisateur ce qu'il n'a pas dit."""
+        from .visual_ambiguity_catalog import dialog_label
+        lang = lang_manager.lang
+        val = self._entry_value(entry)
+        if val is None:
+            return dialog_label("rail_undecided", lang)
+        if self._entry_done(entry):
+            return val
+        return dialog_label("rail_proposed", lang).format(label=val)
+
+    def _more_subs_after(self, index: int, pwm: str) -> bool:
+        return any(e["sub_of"] == pwm for e in self._entries[index + 1:])
+
+    def _make_regroup_button(self, pwm: str) -> QPushButton:
+        from .visual_ambiguity_catalog import dialog_label
+        lang = lang_manager.lang
+        grp = next((g for g in self._original_groupings
+                    if g["pwm"] == pwm), None)
+        pins = ", ".join([pwm] + list(grp["dirs"])) if grp else pwm
+        btn = QPushButton(dialog_label("rail_regroup", lang))
+        btn.setToolTip(dialog_label("rail_regroup_tip", lang).format(
+            pins=pins))
+        btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn.setAutoDefault(False)
+        btn.setDefault(False)
+        btn.setSizePolicy(QSizePolicy.Policy.Preferred,
+                          QSizePolicy.Policy.Fixed)
+        btn.clicked.connect(
+            lambda _=False, p=pwm: self._regroup_from_rail(p))
+        self._regroup_buttons.append(btn)
+        return btn
+
+    def _regroup_from_rail(self, pwm: str) -> None:
+        """« Regrouper en moteur », depuis le rail.
+
+        Passe par `_toggle_motor_declared` au lieu d'appeler le regroupement
+        directement : c'est LE point de passage qui remet aussi le câblage et
+        reconstruit. Le court-circuiter laisserait un moteur reconnu mais
+        silencieusement non câblé.
+        """
+        self._toggle_motor_declared(pwm, is_motor=True)
+
+    def _build_rail(self) -> QWidget:
+        from .visual_ambiguity_catalog import dialog_label
+        lang = lang_manager.lang
+        host = QWidget()
+        host.setObjectName("ambiguityRail")
+        host.setFixedWidth(_RAIL_WIDTH)
+        outer = QVBoxLayout(host)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(2)
+
+        n = len(self._entries)
+        self._rail_title = QLabel(dialog_label(
+            "rail_title_one" if n == 1 else "rail_title_many",
+            lang).format(n=n))
+        self._rail_sub = QLabel("")
+        self._rail_sub.setWordWrap(True)
+        outer.addWidget(self._rail_title)
+        outer.addWidget(self._rail_sub)
+        outer.addSpacing(6)
+
+        # Le rail défile SI la liste est longue, mais il ne défile pas dans
+        # le cas courant : c'est toute la promesse du maître-détail — savoir
+        # ce qui reste sans avoir à chercher.
+        scroll = QScrollArea()
+        scroll.setObjectName("ambiguityScrollRail")
+        scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        inner = QWidget()
+        lay = QVBoxLayout(inner)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(1)
+
+        for i, entry in enumerate(self._entries):
+            row = _RailRow(self._entry_title(entry),
+                           self._rail_value_text(entry),
+                           indented=entry["sub_of"] is not None)
+            row.set_done(self._entry_done(entry))
+            row.clicked.connect(
+                lambda _=False, k=i: self._select_decision(k))
+            lay.addWidget(row)
+            self._rail_rows.append(row)
+            # « Regrouper » se pose après la DERNIÈRE broche libérée par ce
+            # moteur. C'est le correctif de fond du ticket : l'annulation
+            # vivait dans la section consolidée restée tout en haut, à deux
+            # écrans des broches qu'elle venait de faire apparaître.
+            pwm = entry["sub_of"]
+            if pwm is not None and not self._more_subs_after(i, pwm):
+                lay.addWidget(self._make_regroup_button(pwm))
+
+        lay.addStretch(1)
+        scroll.setWidget(inner)
+        outer.addWidget(scroll, stretch=1)
+        self._refresh_rail_header()
+        return host
+
+    def _index_for_key(self, key: str | None) -> int:
+        """Index de la décision portant cette clé ; à défaut la première non
+        confirmée — pas la première tout court : une reconstruction doit
+        reposer l'utilisateur devant ce qui lui reste à faire."""
+        if key is not None:
+            for i, e in enumerate(self._entries):
+                if self._entry_key(e) == key:
+                    return i
+        for i, e in enumerate(self._entries):
+            if not self._entry_done(e):
+                return i
+        return 0
+
+    def _select_decision(self, index: int) -> None:
+        if not self._entries:
+            return
+        index = max(0, min(index, len(self._entries) - 1))
+        self._stack.setCurrentIndex(index)
+        self._current_key = self._entry_key(self._entries[index])
+        for j, row in enumerate(self._rail_rows):
+            row.set_active(j == index)
+
+    def _refresh_rail_header(self) -> None:
+        from .visual_ambiguity_catalog import dialog_label
+        sub = getattr(self, "_rail_sub", None)
+        if sub is None:
+            return
+        lang = lang_manager.lang
+        left = sum(1 for e in self._entries if not self._entry_done(e))
+        sub.setText(dialog_label("rail_all_done", lang) if left == 0
+                    else dialog_label("rail_remaining", lang).format(n=left))
+
+    def _refresh_rail(self) -> None:
+        """Met à jour les libellés et l'état du rail SANS reconstruire : un
+        clic sur une card ne doit pas détruire le picker qui vient de
+        l'émettre."""
+        for row, entry in zip(self._rail_rows, self._entries):
+            row.set_texts(self._entry_title(entry),
+                          self._rail_value_text(entry))
+            row.set_done(self._entry_done(entry))
+        self._refresh_rail_header()
+
+    def _on_user_picked(self, ref: str) -> None:
+        """Un clic RÉEL sur une card, par opposition à la pré-sélection.
+
+        Séparé de `_on_type_toggled`, que `_build` appelle lui aussi pour
+        poser la déduction du détecteur : les confondre ferait défiler les
+        pages toutes seules pendant la construction, et marquerait
+        « confirmé » des décisions que personne n'a regardées.
+
+        L'avance ne fait PAS le tour de la liste : elle s'arrête à la
+        dernière. Revenir au début arracherait l'utilisateur à l'endroit où
+        il travaille ; l'en-tête du rail dit ce qui reste.
+        """
+        self._decided.add(ref)
+        self._refresh_rail()
+        # L'avance part de la page QUI PORTE ce picker, pas de la page
+        # affichee. Les deux coincident quand l'utilisateur clique ce qu'il
+        # voit -- mais s'en remettre a `currentIndex()` ferait dependre la
+        # destination d'un etat qui n'a rien a voir avec le choix emis.
+        cur = next((i for i, e in enumerate(self._entries)
+                    if self._entry_key(e) == ref), self._stack.currentIndex())
+        nxt = next((i for i in range(cur + 1, len(self._entries))
+                    if not self._entry_done(self._entries[i])), None)
+        if nxt is not None:
+            self._select_decision(nxt)
 
     def keyPressEvent(self, ev):
         """Enter NEVER validates this modal -- it is the search field's key.
@@ -992,6 +1609,13 @@ class AmbiguityDialog(QDialog):
             QScrollArea#ambiguityScroll > QWidget > QWidget {{
                 background: transparent;
             }}
+            QScrollArea#ambiguityScrollRail {{
+                background: transparent; border: none;
+            }}
+            QScrollArea#ambiguityScrollRail > QWidget > QWidget {{
+                background: transparent;
+            }}
+            QWidget#ambiguityVSep {{ background-color: {c.border}; }}
             QGroupBox {{
                 color: {c.text_primary};
                 background-color: {c.surface};
@@ -1052,6 +1676,24 @@ class AmbiguityDialog(QDialog):
         for b in getattr(self, "_declare_buttons", {}).values():
             b.setStyleSheet(secondary_button_qss(c, radius=8,
                                                  padding="0 14px"))
+        # ── Rail des décisions (TODO #73) ─────────────────────────────
+        # Chaque ligne se repeint elle-même : son apparence dépend d'un état
+        # (active / survolée / confirmée) que seule elle connaît.
+        for row in getattr(self, "_rail_rows", []):
+            row.apply_theme(c)
+        title = getattr(self, "_rail_title", None)
+        if title is not None:
+            title.setStyleSheet(
+                f"color: {c.text_primary}; background: transparent;"
+                " font-size: 10pt; font-weight: 700;")
+        sub = getattr(self, "_rail_sub", None)
+        if sub is not None:
+            sub.setStyleSheet(
+                f"color: {c.text_secondary}; background: transparent;"
+                " font-size: 8pt;")
+        for btn in getattr(self, "_regroup_buttons", []):
+            btn.setStyleSheet(secondary_button_qss(
+                c, radius=6, font_pt=8, padding="5px 10px"))
 
     @staticmethod
     def _darken(hex_color: str, factor: float = 0.82) -> str:
@@ -1134,7 +1776,14 @@ class AmbiguityDialog(QDialog):
             or _find_prompt_excerpt(self._prompt, net, self._context)
         )
         from .visual_ambiguity_catalog import dialog_label
-        if excerpt:
+        if c.attributes.get("signature_detected"):
+            # Niveau 1 : rien n'a été deviné. La phrase « pas de mention
+            # explicite dans ton prompt » parlait de l'extrait PAR BROCHE
+            # (le prompt ne nomme pas « D9 ») et devenait fausse dès que le
+            # prompt nommait le composant (QA AC1, 2026-08-31).
+            ctx_label = QLabel(
+                dialog_label("signature_excerpt", lang_manager.lang))
+        elif excerpt:
             ctx_label = QLabel(dialog_label(
                 "prompt_excerpt", lang_manager.lang).format(excerpt=excerpt))
         else:
@@ -1152,7 +1801,24 @@ class AmbiguityDialog(QDialog):
                           0, Qt.AlignmentFlag.AlignTop)
         group_lay.addLayout(ctx_row)
 
-        precheck_type = self._chosen_type.get(c.ref) or c.type
+        # ⛔ AUCUNE pre-selection quand le detecteur n'est pas sur.
+        # `_confidence == "low"` veut dire que `c.type` est un DEFAUT (toute
+        # sortie numerique nue sort en « led »), pas une deduction : cocher
+        # cette card ferait passer une ignorance pour une reponse, et
+        # « Valider » serait actif au-dessus de questions auxquelles personne
+        # n'a repondu. Depuis ce changement, la modale exige un choix par
+        # broche -- c'est le sens meme d'une modale d'ambiguite.
+        #
+        # Deux cas gardent LEUR pre-selection, et ce sont de vraies
+        # informations, pas des defauts :
+        #   - `_chosen_type` deja rempli : le prompt a nomme le composant
+        #     (`_prompt_suggested_type`), ou l'utilisateur a deja choisi et
+        #     une reconstruction ne doit pas le lui reprendre ;
+        #   - composant PAS `low` : c'est l'engrenage ouvert sur un composant
+        #     lu dans le code, ou le type courant est ce qu'il faut montrer.
+        precheck_type = self._chosen_type.get(c.ref)
+        if precheck_type is None and c.attributes.get("_confidence") != "low":
+            precheck_type = c.type
 
         # ── Picker de composants : recherche + cards ──────────────────────
         # MEMES candidats qu'avec la liste deroulante qu'il remplace
@@ -1162,16 +1828,32 @@ class AmbiguityDialog(QDialog):
         # selon l'ecran qui l'affiche.
         from .component_picker import ComponentPicker
         picker = ComponentPicker(c, lang_manager.lang)
-        picker.select(precheck_type)
+        # `select("")` DESELECTIONNE. L'appel est inconditionnel a dessein :
+        # le picker se pre-selectionne LUI-MEME sur `component.type` a la
+        # construction (« jamais vierge »), ce qui reste juste partout
+        # ailleurs mais pas ici -- sur une ambiguite, ce type est un defaut.
+        # C'est l'appelant qui sait faire la difference, pas le picker.
+        picker.select(precheck_type or "")
         # Enregistre AVANT l'entonnoir : `_update_ok_state` interroge les
         # pickers, et il doit voir celui-ci des le premier appel.
         self._pickers[c.ref] = picker
         # `select()` n'emet RIEN (c'est un ordre de la modale, pas un choix de
-        # l'utilisateur) : l'entonnoir est donc appele a la main, exactement
-        # comme le faisait la pre-selection de la liste.
-        self._on_type_toggled(c.ref, precheck_type)
+        # l'utilisateur) : l'entonnoir est donc appele a la main. Sans
+        # pre-selection il n'y a rien a annoncer -- et surtout rien a poser
+        # dans `_chosen_type`, dont l'absence est ce qui grise « Valider ».
+        if precheck_type:
+            self._on_type_toggled(c.ref, precheck_type)
         picker.type_chosen.connect(
             lambda tid, ref=c.ref: self._on_type_toggled(ref, tid))
+        # Le rail suit le CLIC, pas le changement de selection. Depuis la
+        # suppression de la pre-selection, un premier clic change toujours
+        # quelque chose et `type_chosen` suffirait -- mais RE-cliquer la card
+        # deja choisie n'emet rien, et ce geste doit rester un geste (il
+        # reconfirme et fait avancer). Reste indispensable au chemin de
+        # l'engrenage, ou le composant arrive bel et bien pre-selectionne sur
+        # son type lu dans le code.
+        picker.card_clicked.connect(
+            lambda _tid, ref=c.ref: self._on_user_picked(ref))
         # Regle Q9 (heritee de LibChoiceDialog) : rien d'invisible n'est
         # validable. Sans ce branchement, « Valider » resterait actif au-dessus
         # d'un picker vide — masquer une card n'est pas un clic, et
@@ -1219,87 +1901,102 @@ class AmbiguityDialog(QDialog):
 
         return group
 
-    def _build_grouped_section(self, c: Component) -> QGroupBox:
-        """Grouped section: N OUTPUT pins merged into 1 bidirectional DC
-        motor candidate. 2-option UI: "Oui c'est un moteur DC" (with
-        Phase B driver sub-menu) / "Non c'est autre chose" (ungroups into
-        N separate components via rebuild)."""
-        pwm_pin = c.attributes["_grouped_pwm_pin"]
-        dir_pins = c.attributes["_grouped_dir_pins"]
+    def _build_lib_motors_section(self, motors: list) -> QGroupBox:
+        """Les moteurs que le CODE nomme (bibliotheque de driver, niveau 1) :
+        UNE section pour le lot, et une seule question — quelle carte pilote.
 
-        # Title listing the pins involved, without jargon. E.g.:
-        # "Plusieurs sorties OUTPUT — broche 6 (PWM) + broches 7, 8"
-        def _short(n: str) -> str:
-            return n[1:] if n.startswith("D") and n[1:].isdigit() else n
-        dir_short = ", ".join(_short(p) for p in dir_pins)
+        ⛔ Pas de picker, pas de cases a decocher : « est-ce un moteur ? »
+        est tranche par le code (`L298N motor(...)`), le requalifier en LED
+        contredirait les appels de lib du sketch. Le driver COURANT est
+        pre-selectionne — il a ete lu dans le code, c'est une certitude a
+        corriger, pas une question ouverte. En changer passe par la
+        REGENERATION (studio) : c'est le code qui nomme le driver, donc c'est
+        le code qui doit changer — rien n'est ecrit dans les resolutions de
+        cablage, leurs clefs etant degenerees pour ces moteurs (#86 (a)).
+        """
         from .visual_ambiguity_catalog import dialog_label
-        title = dialog_label("grouped_outputs_title", lang_manager.lang).format(
-            pwm=_short(pwm_pin), dirs=dir_short)
-        group = QGroupBox(title)
-        group_lay = QVBoxLayout(group)
-        group_lay.setSpacing(6)
+        lang = lang_manager.lang
+        group = QGroupBox(dialog_label("motors_detected_title", lang)
+                          .format(k=len(motors)))
+        lay = QVBoxLayout(group)
+        lay.setSpacing(6)
+        info = QLabel(dialog_label("lib_motors_question", lang))
+        info.setWordWrap(True)
+        info.setTextFormat(Qt.TextFormat.RichText)
+        lay.addWidget(info)
+        courant = next((c.attributes.get("_chosen_driver")
+                        for c in motors
+                        if c.attributes.get("_chosen_driver")), "l298n")
+        anchor = motors[0].ref
+        refs = [c.ref for c in motors]
 
-        # '?' button at the top right (F2 step 4 Task 3). For a grouped
-        # candidate, the initial detected type is dc_motor (= the section's
-        # main hypothesis) and the representative pin is the PWM.
-        header_row = QHBoxLayout()
-        header_row.setContentsMargins(0, 0, 0, 0)
-        header_row.addStretch(1)
-        header_row.addWidget(self._make_help_button(pwm_pin, "dc_motor"))
-        group_lay.addLayout(header_row)
+        def _choisir(dt, _refs=tuple(refs), _anchor=anchor):
+            for r in _refs:
+                self._chosen_driver[r] = dt
+            self._on_user_picked(_anchor)
+            self._update_ok_state()
 
-        # Look for a prompt excerpt for the PWM pin (the group's main
-        # pin; it's the one the user typically mentions).
-        fn_prompt = self._prompts_by_fn.get(c.fn_id, "") if c.fn_id else ""
-        excerpt = (
-            _find_prompt_excerpt(fn_prompt, pwm_pin, "")
-            or _find_prompt_excerpt(self._prompt, pwm_pin, self._context)
-        )
-        if excerpt:
-            ctx_label = QLabel(dialog_label(
-                "grouped_excerpt_found", lang_manager.lang
-            ).format(excerpt=excerpt))
-        else:
-            ctx_label = QLabel(dialog_label(
-                "grouped_excerpt_missing", lang_manager.lang
-            ).format(pwm=_short(pwm_pin)))
-        ctx_label.setWordWrap(True)
-        ctx_label.setTextFormat(Qt.TextFormat.RichText)
-        group_lay.addWidget(ctx_label)
-
-        btn_group = QButtonGroup(group)
-        btn_group.setExclusive(True)
-
-        # Option 1: Oui, c'est un moteur DC. Checking this radio activates the
-        # driver sub-menu (Phase B) below.
-        rb_yes = QRadioButton(dialog_label("motor_yes_dc", lang_manager.lang))
-        rb_yes.toggled.connect(
-            lambda checked, ref=c.ref:
-                self._on_type_toggled(ref, "dc_motor") if checked else None
-        )
-        # Pre-checked if _chosen_type persists from the current session.
-        if self._chosen_type.get(c.ref) == "dc_motor":
-            rb_yes.blockSignals(True); rb_yes.setChecked(True); rb_yes.blockSignals(False)
-        btn_group.addButton(rb_yes)
-        group_lay.addWidget(rb_yes)
-
-        driver_frame = self._build_driver_subframe(c.ref)
-        self._driver_frames[c.ref] = driver_frame
-        if self._chosen_type.get(c.ref) == "dc_motor":
-            driver_frame.setVisible(True)
-        group_lay.addWidget(driver_frame)
-
-        # Option 2: Non, c'est autre chose. Triggers the ungrouping and
-        # rebuilds the dialog with the pins as separate components.
-        rb_no = QRadioButton(dialog_label("components_separate", lang_manager.lang))
-        rb_no.toggled.connect(
-            lambda checked, ref=c.ref:
-                self._on_ungroup_requested(ref) if checked else None
-        )
-        btn_group.addButton(rb_no)
-        group_lay.addWidget(rb_no)
-
+        lay.addLayout(self._build_driver_grid(anchor, _choisir))
+        cards = self._driver_cards[anchor]
+        if courant in cards:
+            cards[courant].set_selected(True)
+        for c in motors:
+            self._chosen_type[c.ref] = "dc_motor"
+            self._chosen_driver[c.ref] = courant
+        # Le driver courant est une CERTITUDE lue dans le code, pas une
+        # question ouverte : la ligne du rail nait cochee et « Valider » est
+        # actif d'emblee — meme regle que la pre-selection de la section
+        # stepper.
+        self._mark_decided(anchor)
         return group
+
+    def _build_stepper_driver_section(self, c: Component) -> QGroupBox:
+        """L'engrenage d'un driver pas-a-pas : ses 4 variantes, en cards.
+
+        ⛔ **Pas de picker de composants ici.** Un driver n'est pas
+        remplacable par une LED : `is_replaceable` rend False pour les quatre
+        (regle du #62, l'utilisateur n'a pas choisi l'infrastructure). Ce
+        qu'on lui propose est le choix qu'il a REELLEMENT a faire -- quelle
+        variante il tient dans la main -- et rien d'autre.
+
+        Le type courant EST pre-selectionne, contrairement a une ambiguite :
+        il a ete lu dans le code (`#include`), ce n'est pas un defaut. Montrer
+        une grille vierge ferait passer une certitude pour une question.
+        """
+        from .visual_ambiguity_catalog import dialog_label
+        lang = lang_manager.lang
+        group = QGroupBox(_type_label(c.type, lang))
+        lay = QVBoxLayout(group)
+        lay.setSpacing(6)
+        info = QLabel(dialog_label("stepper_driver_question", lang))
+        info.setWordWrap(True)
+        info.setTextFormat(Qt.TextFormat.RichText)
+        lay.addWidget(info)
+        lay.addLayout(self._build_driver_grid(
+            c.ref,
+            lambda dt, ref=c.ref: self._on_stepper_driver_picked(ref, dt),
+            drivers=list(STEPPER_DRIVERS)))
+        # ⚠️ Le choix DEJA fait prime sur le type detecte. `initial_choices`
+        # (rempli avant `_build`) porte ce que l'utilisateur a tranche ; sans
+        # cette lecture, rouvrir l'engrenage sur un driver qu'on venait de
+        # remplacer reaffichait l'ANCIEN coche -- le schema disait DRV8825, la
+        # modale disait A4988 (mesure de revue, 2026-08-29).
+        courant = self._chosen_type.get(c.ref) or c.type
+        cards = self._driver_cards[c.ref]
+        if courant in cards:
+            cards[courant].set_selected(True)
+        self._chosen_type[c.ref] = courant
+        return group
+
+    def _on_stepper_driver_picked(self, ref: str, d_type: str) -> None:
+        """Le choix passe par `_chosen_type`, comme toute autre decision.
+
+        C'est ce qui le fait remonter au rail, a << Valider >> et a
+        `apply_choices` sans une seconde plomberie -- une decision de plus,
+        pas un mecanisme de plus."""
+        self._chosen_type[ref] = d_type
+        self._on_user_picked(ref)
+        self._update_ok_state()
 
     def _build_consolidated_motors_section(
             self, motors: list[Component]) -> QGroupBox:
@@ -1500,8 +2197,14 @@ class AmbiguityDialog(QDialog):
         return ComponentCard.fallback(d_type,
                                       _driver_label(d_type, lang_manager.lang))
 
-    def _build_driver_grid(self, key: str, on_pick) -> QGridLayout:
-        """Les 5 drivers en cards, 2 colonnes, exclusivite arbitree ici.
+    def _build_driver_grid(self, key: str, on_pick,
+                          drivers: list[str] | None = None) -> QGridLayout:
+        """Des drivers en cards, 2 colonnes, exclusivite arbitree ici.
+
+        `drivers` vaut les 5 drivers DC par defaut ; les moteurs pas-a-pas
+        passent les leurs (`STEPPER_DRIVERS`). Deux grilles ecrites deux fois
+        auraient diverge sur l'exclusivite et le crayon -- c'est la LISTE qui
+        change, pas le comportement.
 
         Une card ne connait pas ses soeurs (meme contrat que dans le picker) :
         c'est la modale qui eteint les autres. `key` indexe le lot de cards
@@ -1509,7 +2212,7 @@ class AmbiguityDialog(QDialog):
         grid = QGridLayout()
         grid.setSpacing(8)
         cards: dict[str, object] = {}
-        for pos, d_type in enumerate(_DC_DRIVERS):
+        for pos, d_type in enumerate(drivers or _DC_DRIVERS):
             card = self._driver_card(d_type)
             card.picked.connect(
                 lambda _card, k=key, dt=d_type:
@@ -1571,7 +2274,29 @@ class AmbiguityDialog(QDialog):
         the choice to all the refs simultaneously."""
         for r in refs:
             self._chosen_driver[r] = driver_type
+            self._mark_decided(r)
         self._update_ok_state()
+        self._refresh_rail()
+
+    def _mark_decided(self, ref: str) -> None:
+        """Note que ce composant a ete TRANCHE, du bon cote.
+
+        Deux etats derriere une meme idee : une broche se marque dans
+        `_decided`, un moteur groupe dans `_motors_decided` — le rail ne lui
+        donne pas de ligne a lui, il vit dans la section consolidee. Router
+        cela au petit bonheur est ce qui a fait deux fois mentir le rail.
+
+        Sans ça, la ligne du rail restait grise et « proposé » alors que
+        l'utilisateur venait de fournir la dernière information qui manquait :
+        « Valider » s'activait sous ses yeux sans que le rail bouge (relevé en
+        QA X4, 2026-08-29). Un pilote appartient à la décision « moteurs » —
+        ce n'est pas une case à part.
+        """
+        comp = next((c for c in self._ambiguous if c.ref == ref), None)
+        if comp is not None and comp.attributes.get("_grouped_pwm_pin"):
+            self._motors_decided = True
+        else:
+            self._decided.add(ref)
 
     def _build_driver_subframe(self, ref: str) -> QFrame:
         """In-line "Quel driver ?" sub-menu, the 5 DC drivers in cards —
@@ -1832,6 +2557,9 @@ class AmbiguityDialog(QDialog):
         target.attributes["_confidence"] = "low"
         self._chosen_type.pop(target.ref, None)
         self._chosen_driver.pop(target.ref, None)
+        # `_decided` suit `_chosen_type` : le choix vient d'etre efface, le
+        # rail ne doit plus annoncer cette ligne comme confirmee.
+        self._decided.discard(target.ref)
         # `target` stays as-is (ambiguous LED on the PWM pin), it has just
         # lost its grouping flags -> it will be shown in the classic section
         # on the next rebuild.
@@ -1900,6 +2628,7 @@ class AmbiguityDialog(QDialog):
         # to grouped status.
         self._chosen_type.pop(pwm_led.ref, None)
         self._chosen_driver.pop(pwm_led.ref, None)
+        self._decided.discard(pwm_led.ref)
         # Delete the ambiguous LEDs on the dir pins (which appeared during
         # the previous ungroup).
         for dir_pin in dirs:
@@ -1918,6 +2647,7 @@ class AmbiguityDialog(QDialog):
                     pass
             self._chosen_type.pop(dir_led.ref, None)
             self._chosen_driver.pop(dir_led.ref, None)
+            self._decided.discard(dir_led.ref)
 
     def _toggle_motor_grouping(self, pwm_pin: str, keep: bool) -> None:
         """Toggle 'to wire / not to wire' of a motor in the 'Garder
@@ -1932,6 +2662,7 @@ class AmbiguityDialog(QDialog):
         If `motors_limit` is active and we would try to exceed the
         limit, we refuse -- the checkbox is reset to False on the next
         rebuild. A non-blocking toast signals the limit."""
+        self._motors_decided = True
         if keep:
             if (self._motors_limit is not None
                     and pwm_pin not in self._currently_kept_pwms
@@ -1964,9 +2695,18 @@ class AmbiguityDialog(QDialog):
         Distinct from `_toggle_motor_grouping` which touches ONLY
         `_currently_kept_pwms` (= wire yes/no).
         """
+        self._motors_decided = True
         if is_motor:
             self._motor_declared_real.add(pwm_pin)
             self._regroup_motor_no_rebuild(pwm_pin)
+            # Recocher « c'est un moteur » doit rendre l'etat d'AVANT le
+            # decochage, cablage compris : celui-ci l'avait retire de
+            # `_currently_kept_pwms` (un non-moteur ne se cable pas) et rien
+            # ne l'y remettait. L'annulation etait donc a MOITIE faite — le
+            # moteur revenait reconnu mais silencieusement absent du schema.
+            if (self._motors_limit is None
+                    or len(self._currently_kept_pwms) < self._motors_limit):
+                self._currently_kept_pwms.add(pwm_pin)
         else:
             self._motor_declared_real.discard(pwm_pin)
             target = next(
@@ -1999,7 +2739,9 @@ class AmbiguityDialog(QDialog):
     def _on_driver_toggled(self, ref: str, driver_type: str) -> None:
         """DC driver radio callback."""
         self._chosen_driver[ref] = driver_type
+        self._mark_decided(ref)
         self._update_ok_state()
+        self._refresh_rail()
 
     def _update_ok_state(self) -> None:
         """Enable the OK button only when each component has a
@@ -2015,36 +2757,44 @@ class AmbiguityDialog(QDialog):
         if not hasattr(self, "_buttons"):
             return
         ok_btn = self._buttons.button(QDialogButtonBox.StandardButton.Ok)
-        ok = True
-        for c in self._ambiguous:
-            # Règle Q9 : rien d'invisible n'est validable. Une recherche qui
-            # masque la card choisie ramène le picker à « aucune sélection
-            # effective » — le souvenir du choix, lui, survit dans
-            # `_chosen_type` (effacer la recherche le rend à nouveau
-            # validable : l'utilisateur n'a rien annulé).
-            picker = self._pickers.get(c.ref)
-            if picker is not None and picker.current_type_id() is None:
-                ok = False
-                break
-            t = self._chosen_type.get(c.ref)
-            grouped_pwm = c.attributes.get("_grouped_pwm_pin")
-            # Implicit promotion: grouped = confirmed dc_motor.
-            if t is None and grouped_pwm is not None:
-                t = "dc_motor"
-            if t is None:
-                ok = False
-                break
-            # Driver required only for the motors TO WIRE. The non-wired
-            # motors (unchecked in partial mode) skip this check.
-            if t == "dc_motor":
-                will_be_wired = (
-                    grouped_pwm is None
-                    or grouped_pwm in self._currently_kept_pwms
-                )
-                if will_be_wired and c.ref not in self._chosen_driver:
-                    ok = False
-                    break
-        ok_btn.setEnabled(ok)
+        ok_btn.setEnabled(
+            all(self._is_complete(c) for c in self._ambiguous))
+
+    def _is_complete(self, c: Component) -> bool:
+        """Ce composant a-t-il tout ce qu'il faut pour être appliqué ?
+
+        ⚠️ **Point de vérité UNIQUE**, et il l'est devenu sur un défaut réel :
+        le rail affichait ✓ sur « N moteurs DC » dès que l'utilisateur touchait
+        une case, alors que le PILOTE pouvait manquer. « Valider » restait donc
+        gris pendant que le rail annonçait tout réglé — et rien à l'écran ne
+        disait où était le manque (relevé en QA X4, 2026-08-29). Deux
+        réponses à la même question ne doivent pas exister.
+        """
+        # Règle Q9 : rien d'invisible n'est validable. Une recherche qui
+        # masque la card choisie ramène le picker à « aucune sélection
+        # effective » — le souvenir du choix, lui, survit dans
+        # `_chosen_type` (effacer la recherche le rend à nouveau
+        # validable : l'utilisateur n'a rien annulé).
+        picker = self._pickers.get(c.ref)
+        if picker is not None and picker.current_type_id() is None:
+            return False
+        tid = self._chosen_type.get(c.ref)
+        grouped_pwm = c.attributes.get("_grouped_pwm_pin")
+        # Promotion implicite : groupé = moteur DC confirmé.
+        if tid is None and grouped_pwm is not None:
+            tid = "dc_motor"
+        if tid is None:
+            return False
+        # Le pilote n'est exigé que des moteurs À CÂBLER : les autres quittent
+        # la netlist avant l'inférence.
+        if tid == "dc_motor":
+            will_be_wired = (
+                grouped_pwm is None
+                or grouped_pwm in self._currently_kept_pwms
+            )
+            if will_be_wired and c.ref not in self._chosen_driver:
+                return False
+        return True
 
     def apply_choices(self, netlist: Netlist) -> None:
         """Mutate the netlist: apply each transform to its component.
@@ -2061,6 +2811,22 @@ class AmbiguityDialog(QDialog):
         from .declare_component_dialog import DECLARE_OPTION_ID
         for c in self._ambiguous:
             type_id = self._chosen_type.get(c.ref)
+            # ⚠️ Un driver pas-a-pas ne passe PAS par le dispatch generique.
+            # Mesure du 2026-08-29 : `apply_saved_resolution(a4988,
+            # "drv8825")` rend une **LED** -- ce dispatch ne connait que les
+            # transformations de composants ambigus et retombe sur son defaut
+            # pour tout le reste. Un driver n'est pas une sortie ambigue.
+            if c.type in STEPPER_DRIVERS:
+                if type_id is not None:
+                    apply_stepper_driver_swap(c, type_id)
+                continue
+            # Un moteur de NIVEAU 1 (nomme par le code) ne se transforme pas
+            # ici : le changement de driver passe par la REGENERATION cote
+            # studio (`chosen_driver_for`), jamais par une mutation de
+            # netlist — le code est la source, c'est lui qui doit changer.
+            if (c.type == "dc_motor"
+                    and c.attributes.get("signature_detected")):
+                continue
             # Capture the "is this motor to wire?" info BEFORE the
             # transform (which removes _grouped_pwm_pin once in dc_motor).
             grouped_pwm = c.attributes.get("_grouped_pwm_pin")

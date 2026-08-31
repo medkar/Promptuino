@@ -45,7 +45,23 @@ _DISAMBIGUATION_RULE = (
 
 _SEP = "═" * 71
 
-_MOTOR_RULES = (
+# ⚠️ **Le bloc MOTOR est en DEUX variantes depuis le 2026-08-31**, et c'est
+# une mesure A/B qui l'a impose (QA AB2 du #82, gemma4:e2b, 6 generations par
+# bras) : sans ce bloc 0/6 chimeres, avec lui 3/6 — sur « 2 moteurs DC avec
+# un L298N », le RAG injecte l'API de la BIBLIOTHEQUE sous en-tete imperatif
+# pendant que le pattern ci-dessous ordonne le helper broches-nues « strict,
+# even for 1 motor ». Le modele epissait les deux (`motor1.digitalWrite(...)`),
+# le code ne compilait pas, et la reparation derivait vers le `setMotor`
+# qu'on lui ordonnait. Ce conflit n'avait que deux jours : l'entree corpus
+# L298N date du #83.
+#
+# La partie PROSE (nommer le driver, decrire chaque broche vers une entree du
+# driver, jamais « to motor pin ») vaut dans les deux mondes. Le PATTERN
+# broches-nues cede la place a la bibliotheque quand elle est injectee — et
+# la contre-consigne est EXPLICITE : sans elle, le biais d'entrainement du
+# modele (les tutoriels L298N en ligne sont massivement en broches nues)
+# reprend le dessus meme sans le pattern.
+_MOTOR_PROSE = (
     f"{_SEP}\n"
     "MOTOR RULES START — the program below drives a motor.\n"
     f"{_SEP}\n"
@@ -59,6 +75,9 @@ _MOTOR_RULES = (
     "- NEVER write \"to motor base\" / \"transistor/driver\" / \"to motor pin\".\n"
     "- NEVER suggest the motor connects directly to an Arduino pin.\n"
     "\n"
+)
+
+_MOTOR_CODE_PATTERN = (
     "DC motor code pattern (skip for stepper) — strict, even for 1 motor :\n"
     "Factor DC motor control through ONE parametrized helper :\n"
     "    void setMotor(uint8_t pwmPin, uint8_t in1Pin, uint8_t in2Pin, int speed);\n"
@@ -79,10 +98,27 @@ _MOTOR_RULES = (
     "  setMotor(PIN_M1_PWM, PIN_M1_IN1, PIN_M1_IN2,  200);\n"
     "  setMotor(PIN_M2_PWM, PIN_M2_IN1, PIN_M2_IN2, -150);\n"
     "\n"
+)
+
+_MOTOR_LIB_LEADS = (
+    "Motor control code pattern :\n"
+    "A motor-driver LIBRARY context is provided below — drive the motors\n"
+    "through THAT library's API only (constructor + its methods).\n"
+    "- do NOT write a bare-pin setMotor() helper ;\n"
+    "- do NOT call analogWrite/digitalWrite for the motors ;\n"
+    "- do NOT invent methods on the library objects : use only the API\n"
+    "  signatures listed in the library context.\n"
+    "\n"
+)
+
+_MOTOR_END = (
     f"{_SEP}\n"
     "MOTOR RULES END\n"
     f"{_SEP}"
 )
+
+_MOTOR_RULES = _MOTOR_PROSE + _MOTOR_CODE_PATTERN + _MOTOR_END
+_MOTOR_RULES_LIB = _MOTOR_PROSE + _MOTOR_LIB_LEADS + _MOTOR_END
 
 # Broad lexicon dedicated to generation (already normalized: lowercase, no accents).
 # Deduplicated (motor/robot/pompa shared across languages appear only once).
@@ -155,13 +191,34 @@ def mentions_motor(text: str) -> bool:
     return bool(_MOTOR_RE.search(normalized) or _MOTOR_SUFFIX_RE.search(normalized))
 
 
+def _names_motor_driver_lib(text: str) -> bool:
+    """Le prompt nomme-t-il un driver moteur a BIBLIOTHEQUE ? (cf. rag)
+
+    Import tardif et garde : `rag` charge le corpus ; si quoi que ce soit
+    echoue, on degrade vers l'ancien comportement (pattern broches-nues) —
+    une erreur d'import ne doit pas changer la forme du prompt systeme.
+    """
+    try:
+        from ..rag import prompt_names_motor_driver_lib
+        return prompt_names_motor_driver_lib(text)
+    except Exception:
+        return False
+
+
 def build_wiring_addendum(text: str) -> str:
     """Assembles the hardware addendum: P1 + P2 always, + P3 if motor.
 
     Always returns a non-empty string (P1 + P2 are unconditional) —
     callers do not need a `if addendum:` guard.
+
+    ⚠️ P3 a DEUX variantes (mesure A/B du 2026-08-31, cf. le commentaire de
+    `_MOTOR_PROSE`) : quand le prompt nomme un driver dont le corpus porte
+    une bibliotheque, le RAG l'injecte imperativement et c'est ELLE qui
+    pilote — le pattern broches-nues devenait une consigne contradictoire
+    (3/6 chimeres qui ne compilaient pas).
     """
     parts = [_HARDWARE_RULE, _DISAMBIGUATION_RULE]
     if mentions_motor(text):
-        parts.append(_MOTOR_RULES)
+        parts.append(_MOTOR_RULES_LIB if _names_motor_driver_lib(text)
+                     else _MOTOR_RULES)
     return "\n\n".join(parts)

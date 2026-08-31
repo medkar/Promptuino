@@ -79,6 +79,13 @@ class ComponentPicker(QWidget):
         recherche redevient visible (cf. `current_type_id`). PAS emis par
         `select()`, qui est un ordre de la modale, pas un choix de
         l'utilisateur — meme contrat que `ComponentCard.set_selected`.
+      - `card_clicked(type_id)` : l'utilisateur a CLIQUE une card, que la
+        selection change ou non. Distinct de `type_chosen`, et la difference
+        n'est pas cosmetique : les cards arrivent PRE-SELECTIONNEES sur la
+        deduction du detecteur, donc le cas le plus courant — « oui, c'est
+        bien une LED » — ne change RIEN et n'emettait donc aucun signal. Il
+        fallait choisir un autre composant puis revenir pour confirmer
+        (retour utilisateur, 2026-08-29). Un clic est un clic.
       - `selection_cleared()` : la selection effective est retombee a None
         parce que le filtre a masque la card choisie. Sans lui, la modale ne
         peut pas griser Valider : l'etat de resolution change sans qu'aucun
@@ -100,6 +107,7 @@ class ComponentPicker(QWidget):
     """
 
     type_chosen = pyqtSignal(str)
+    card_clicked = pyqtSignal(str)
     selection_cleared = pyqtSignal()
     edit_requested = pyqtSignal(str)
 
@@ -120,7 +128,14 @@ class ComponentPicker(QWidget):
         self.apply_theme(theme_manager.current)
         theme_manager.changed.connect(self.apply_theme)
         # Type courant preselectionne : le picker s'ouvre sur ce que le
-        # detecteur a cru voir, jamais vierge.
+        # detecteur a cru voir.
+        #
+        # ⚠️ « jamais vierge » n'est plus vrai depuis 2026-08-29 : la
+        # modale d'ambiguite appelle `select("")` juste apres, parce que
+        # sur une AMBIGUITE ce type est un defaut (toute sortie nue sort
+        # en « led ») et non une deduction. Le picker garde ce
+        # comportement par defaut -- c'est l'appelant qui sait s'il tient
+        # une information ou une ignorance.
         self._refresh()
         self.select(getattr(component, "type", "") or "")
 
@@ -354,6 +369,13 @@ class ComponentPicker(QWidget):
                 self._picked = type_id
                 break
         self._sync_selection(notify=True)
+        # APRES `_sync_selection`, jamais avant : celui-ci publie la selection
+        # effective, et qui ecoute `card_clicked` doit pouvoir lire un etat
+        # deja a jour. `_sync_selection` sort tot quand rien n'a change --
+        # c'est voulu, il est appele a chaque repeinture --, d'ou ce signal
+        # separe pour le clic lui-meme.
+        if self._picked is not None:
+            self.card_clicked.emit(self._picked)
 
     def _sync_selection(self, *, notify: bool) -> None:
         """Peint l'exclusivite et publie la selection EFFECTIVE.

@@ -130,6 +130,24 @@ _CONST_ALIAS_RE = re.compile(
     r"\bconst\s+(?:int|byte|uint8_t|short|unsigned\s+int)\s+"
     r"(\w+)\s*=\s*([A-Za-z0-9_]+)"
 )
+# ⚠️ La regex ci-dessus ne capture que le PREMIER declarateur d'une ligne.
+# `const int EN = 9, IN1 = 7, IN2 = 8;` -- du C parfaitement idiomatique --
+# n'aliasait donc que `EN`. Consequence MESUREE le 2026-08-29 :
+# `L298N motorA(EN, IN1, IN2)` ne resolvait pas ses trois broches, la
+# detection de signature abandonnait, et l'`#include` restait non reclame --
+# la BOITE FANTOME que le chantier << certitude d'abord >> existe pour
+# supprimer, revenue par une porte de derriere. Trouve en verifiant les
+# sketches d'une procedure de QA, pas par un test.
+#
+# Celle-ci prend la liste entiere de declarateurs, puis chacun separement. Le
+# filtrage des VALEURS ne change pas (litteral de broche, ou identifiant nu) :
+# `const int n = f(a, b);` ne matche pas -- les parentheses sont exclues de la
+# liste -- et reste ignore, comme avant.
+_CONST_ALIAS_LIST_RE = re.compile(
+    r"\bconst\s+(?:int|byte|uint8_t|short|unsigned\s+int)\s+"
+    r"([^;{}()]{0,400});"
+)
+_ONE_DECLARATOR_RE = re.compile(r"(\w+)\s*=\s*([A-Za-z0-9_]+)")
 _DEFINE_RE = re.compile(r"#\s*define\s+(\w+)\s+([A-Za-z0-9_]+)")
 
 # Meme chose SANS `const` : `int pinCapteur = A0;`. C'est du style Arduino
@@ -171,19 +189,25 @@ def _extract_const_aliases(code: str) -> dict[str, str]:
     """
     aliases: dict[str, str] = {}
     _IDENT_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+    paires: list[tuple[str, str]] = []
     for rx in (_CONST_ALIAS_RE, _DEFINE_RE):
-        for m in rx.finditer(code):
-            var, val = m.group(1), m.group(2)
-            # 1) Try first as a pin token
-            net = _normalize_pin_token(val)
-            if net is not None:
-                aliases[var] = net
-                continue
-            # 2) Otherwise, if the value is a pure identifier (letters,
-            # digits, underscores, no suffix), keep it as-is
-            # so the downstream regexes can match (e.g. DHT22).
-            if _IDENT_RE.fullmatch(val):
-                aliases[var] = val
+        paires += [(m.group(1), m.group(2)) for m in rx.finditer(code)]
+    # Les declarateurs SUIVANTS d'une meme ligne `const` (cf. le commentaire
+    # de `_CONST_ALIAS_LIST_RE`). Le premier y figure deja par la passe
+    # ci-dessus, et le re-voir ici est sans effet : meme nom, meme valeur.
+    for m in _CONST_ALIAS_LIST_RE.finditer(code):
+        paires += _ONE_DECLARATOR_RE.findall(m.group(1))
+    for var, val in paires:
+        # 1) Try first as a pin token
+        net = _normalize_pin_token(val)
+        if net is not None:
+            aliases[var] = net
+            continue
+        # 2) Otherwise, if the value is a pure identifier (letters,
+        # digits, underscores, no suffix), keep it as-is
+        # so the downstream regexes can match (e.g. DHT22).
+        if _IDENT_RE.fullmatch(val):
+            aliases[var] = val
     # Declarations SANS `const`, admises seulement si la variable sert vraiment
     # d'argument a une fonction de broche (cf. `_BARE_ALIAS_RE`). `setdefault` :
     # une declaration `const` de meme nom garde la main.
@@ -196,7 +220,25 @@ def _extract_const_aliases(code: str) -> dict[str, str]:
             net = _normalize_pin_token(val)
             if net is not None:
                 aliases.setdefault(var, net)
+    # Un alias LU par analogRead est un canal ANALOGIQUE : `#define POT_PIN 3`
+    # + `analogRead(POT_PIN)` lit A3 sur Uno, jamais D3. Le remap se fait ICI,
+    # dans la table qui fait autorite, pour que la substitution, les
+    # identifiants par broche (`_pin_to_identifiers`) et la passe generique
+    # voient tous le meme net -- un remap local dans la seule passe generique
+    # detachait les identifiants du composant (QA AC1, 2026-08-31).
+    analog_read_vars = {m.group(1) for m in _ANALOG_READ_RE.finditer(code)}
+    for var in aliases:
+        if var in analog_read_vars:
+            aliases[var] = _remap_analog_channel(aliases[var])
     return aliases
+
+
+def _remap_analog_channel(net: str) -> str:
+    """`D0..D5` -> `A0..A5` (canaux analogiques Uno). Les autres nets passent
+    inchanges. A n'appliquer QUE quand l'usage est `analogRead` -- c'est
+    l'usage qui fait le canal, pas la valeur numerique."""
+    m = re.fullmatch(r"D([0-5])", net or "")
+    return f"A{m.group(1)}" if m else net
 
 
 def _pin_argument_names(code: str) -> set[str]:
@@ -286,7 +328,10 @@ def _pin_to_identifiers(code: str) -> dict[str, list[str]]:
         pin_to_names.setdefault(net, []).append(var)
     for m in _RECV_ANALOG_RE.finditer(code):
         recv, arg = m.group(1), m.group(2)
-        net = _normalize_pin_token(arg) or aliases.get(arg)
+        # Litteral (`analogRead(3)` -> canal A3) : meme remap que la table
+        # d'alias -- l'usage est analogRead par construction de la regex.
+        net = _remap_analog_channel(_normalize_pin_token(arg) or "") \
+            or aliases.get(arg)
         if net:
             pin_to_names.setdefault(net, []).append(recv)
     return pin_to_names
@@ -352,6 +397,29 @@ def _mutate_component(components: list[Component], c: Component,
 # they are shared among all components.
 
 # Includes
+# En-tete d'une ligne #include, generique (groupe 1 = le nom de fichier).
+# Sert a `_strip_suppressed_includes` (libs bannies par un swap de puce).
+_INCLUDE_ANY_RE = re.compile(r"^\s*#\s*include\s*[<\"]\s*([^>\"\s]+)\s*[>\"]")
+
+
+def _strip_suppressed_includes(code: str, headers: frozenset[str]) -> str:
+    """Efface les lignes `#include` dont l'en-tete est SUPPRIME — les libs
+    bannies par un swap de puce vers une cible nue (TODO #85, QA AC1
+    2026-08-31). Une regeneration qui lache la lib laisse souvent son
+    `#include` ORPHELIN ; le detecteur, qui reconnait le composant par son
+    en-tete, recreait alors la boite de la puce que l'utilisateur venait de
+    remplacer — et la resolution sauvegardee du swap s'y reappliquait.
+    Chaque ligne effacee est remplacee par une ligne VIDE : les regex
+    MULTILINE de la detection dependent de la structure de lignes."""
+    if not headers:
+        return code
+    out: list[str] = []
+    for line in code.split("\n"):
+        m = _INCLUDE_ANY_RE.match(line)
+        out.append("" if m and m.group(1) in headers else line)
+    return "\n".join(out)
+
+
 _INCLUDE_SERVO_RE = re.compile(r"#\s*include\s*[<\"]\s*Servo\.h\s*[>\"]")
 _INCLUDE_DHT_RE   = re.compile(r"#\s*include\s*[<\"]\s*DHT\.h\s*[>\"]")
 _INCLUDE_OLED_RE  = re.compile(r"#\s*include\s*[<\"]\s*Adafruit_SSD1306\.h\s*[>\"]")
@@ -399,6 +467,36 @@ _HX711_BEGIN_RE = re.compile(
     r"\b\w+\s*\.\s*begin\s*\(\s*([A-Za-z0-9_]+)\s*,\s*([A-Za-z0-9_]+)\s*[,)]")
 _INCLUDE_TFT_RE      = re.compile(r"#\s*include\s*[<\"]\s*Adafruit_ILI9341\.h\s*[>\"]")
 _INCLUDE_STEPPER_RE  = re.compile(r"#\s*include\s*[<\"]\s*Stepper\.h\s*[>\"]")
+_INCLUDE_L298N_RE = re.compile(
+    r"#\s*include\s*[<\"]\s*L298N\.h\s*[>\"]")
+
+# ── Drivers pas-a-pas reconnus par leur bibliotheque (spec 2026-08-29) ───
+# Chacun a une entree corpus, un dessin AU CATALOGUE, et une signature nette.
+# Il ne manquait que la detection : sans elle leur `#include` posait une boite
+# placeholder VIDE, le meme fantome que le L298N.
+_INCLUDE_DRV8825_RE = re.compile(
+    r"#\s*include\s*[<\"]\s*DRV8825\.h\s*[>\"]")
+# `DRV8825 stepper;` puis `stepper.begin(DIR, STEP)`.
+# ⚠️ L'ORDRE EST DIR PUIS STEP -- l'INVERSE d'`AccelStepper(DRIVER, STEP,
+# DIR)`. C'est l'exemple officiel du corpus qui le dit (DIRECTION_PIN = 4,
+# STEP_PIN = 5), donc ce que le modele genere. Les inverser donnerait un
+# schema faux mais plausible, que rien ne signalerait a l'oeil.
+_DRV8825_DECL_RE = re.compile(r"\bDRV8825\s+(\w+)\s*;")
+_DRV8825_BEGIN_TMPL = r"\b{}\s*\.\s*begin\s*\(\s*(\w+)\s*,\s*(\w+)"
+
+_INCLUDE_STSPIN220_RE = re.compile(
+    r"#\s*include\s*[<\"]\s*Adafruit_STSPIN220\.h\s*[>\"]")
+# `Adafruit_STSPIN220 s(pasParTour, STEP, DIR[, MODE1, MODE2])`.
+_STSPIN220_DECL_RE = re.compile(
+    r"\bAdafruit_STSPIN220\s+\w+\s*\(\s*\w+\s*,\s*(\w+)\s*,\s*(\w+)"
+    r"(?:\s*,\s*(\w+)\s*,\s*(\w+))?")
+
+_INCLUDE_TMC2209_RE = re.compile(
+    r"#\s*include\s*[<\"]\s*TMC2209\.h\s*[>\"]")
+# `TMC2209 d;` + `d.setup(serial)` : pilotage UART. Aucune broche STEP/DIR
+# n'est revelee, et on n'en inventera pas.
+_TMC2209_DECL_RE = re.compile(r"\bTMC2209\s+(\w+)\s*;")
+_TMC2209_SETUP_TMPL = r"\b{}\s*\.\s*setup\s*\("
 _INCLUDE_ACCELSTEPPER_RE = re.compile(r"#\s*include\s*[<\"]\s*AccelStepper\.h\s*[>\"]")
 _INCLUDE_KEYPAD_RE   = re.compile(r"#\s*include\s*[<\"]\s*Keypad\.h\s*[>\"]")
 _INCLUDE_IRREMOTE_RE = re.compile(r"#\s*include\s*[<\"]\s*IRremote\.h\s*[>\"]")
@@ -994,6 +1092,146 @@ def _assign_fn_ids(components: list[Component],
                 break
 
 
+def build_stepdir_driver_pins(driver_type: str, step_pin: str,
+                              dir_pin: str, *,
+                              ena_pin: str = "GND",
+                              ms_pins: tuple[str, str] | None = None,
+                              ms3_pin: str = "GND"
+                              ) -> list[Pin]:
+    """Brochage complet d'un driver pas-a-pas pilote en STEP/DIR.
+
+    UN seul endroit decrit ce brochage, et il sert a DEUX chemins : la
+    detection (`_detect_libraries`, quand le code nomme le driver) et le
+    remplacement (quand l'utilisateur en change depuis le schema). Les ecrire
+    deux fois ferait deux tables qui divergeraient -- et la seconde, celle du
+    remplacement, ne serait exercee que par un geste rare.
+
+    Les niveaux ne sont pas des conventions choisies ici, ils viennent du bloc
+    A4988 d'origine et valent pour tous ces breakouts :
+      - VDD 5 V, GND, VMOT sur la batterie : la logique et la puissance sont
+        separees ;
+      - ENA a GND (actif bas) : driver toujours actif. Sur un Pololu d'origine
+        un tirage interne suffirait, mais pas sur les clones -- d'ou l'explicite ;
+      - RST et SLP a 5 V (actifs bas) : jamais en reset, jamais en veille ;
+      - micro-pas a GND : pas entier, le defaut sur.
+    Les bobines restent VIDES : c'est `inference` qui les relie au NEMA17
+    qu'il ajoute, par des nets internes.
+
+    ⚠️ Le TMC2209 n'est PAS servi par ce helper. Son exemple officiel pilote
+    par UART et ne revele aucune broche STEP/DIR : lui en fabriquer ici
+    reviendrait a inventer ce que le code ne dit pas.
+    """
+    ms1, ms2 = ms_pins if ms_pins else ("GND", "GND")
+    if driver_type in ("a4988", "drv8825"):
+        return [
+            Pin("STEP", step_pin), Pin("DIR", dir_pin),
+            Pin("VDD", "5V"), Pin("GND", "GND"),
+            Pin("VMOT", "BAT_5V"),
+            Pin("ENA", ena_pin),
+            Pin("RST", "5V"), Pin("SLP", "5V"),
+            Pin("MS1", ms1), Pin("MS2", ms2), Pin("MS3", ms3_pin),
+            Pin("1A", ""), Pin("1B", ""),
+            Pin("2A", ""), Pin("2B", ""),
+        ]
+    if driver_type == "stspin220":
+        # ENABLE et RESET restent VIDES : l'exemple ne documente pas leur
+        # polarite, et un niveau invente sur une entree active a l'etat bas
+        # donne un driver muet ou bloque en reset.
+        return [
+            Pin("STEP", step_pin), Pin("DIR", dir_pin),
+            Pin("VDD", "5V"), Pin("GND", "GND"),
+            Pin("VMOTOR", "BAT_5V"),
+            Pin("MS1", ms1), Pin("MS2", ms2),
+            Pin("ENABLE", ""), Pin("RESET", ""),
+            Pin("OUTA1", ""), Pin("OUTA2", ""),
+            Pin("OUTB1", ""), Pin("OUTB2", ""),
+        ]
+    if driver_type == "tmc2209":
+        # Cible d'un REMPLACEMENT : la ou l'exemple UART ne revelait rien, un
+        # swap depuis un driver step/dir donne les deux broches -- c'est le
+        # geste de l'utilisateur qui les nomme, pas une invention.
+        return [
+            Pin("VMOTOR", "BAT_5V"), Pin("VDD", "5V"),
+            Pin("DIR", dir_pin), Pin("STEP", step_pin),
+            Pin("MS1", ms1), Pin("MS2", ms2),
+            Pin("DIAG", ""), Pin("INDEX", ""),
+            Pin("UART", ""), Pin("ENABLE", "GND"),
+            Pin("OUT2B", ""), Pin("OUT2A", ""),
+            Pin("OUT1A", ""), Pin("OUT1B", ""),
+            Pin("GND", "GND"),
+        ]
+    raise ValueError(f"driver pas-a-pas inconnu : {driver_type!r}")
+
+
+STEPPER_DRIVERS: tuple[str, ...] = ("a4988", "drv8825", "tmc2209",
+                                   "stspin220")
+"""Les drivers pas-a-pas que l'app sait dessiner ET detecter. Ordre
+d'affichage des cards de remplacement."""
+
+
+def apply_stepper_driver_swap(component, new_type: str) -> bool:
+    """Remplace un driver pas-a-pas par un autre, EN PLACE. True si applique.
+
+    ⚠️ **Pourquoi ce chemin dedie plutot que `apply_saved_resolution`.**
+    Mesure du 2026-08-29 : `apply_saved_resolution(driver_a4988, "drv8825")`
+    rend une **LED**. Ce mecanisme ne connait que les transformations de
+    composants ambigus et retombe sur son defaut pour tout le reste -- la
+    meme classe de defaut que le sentinel qui transformait un composant en
+    LED au rechargement (revue 2026-07-30). Un driver n'est pas une sortie
+    ambigue : on reconstruit son brochage.
+
+    Les broches STEP/DIR, elles, ne sont PAS reinventees : on les reprend au
+    driver remplace, puisque c'est le code qui les a nommees.
+    """
+    if new_type == component.type or new_type not in STEPPER_DRIVERS:
+        return False
+    step = component.pin("STEP")
+    direction = component.pin("DIR")
+    if step is None or direction is None or not step.net or not direction.net:
+        # Un TMC2209 detecte en UART n'a pas de broches de commande : il n'y a
+        # rien a reporter, et en inventer serait affirmer ce que le code ne
+        # dit pas. On refuse plutot que de deviner.
+        return False
+    # ⚠️ **Tout ce qui a ete LU dans le code ou REGLE par l'utilisateur doit
+    # traverser le remplacement.** La premiere version ne reportait que
+    # STEP/DIR et MS1/MS2 ; la revue du 2026-08-29 a mesure trois pertes, et
+    # chacune se voyait a l'ecran sans qu'un mot ne la dise :
+    #   - `ENA` lu dans le code (`digitalWrite(PIN_ENABLE, LOW)`) retombait a
+    #     GND, donc le fil vers l'Arduino DISPARAISSAIT du schema ;
+    #   - `MS3` retombait a GND, ce qui change le micro-pas en silence
+    #     (1/16 -> 1/8) sur deux drivers ou il est reglable ;
+    #   - les BOBINES repartaient vides, donc le NEMA17 se retrouvait
+    #     ORPHELIN -- 20 fils routes avant le swap, 16 apres.
+    def _net(nom, defaut=""):
+        p = component.pin(nom)
+        return (p.net if p is not None and p.net else defaut)
+
+    ms = (_net("MS1", "GND"), _net("MS2", "GND"))
+    anciennes_bobines = [_net(n) for n in _coil_names(component.type)]
+    component.pins = build_stepdir_driver_pins(
+        new_type, step.net, direction.net,
+        ena_pin=_net("ENA", "GND"), ms_pins=ms, ms3_pin=_net("MS3", "GND"))
+    component.type = new_type
+    # Les bobines se reportent PAR POSITION, jamais par nom : le NEMA17 garde
+    # ses bornes 1A/1B/2A/2B et c'est la serigraphie du DRIVER qui varie
+    # (OUTA1.. pour le STSPIN220, OUT1A.. pour le TMC2209). Meme regle et
+    # meme table que `inference`, qui les a reliees.
+    for nom, ancien in zip(_coil_names(new_type), anciennes_bobines):
+        p = component.pin(nom)
+        if p is not None:
+            p.net = ancien
+    return True
+
+
+def _coil_names(driver_type: str) -> tuple[str, ...]:
+    """Bornes de bobines d'un driver, dans l'ordre CANONIQUE (bobine 1 puis
+    bobine 2). Lue chez `inference`, qui s'en sert pour relier le NEMA17 --
+    en recopier une seconde ici les ferait diverger, et la divergence ne se
+    verrait que sur un geste rare."""
+    from .inference import _STEPPER_COIL_PINS
+    return _STEPPER_COIL_PINS.get(driver_type, ())
+
+
 def _detect_libraries(
     code: str, original_code: str | None = None,
 ) -> tuple[list[Component], set[str]]:
@@ -1579,6 +1817,70 @@ def _detect_libraries(
                   Pin("OUT1", ""), Pin("OUT2", ""),
                   Pin("OUT3", ""), Pin("OUT4", "")])
 
+    # ─── Drivers DC par BIBLIOTHEQUE (niveau 1, spec 2026-08-29) ────────
+    # `L298N moteur(ENA, IN1, IN2)` : la classe NOMME la puce, ses arguments
+    # NOMMENT les trois broches d'UN moteur. C'est une signature unique au
+    # sens de la checklist de CLAUDE.md, cas (a) -- pas une heuristique.
+    #
+    # ⚠️ On construit ici des composants CERTAINS, pas des candidats groupes.
+    # Le premier correctif (#83) fabriquait des LED `_confidence=low`
+    # annotees `_grouped_pwm_pin` : le compte devenait juste, mais la modale
+    # s'ouvrait et on pouvait decocher << C'est bien un moteur >> sur un
+    # moteur que le code declare noir sur blanc. Le groupage reste au NIVEAU
+    # 3, sur des broches nues, ou l'incertitude est reelle.
+    #
+    # On ne pose que le CONTRAT de `_to_dc_motor` (`_control_pin`,
+    # `_aux_dir_pins`, `_chosen_driver`) : `inference._apply_motor_drivers_
+    # and_battery` construit ensuite le driver cable, apparie les deux
+    # moteurs sur UN pont en H double et ajoute la batterie. Meme contrat que
+    # la modale, donc un seul chemin de cablage a maintenir.
+    if _INCLUDE_L298N_RE.search(code):
+        for m in _DC_DRIVER_CTOR_RE.finditer(code):
+            args = [a.strip() for a in m.group(3).split(",") if a.strip()]
+            if len(args) < 3:
+                # Forme a DEUX arguments (`L298N(IN1, IN2)`) : pas de broche
+                # de vitesse. Le modele de l'app est << 1 PWM + 1-2 sens >> ;
+                # en inventer une ferait dire au schema ce que le code ne dit
+                # pas. On laisse le niveau 3 s'en occuper.
+                continue
+            broches = [_normalize_pin_token(a) for a in args[:3]]
+            if not all(broches) or len(set(broches)) != 3:
+                continue
+            if any(b in claimed for b in broches):
+                continue
+            pwm, in1, in2 = broches
+            attrs = {"_control_pin": pwm,
+                     "_aux_dir_pins": [in1, in2],
+                     "_chosen_driver": _DC_DRIVER_CTOR_CLASSES[m.group(1)]}
+            # ⚠️ **La limite editoriale de 2 moteurs s'applique ICI, pas en
+            # aval.** Tous les drivers DC du catalogue sont des ponts en H
+            # DOUBLES : un composant pilote deux moteurs, pas plus. Au-dela,
+            # `inference` posait le warning `too_many_dc_motors`, et le
+            # dialogue COUPE le rendu SVG dessus -- l'utilisateur recevait un
+            # bandeau et une zone de schema VIDE (mesure de revue,
+            # 2026-08-29 : quatre constructeurs, plus rien a l'ecran).
+            #
+            # C'etait une regression du niveau 1 : avant, ces broches
+            # sortaient en LED ambigues, aucun moteur n'etait compte, et le
+            # schema se dessinait. Les moteurs en trop sont donc marques
+            # `_skip_wiring` -- ils restent RECONNUS (le code les nomme) et
+            # sont listes dans les instructions, mais ils ne sont pas
+            # dessines. C'est ce que la spec demande : << les 2 premiers
+            # cables, pas de mode partiel >>.
+            if len([c for c in components if c.type == "dc_motor"]) >= 2:
+                attrs["_skip_wiring"] = True
+            _add("dc_motor", [Pin("M+", ""), Pin("M-", "")], attrs)
+            # `_add` ne reclame que les nets des broches qu'il POSE, et
+            # celles d'un `dc_motor` sont vides : sans cette ligne, le repli
+            # generique reprendrait les six broches de commande en LED
+            # ambigues -- exactement le compte de six signale en QA.
+            claimed.update(broches)
+            # L'en-tete est CONSOMME : sans cela le filet << include inconnu >>
+            # poserait en plus une boite L298N vide a cote du driver cable de
+            # l'inference. Deux boites pour une puce, dont une fantome
+            # (mesure du 2026-08-29). Meme mecanique que `accelstepper.h`.
+            claimed_headers.add("l298n.h")
+
     # ─── A4988 driver for NEMA17 (AccelStepper lib, DRIVER mode) ────────
     # The A4988 driver is a DIP-16 placed on the BB. Arduino side: STEP, DIR,
     # VDD (5V), GND. Motor side: VMOT (battery), 1A/1B/2A/2B (the 4
@@ -1593,7 +1895,7 @@ def _detect_libraries(
                 continue
             # Control pins wired explicitly (vs floating):
             # - MS1/MS2/MS3 -> GND by default = "Full step" mode (full
-            #   step). Mutable via the a4988_microstepping gear.
+            #   step). Mutable via the stepper_microstepping gear.
             # - ENA -> GND: driver always enabled (active LOW). On the
             #   official Pololu an internal pulldown is enough but on the
             #   clones it's not guaranteed -> explicit.
@@ -1601,14 +1903,7 @@ def _detect_libraries(
             #   bridge on the standard green Pololu.
             # - SLP -> 5V: never in sleep (active LOW). Same.
             _add("a4988",
-                 [Pin("STEP", step_pin), Pin("DIR", dir_pin),
-                  Pin("VDD", "5V"), Pin("GND", "GND"),
-                  Pin("VMOT", "BAT_5V"),
-                  Pin("ENA", "GND"),
-                  Pin("RST", "5V"), Pin("SLP", "5V"),
-                  Pin("MS1", "GND"), Pin("MS2", "GND"), Pin("MS3", "GND"),
-                  Pin("1A", ""), Pin("1B", ""),
-                  Pin("2A", ""), Pin("2B", "")])
+                 build_stepdir_driver_pins("a4988", step_pin, dir_pin))
 
     # A4988 manual step (without AccelStepper.h): detection on the
     # PIN_STEP / PIN_DIR / PIN_ENABLE naming convention (and variants). We only
@@ -1642,14 +1937,85 @@ def _detect_libraries(
                     if candidate is not None and candidate not in claimed:
                         ena_pin = candidate
                 _add("a4988",
-                     [Pin("STEP", step_pin), Pin("DIR", dir_pin),
-                      Pin("VDD", "5V"), Pin("GND", "GND"),
-                      Pin("VMOT", "BAT_5V"),
-                      Pin("ENA", ena_pin),
-                      Pin("RST", "5V"), Pin("SLP", "5V"),
-                      Pin("MS1", "GND"), Pin("MS2", "GND"), Pin("MS3", "GND"),
-                      Pin("1A", ""), Pin("1B", ""),
-                      Pin("2A", ""), Pin("2B", "")])
+                     build_stepdir_driver_pins("a4988", step_pin, dir_pin,
+                                               ena_pin=ena_pin))
+
+    # ─── DRV8825 (bibliotheque RobTillaart) ─────────────────────────────
+    # Memes regles electriques que l'A4988, dont il est broche-a-broche
+    # compatible : logique 5 V, moteur sur batterie, entrees actives a l'etat
+    # bas cablees EXPLICITEMENT (les clones n'ont pas toujours les tirages
+    # internes du Pololu d'origine), micro-pas a GND = pas entier.
+    if _INCLUDE_DRV8825_RE.search(code):
+        for decl in _DRV8825_DECL_RE.finditer(code):
+            nom = decl.group(1)
+            begin = re.search(_DRV8825_BEGIN_TMPL.format(re.escape(nom)), code)
+            if begin is None:
+                continue
+            # ⚠️ DIR d'abord, STEP ensuite : cf. le commentaire de la regex.
+            dir_pin = _normalize_pin_token(begin.group(1))
+            step_pin = _normalize_pin_token(begin.group(2))
+            if (dir_pin is None or step_pin is None
+                    or dir_pin in claimed or step_pin in claimed):
+                continue
+            _add("drv8825",
+                 build_stepdir_driver_pins("drv8825", step_pin, dir_pin))
+            claimed_headers.add("drv8825.h")
+
+    # ─── STSPIN220 (bibliotheque Adafruit) ──────────────────────────────
+    # MODE1/MODE2 ne sont cables vers l'Arduino QUE si le constructeur les
+    # fournit ; sinon GND (pas de micro-pas), comme l'A4988. Les cabler sans
+    # que le code les nomme serait une invention.
+    # ENABLE et RESET restent VIDES : l'exemple ne documente pas leur
+    # polarite, et un niveau invente sur une entree active a l'etat bas se
+    # traduit par un driver muet ou toujours en reset.
+    if _INCLUDE_STSPIN220_RE.search(code):
+        for m in _STSPIN220_DECL_RE.finditer(code):
+            step_pin = _normalize_pin_token(m.group(1))
+            dir_pin = _normalize_pin_token(m.group(2))
+            if (step_pin is None or dir_pin is None
+                    or step_pin in claimed or dir_pin in claimed):
+                continue
+            ms1, ms2 = "GND", "GND"
+            if m.group(3) and m.group(4):
+                c1 = _normalize_pin_token(m.group(3))
+                c2 = _normalize_pin_token(m.group(4))
+                if (c1 is not None and c2 is not None
+                        and c1 not in claimed and c2 not in claimed):
+                    ms1, ms2 = c1, c2
+            _add("stspin220",
+                 build_stepdir_driver_pins("stspin220", step_pin, dir_pin,
+                                           ms_pins=(ms1, ms2)))
+            claimed_headers.add("adafruit_stspin220.h")
+
+    # ─── TMC2209 (pilotage UART) ────────────────────────────────────────
+    # ⚠️ HONNETETE : l'exemple pilote par `d.setup(serial)` et ne revele
+    # AUCUNE broche. On dessine la boite et son alimentation -- STEP, DIR,
+    # UART et les micro-pas restent VIDES. Affirmer des broches de commande
+    # serait plus grave qu'un dessin incomplet, et un dessin incomplet DOIT
+    # se dire : d'ou le warning ci-dessous.
+    if _INCLUDE_TMC2209_RE.search(code):
+        for decl in _TMC2209_DECL_RE.finditer(code):
+            nom = decl.group(1)
+            if not re.search(_TMC2209_SETUP_TMPL.format(re.escape(nom)), code):
+                continue
+            # ⚠️ **La SEULE table de ce fichier qui reste ecrite a la main**,
+            # et c'est deliberé : le helper sert un pilotage step/dir, ou les
+            # micro-pas sont cables (GND = pas entier). Ici ils sont regles
+            # PAR UART, donc la valeur honnete est VIDE -- << je ne sais pas >>
+            # --, pas GND. Les unifier ferait affirmer un cablage que le code
+            # ne montre pas. Garde : `test_the_uart_table_is_the_only_hand_written_one`.
+            _add("tmc2209",
+                 [Pin("VMOTOR", "BAT_5V"), Pin("VDD", "5V"),
+                  Pin("DIR", ""), Pin("STEP", ""),
+                  Pin("MS1", ""), Pin("MS2", ""),
+                  Pin("DIAG", ""), Pin("INDEX", ""),
+                  Pin("UART", ""), Pin("ENABLE", "GND"),
+                  Pin("OUT2B", ""), Pin("OUT2A", ""),
+                  Pin("OUT1A", ""), Pin("OUT1B", ""),
+                  Pin("GND", "GND")],
+                 {"uart_not_wired": True})
+            claimed_headers.add("tmc2209.h")
+            break
 
     # ─── TFT ILI9341 (SPI, variable CS/DC/RST) ──────────────────────────
     if _INCLUDE_TFT_RE.search(code):
@@ -1951,6 +2317,15 @@ def _classify_pin_role(code: str, pin_token: str) -> str:
         if m.group(1) == pin_token:
             mode = m.group(2)
             if mode in ("INPUT", "INPUT_PULLUP"):
+                # Un pinMode(INPUT) au service d'un analogRead est une entree
+                # ANALOGIQUE : analogRead ignore pinMode (la ligne n'est que du
+                # boilerplate que le modele ajoute), et ce test arrivait trop
+                # tard -- la boucle pinMode gagnait toujours, donc
+                # `pinMode(POT_PIN, INPUT)` + `analogRead(POT_PIN)` faisait un
+                # BOUTON du potentiometre (QA AC1, 2026-08-31).
+                if any(g.group(1) == pin_token
+                       for g in _ANALOG_READ_RE.finditer(code)):
+                    return "analog"
                 return "input"
             return "output"
     if _DIGITAL_WRITE_RE.search(code) and any(
@@ -2033,9 +2408,16 @@ def parse_fallback(
         for m in rx.finditer(code):
             tok = m.group(1)
             net = _normalize_pin_token(tok)
-            if net is None or net in claimed_pins:
+            if net is None:
                 continue
             role = _classify_pin_role(code, tok)
+            # `analogRead(3)` LITTERAL lit le canal A3, pas D3 -- meme regle
+            # que le remap des alias dans `_extract_const_aliases` (les alias,
+            # eux, arrivent ici deja remappes par la table). QA AC1.
+            if role == "analog":
+                net = _remap_analog_channel(net)
+            if net in claimed_pins:
+                continue
             # Servo attach -> role pwm/output
             if rx is _SERVO_ATTACH_RE and role == "unknown":
                 role = "output"
@@ -2140,6 +2522,20 @@ def parse_fallback(
                           board_id=board_id, prompt=prompt, context=context)
 
     return lib_components + components, True
+
+
+# Constructeurs des bibliotheques de driver DC : `L298N moteur(ENA, IN1, IN2)`.
+# La classe NOMME la puce, et ses arguments NOMMENT les broches d'UN moteur --
+# signature unique au sens de la checklist de CLAUDE.md, cas (a). Lus par le
+# bloc << Drivers DC par BIBLIOTHEQUE >> de `_detect_libraries`, qui en fait
+# des composants CERTAINS ; le groupeur heuristique ne les regarde plus
+# (spec << certitude d'abord >>, 2026-08-29).
+_DC_DRIVER_CTOR_CLASSES = {
+    "L298N": "l298n",
+}
+_DC_DRIVER_CTOR_RE = re.compile(
+    r"\b(" + "|".join(_DC_DRIVER_CTOR_CLASSES) + r")\s+(\w+)\s*\(([^)]*)\)"
+)
 
 
 def _group_dc_motor_pins(
@@ -3544,7 +3940,16 @@ def _disambiguate_with_prompt(components: list[Component],
             )
         elif target_type == "dc_motor":
             c.attributes["_prompt_suggested_type"] = "dc_motor"
-            driver_in_excerpt = _detect_driver_in_text(excerpt)
+            # Le driver se cherche en cascade : extrait de CODE (depouille de
+            # ses commentaires des l'entree, cf. `strip_comments` -- une
+            # prose « (e.g., L298N ENA) » de gemma re-silenciait la modale,
+            # QA AB1 troisieme passe), puis extrait de prompt, puis
+            # prompt/doc globaux (« deux moteurs DC avec un TB6612 » ->
+            # tb6612fng). Un identifiant `L298N_ENA`, lui, EST du code : il
+            # compte.
+            driver_in_excerpt = (_detect_driver_in_text(excerpt)
+                                 or _detect_driver_in_text(prompt_excerpt)
+                                 or global_driver)
             if driver_in_excerpt:
                 c.attributes["_prompt_suggested_driver"] = driver_in_excerpt
         elif target_type == "servo":
@@ -3817,9 +4222,74 @@ def fuse_modules(nl: Netlist, prompt: str, context: str) -> None:
     ))
 
 
+def strip_comments(code: str) -> str:
+    """Le meme code, SANS ses commentaires -- et rien d'autre.
+
+    ⛔ **Les commentaires ne sont pas du code** (regle utilisateur,
+    2026-08-31) : le cablage est etabli depuis ce que le sketch FAIT, jamais
+    depuis ce qu'une prose en dit. Deux defauts reels l'ont impose :
+      - gemma commente ses sketches broches-nues « (e.g., L298N ENA) », et
+        l'extrait de code par broche INCLUAIT les commentaires : le nom de
+        driver de la prose re-silenciait la modale avec un L298N que
+        personne n'a demande (QA AB1, troisieme passe) ;
+      - un constructeur COMMENTE (`// L298N motor(9, 7, 8);`) produisait un
+        moteur et un driver entierement cables, `signature_detected=True`
+        (#86 (c)) -- une certitude affirmee depuis du code desactive.
+
+    Le depouillement est fait UNE fois, a l'entree de `extract_netlist`, pour
+    que TOUTE la detection (includes, constructeurs, pinMode, extraits,
+    alias) voie le meme code -- une regle par regex aurait laisse des trous.
+
+    ⚠️ Deux invariants, tous deux necessaires :
+      - **string-aware** : `Serial.println("http://...")` porte un `//` DANS
+        une chaine ; le traiter en commentaire mangerait la fin de ligne,
+        guillemet fermant compris, et les regex verraient du code casse ;
+      - **structure de lignes intacte** : un commentaire est remplace par du
+        vide, un bloc multi-lignes par ses sauts de ligne -- des regex
+        d'ancrage `^` en mode MULTILINE en dependent (`_BARE_ALIAS_RE`).
+    """
+    out: list[str] = []
+    i, n = 0, len(code)
+    while i < n:
+        ch = code[i]
+        nxt = code[i + 1] if i + 1 < n else ""
+        if ch == '"' or ch == "'":
+            quote = ch
+            out.append(ch)
+            i += 1
+            while i < n and code[i] != quote and code[i] != "\n":
+                if code[i] == "\\" and i + 1 < n:
+                    out.append(code[i:i + 2])
+                    i += 2
+                    continue
+                out.append(code[i])
+                i += 1
+            if i < n:
+                out.append(code[i])
+                i += 1
+            continue
+        if ch == "/" and nxt == "/":
+            while i < n and code[i] != "\n":
+                i += 1
+            continue
+        if ch == "/" and nxt == "*":
+            i += 2
+            while i + 1 < n and not (code[i] == "*" and code[i + 1] == "/"):
+                if code[i] == "\n":
+                    out.append("\n")
+                i += 1
+            i = i + 2 if i + 1 < n else n
+            continue
+        out.append(ch)
+        i += 1
+    return "".join(out)
+
+
 def extract_netlist(code: str, board_id: str,
                     prompt: str = "", context: str = "",
-                    prompts_by_fn: dict[str, str] | None = None) -> Netlist:
+                    prompts_by_fn: dict[str, str] | None = None,
+                    suppressed_headers: frozenset[str] = frozenset()
+                    ) -> Netlist:
     """Builds a Netlist from the Arduino code and the user prompt.
 
     Args:
@@ -3843,6 +4313,18 @@ def extract_netlist(code: str, board_id: str,
     Colliding refs (e.g. R1 added by inference and R1 already present)
     are renumbered automatically.
     """
+    # ⛔ Toute la detection travaille sur le code SANS commentaires (cf.
+    # `strip_comments`). Une seule exception : les blocs `<<< fn-N_wiring >>>`
+    # du mode legacy, qui vivent PRECISEMENT dans des commentaires -- ils
+    # sont lus sur le code d'origine ci-dessous.
+    code_original = code
+    code = strip_comments(code)
+    # Libs bannies par un swap de puce (cible nue) : leurs `#include`
+    # orphelins ne doivent plus faire naitre de boite (cf.
+    # `_strip_suppressed_includes`). Applique au code DETECTE seulement —
+    # `code_original` (mode legacy ai_markers) n'est pas touche.
+    code = _strip_suppressed_includes(code, suppressed_headers)
+
     nl = Netlist(board_id=board_id, metadata={"source": "static"})
 
     # Scan prompt + user doc for an explicit DC driver name.
@@ -3855,7 +4337,7 @@ def extract_netlist(code: str, board_id: str,
 
     if WIRING_DETECTOR_MODE == "ai_markers":
         # Legacy mode: AI markers take priority, otherwise Python fallback.
-        blocks = parse_wiring_blocks(code)
+        blocks = parse_wiring_blocks(code_original)
         if blocks:
             nl.metadata["source"] = "ai_markers"
             for fid, comps in blocks.items():
@@ -3955,6 +4437,18 @@ def extract_netlist(code: str, board_id: str,
                 refs=[c.ref],
                 params={"name": name},
             )
+        elif c.attributes.get("uart_not_wired"):
+            # Le driver est pilote par UART : son exemple ne revele aucune
+            # broche STEP/DIR, et on n'en a invente aucune. Un dessin
+            # incomplet doit se DIRE, sinon il se lit comme complet.
+            nl.add_warning(
+                code="stepper_uart_not_wired",
+                severity=SEVERITY_INFO,
+                message=(f"« {name} » est piloté en UART : la liaison série "
+                         f"n'a pas été déduite du code."),
+                refs=[c.ref],
+                params={"name": name},
+            )
         elif c.attributes.get("presumed_analog"):
             # Nothing in the code or the prompt corroborated the default: say
             # so, rather than draw a fully-wired 10k pot as if it had been read
@@ -4009,6 +4503,13 @@ def _ref_prefix_for(ctype: str) -> str:
         "potentiometer": "P",
         "buzzer":        "BZ",
         "servo":         "SV",
+        # M comme Motor -- le designateur normalise, et deja celui que
+        # `inference` donne au NEMA17 qu'il ajoute. Un `dc_motor` retombait
+        # sur le defaut "U" (circuits integres), ce qui le rendait
+        # indiscernable de son propre driver dans les instructions. Le cas ne
+        # se posait pas avant le 2026-08-29 : un moteur naissait LED et
+        # gardait sa ref "D" -- un artefact de la mutation, pas un choix.
+        "dc_motor":      "M",
         "dht22":         "U",
         "dht11":         "U",
         "hcsr04":        "U",

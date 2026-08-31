@@ -41,21 +41,23 @@ def _netlist(code: str):
     return extract_netlist(code, "arduino_uno_r3", prompt="Lis un capteur")
 
 
-class _FakeDialog:
-    """La methode testee lit `self._netlist` et `self._CONFRONTATION_CODES`,
-    puis ouvre une boite. On intercepte la boite : ce qu'on veut savoir,
+class _FakeDialog(wdd.WiringDiagramDialog):
+    """On HERITE de la vraie classe sans appeler son `__init__` (il monte
+    toute la scene graphique). On intercepte la boite : ce qu'on veut savoir,
     c'est SI elle s'ouvre et avec quel texte, pas la peindre.
 
-    ⚠️ `_CONFRONTATION_CODES` est repris de la VRAIE classe, jamais recopie :
-    depuis la revue finale du #45 (2026-08-27), `_show_warning_info` fait
-    passer ces codes devant sa regle « premier warning par ref » -- une copie
-    figee ici laisserait ce test au vert le jour ou un 3e code de
-    confrontation apparait.
+    ⚠️ Ce stub RECOPIAIT `_CONFRONTATION_CODES`, en expliquant qu'une copie
+    figee laisserait le test au vert si un 3e code apparaissait. Le
+    raisonnement etait juste et la parade insuffisante : le 2026-08-31,
+    `_show_warning_info` s'est mis a lire `_warnings_by_ref`, une methode que
+    le stub n'avait pas, et le test s'est casse sur un `AttributeError` -- pas
+    sur son sujet. Heriter fait suivre les dependances internes toutes
+    seules.
     """
-    _CONFRONTATION_CODES = wdd.WiringDiagramDialog._CONFRONTATION_CODES
 
     def __init__(self, netlist):
         self._netlist = netlist
+        self._mode = "avance"
         self.shown: list = []
 
 

@@ -68,8 +68,8 @@ def available_actions(component: "Component",
         out.append(_ds18b20_pullup_action(component, netlist))
     elif t == "buzzer":
         out.append(_buzzer_series_action(component, netlist))
-    elif t == "a4988":
-        out.append(_a4988_microstepping_action(component))
+    elif t in _MICROSTEP_BY_TYPE:
+        out.append(_microstepping_action(component))
     return out
 
 
@@ -105,10 +105,11 @@ def apply_action(component: "Component", action_id: str,
             raise ValueError("ds18b20_pullup_value : value requis (selecteur)")
         _set_ds18b20_pullup_value(component, netlist, str(value))
         return
-    if action_id == "a4988_microstepping":
+    if action_id == "stepper_microstepping":
         if value is None:
-            raise ValueError("a4988_microstepping : value requis (selecteur)")
-        _set_a4988_microstepping(component, netlist, str(value))
+            raise ValueError(
+                "stepper_microstepping : value requis (selecteur)")
+        _set_microstepping(component, netlist, str(value))
         return
     raise ValueError(f"unknown implicit action id: {action_id!r}")
 
@@ -621,8 +622,9 @@ def _set_ds18b20_pullup_value(sensor: "Component", netlist: "Netlist",
     ))
 
 
-# ─── A4988: microstepping (MS1/MS2/MS3 -> GND or 5V) ─────────────────────
-A4988_MICROSTEP_DEFAULT = "full"
+# ─── A4988 / DRV8825 : microstepping (MS1/MS2/MS3 -> GND ou 5V) ──────────
+MICROSTEP_DEFAULT = "full"
+A4988_MICROSTEP_DEFAULT = MICROSTEP_DEFAULT   # compat ancien nom
 # List of (value, human_label). The order = display order of the radios.
 A4988_MICROSTEP_CHOICES: list[tuple[str, str]] = [
     ("full", "Pas complet"),
@@ -639,10 +641,49 @@ A4988_MICROSTEP_TABLE: dict[str, tuple[int, int, int]] = {
     "1/8":  (1, 1, 0),
     "1/16": (1, 1, 1),
 }
-_A4988_MS_PINS: tuple[str, str, str] = ("MS1", "MS2", "MS3")
+# DRV8825 (TODO #87) : table LUE sur la doc Pololu (carrier #2133), pas
+# reconstituee de memoire -- MODE0/MODE1/MODE2 y correspondent a nos
+# MS1/MS2/MS3. ⚠️ Elle n'est PAS celle de l'A4988 : le 1/16 vaut (0,0,1)
+# ici, et « The mode selection pin inputs corresponding to 1/16-step on the
+# A4988 result in 1/32-step microstepping on the DRV8825 » (Pololu,
+# verbatim) -- c'est le piege du ticket : memes broches, distance parcourue
+# differente, et aucune compilation ne le signale.
+DRV8825_MICROSTEP_CHOICES: list[tuple[str, str]] = [
+    ("full", "Pas complet"),
+    ("1/2",  "1/2 pas"),
+    ("1/4",  "1/4 pas"),
+    ("1/8",  "1/8 pas"),
+    ("1/16", "1/16 pas"),
+    ("1/32", "1/32 pas"),
+]
+DRV8825_MICROSTEP_TABLE: dict[str, tuple[int, int, int]] = {
+    "full": (0, 0, 0),
+    "1/2":  (1, 0, 0),
+    "1/4":  (0, 1, 0),
+    "1/8":  (1, 1, 0),
+    "1/16": (0, 0, 1),
+    "1/32": (1, 0, 1),
+}
+# Trois encodages valent 1/32 sur le DRV8825 (Pololu) ; on ECRIT le
+# canonique (1,0,1) ci-dessus, mais on doit LIRE les deux autres -- dont
+# (1,1,1), l'etat d'un A4988 regle en 1/16 puis swappe en DRV8825 : le
+# selecteur affiche alors honnetement 1/32, la verite physique.
+_DRV8825_READ_ALIASES: dict[tuple[int, int, int], str] = {
+    (0, 1, 1): "1/32",
+    (1, 1, 1): "1/32",
+}
+# type de driver -> (choix affiches, table d'ecriture, alias de lecture).
+_MICROSTEP_BY_TYPE: dict[str, tuple[list, dict, dict]] = {
+    "a4988":   (A4988_MICROSTEP_CHOICES, A4988_MICROSTEP_TABLE, {}),
+    "drv8825": (DRV8825_MICROSTEP_CHOICES, DRV8825_MICROSTEP_TABLE,
+                _DRV8825_READ_ALIASES),
+}
+# ⚠️ Ne PAS y ajouter tmc2209 ni stspin220 : leurs micro-pas ne se reglent
+# pas par MS1-3 cables (UART pour le premier) -- cf. TODO #87.
+_MS_PINS: tuple[str, str, str] = ("MS1", "MS2", "MS3")
 
 
-def _a4988_pin_bit(drv: "Component", name: str) -> int:
+def _ms_pin_bit(drv: "Component", name: str) -> int:
     """Returns 1 if the driver's <name> pin is wired to 5V (or a high
     alias), 0 otherwise (GND, empty or unknown case = full step
     safe-default)."""
@@ -655,37 +696,42 @@ def _a4988_pin_bit(drv: "Component", name: str) -> int:
     return 0
 
 
-def _a4988_microstepping_action(drv: "Component") -> ImplicitAction:
-    """Selector action on the A4988's microstepping mode. Reads the
-    current state via the nets of the MS1/MS2/MS3 pins (= equivalent to
-    physical jumpers)."""
-    bits = tuple(_a4988_pin_bit(drv, name) for name in _A4988_MS_PINS)
-    current = A4988_MICROSTEP_DEFAULT
-    for mode, expected in A4988_MICROSTEP_TABLE.items():
-        if bits == expected:
-            current = mode
-            break
-    label_map = dict(A4988_MICROSTEP_CHOICES)
+def _microstepping_action(drv: "Component") -> ImplicitAction:
+    """Selector action on the driver's microstepping mode (A4988 ou
+    DRV8825 -- la table suit le TYPE, cf. #87). Reads the current state via
+    the nets of the MS1/MS2/MS3 pins (= equivalent to physical jumpers)."""
+    choices, table, read_aliases = _MICROSTEP_BY_TYPE[drv.type]
+    bits = tuple(_ms_pin_bit(drv, name) for name in _MS_PINS)
+    current = read_aliases.get(bits)
+    if current is None:
+        current = MICROSTEP_DEFAULT
+        for mode, expected in table.items():
+            if bits == expected:
+                current = mode
+                break
+    label_map = dict(choices)
     return ImplicitAction(
-        id="a4988_microstepping",
+        id="stepper_microstepping",
         label=f"Microstepping : {label_map.get(current, current)}",
-        is_active=(current != A4988_MICROSTEP_DEFAULT),
+        is_active=(current != MICROSTEP_DEFAULT),
         value=current,
-        choices=list(A4988_MICROSTEP_CHOICES),
+        choices=list(choices),
     )
 
 
-def _set_a4988_microstepping(drv: "Component", netlist: "Netlist",
-                              value: str) -> None:
-    """Wires (or rewires) the A4988's MS1/MS2/MS3 pins to GND or 5V
-    according to the truth table. Mutates the netlist in place. If an MS
-    pin is missing (legacy case: project from before the MS were added by
-    default), it is created."""
+def _set_microstepping(drv: "Component", netlist: "Netlist",
+                       value: str) -> None:
+    """Wires (or rewires) the driver's MS1/MS2/MS3 pins to GND or 5V
+    according to ITS truth table (A4988 ou DRV8825). Mutates the netlist in
+    place. If an MS pin is missing (legacy case: project from before the MS
+    were added by default), it is created."""
     del netlist  # uniform signature with the other set_*, not used
-    bits = A4988_MICROSTEP_TABLE.get(str(value))
+    _choices, table, _aliases = _MICROSTEP_BY_TYPE.get(
+        drv.type, (None, {}, None))
+    bits = table.get(str(value))
     if bits is None:
         return
-    for name, bit in zip(_A4988_MS_PINS, bits):
+    for name, bit in zip(_MS_PINS, bits):
         target = "5V" if bit else "GND"
         p = drv.pin(name)
         if p is None:

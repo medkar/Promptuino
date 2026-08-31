@@ -31,6 +31,38 @@ def _init_key(line: str) -> str | None:
     return sig if (sig and _INIT_RE.search(sig)) else None
 
 
+# Déclaration d'une VARIABLE LOCALE dans un corps (setup/loop) — forme
+# GÉNÉRALE « <type> <nom> » suivie de `=`, `;`, `[` ou `(` : couvre les types
+# scalaires (`int etat = …`), les types utilisateur et les objets de
+# bibliothèque (`Servo monServo;`, `DHT capteur(2, DHT11);`), sans jamais
+# énumérer de composant.
+#
+# Ce qui la garde SÛRE, c'est la forme, pas une liste : il faut DEUX
+# identifiants séparés par un espace (ou `*`/`&`), donc ni `tone(PIN, 440);`,
+# ni `Serial.println(x);`, ni `capteur.read();` ne matchent — aucun n'a de
+# second identifiant à cet endroit. Les mots-clés de contrôle sont exclus
+# explicitement, sinon `else if (x) {` passerait pour une déclaration.
+#
+# ⚠️ `feature_model.declared_name` ne peut PAS servir ici : écrite pour les
+# lignes GLOBALES, elle rend « etatBouton » sur `if (etatBouton == LOW) {` —
+# l'utiliser supprimerait des `if`.
+_DECL_CONTROL_WORDS = frozenset({
+    "if", "else", "for", "while", "switch", "case", "do", "return",
+    "break", "continue", "goto", "default", "sizeof", "new", "delete",
+})
+_BODY_DECL_RE = re.compile(
+    r"^\s*(?:(?:static|const|volatile|unsigned|signed)\s+)*"
+    r"([A-Za-z_]\w*)(?:\s*<[^>]*>)?"          # type (gabarit toléré)
+    r"(?:\s+(?:long|int|char))*"              # unsigned long, long long…
+    r"[\s*&]+([A-Za-z_]\w*)\s*(?:=|;|\[|\()")  # nom + = ; [ (
+
+
+def _declares_local(line: str) -> bool:
+    """La ligne DÉCLARE-t-elle une variable/objet local ? (forme générale)"""
+    m = _BODY_DECL_RE.match(line)
+    return bool(m) and m.group(1) not in _DECL_CONTROL_WORDS
+
+
 def _subtract_existing(lines: list[str], existing: set[str]) -> list[str]:
     """Removes from `lines` what the model RE-EMITTED of already-present content
     (code signatures in `existing`):
@@ -48,7 +80,28 @@ def _subtract_existing(lines: list[str], existing: set[str]) -> list[str]:
         return list(lines)
     sig = [_code_sig(ln) for ln in lines]
     dup = [bool(sig[i]) and sig[i] in existing for i in range(n)]
+    # Profondeur d'accolades AVANT chaque ligne, dans le bloc tel que le
+    # modèle l'a émis. Sert à la garde d'IMBRICATION ci-dessous.
+    depth = [0] * n
+    for i in range(1, n):
+        depth[i] = depth[i - 1] + lines[i - 1].count("{") - lines[i - 1].count("}")
     drop = [False] * n
+    # Passe DÉCLARATIONS, indépendante des runs. Une ligne de déclaration ne
+    # porte aucune accolade : la supprimer ne déplace rien et ne reparente
+    # rien, à n'importe quelle profondeur. Et deux déclarations identiques du
+    # même nom dans le même bloc ne compilent JAMAIS
+    # (`redeclaration of 'int x'`) — contrairement à un `delay(1000);`
+    # légitimement partagé, que la règle des runs protège.
+    # La passe est SÉPARÉE parce que le modèle colle la déclaration à la
+    # structure qui la suit : le run `[int etat = …, if (…) {]` est
+    # déséquilibré (+1) donc jamais supprimable comme tout, et la
+    # redéclaration survivait — mesuré à l'arduino-cli, le sketch ne
+    # compilait pas. Supprimée, la ligne suivante consomme la variable du
+    # fournisseur : c'est la composition par état partagé.
+    for i in range(n):
+        if (dup[i] and _declares_local(lines[i])
+                and lines[i].count("{") == lines[i].count("}")):
+            drop[i] = True
     i = 0
     while i < n:
         if sig[i] and dup[i]:                       # start of a run of duplicated code
@@ -64,8 +117,50 @@ def _subtract_existing(lines: list[str], existing: set[str]) -> list[str]:
             # re-emitted blocks, or brace-free init/body lines).
             balanced = sum(lines[k].count("{") - lines[k].count("}")
                            for k in run) == 0
-            if balanced and ((j - i) >= 2
-                             or any(_init_key(lines[k]) is not None for k in run)):
+            # ⛔ Garde d'IMBRICATION (mesurée le 2026-08-31). Un run équilibré
+            # peut n'être qu'un FRAGMENT d'une structure englobante : sur un
+            # « Ajoute une note quand le bouton est appuyé », le modèle réémet
+            # le if/else du bouton avec ses lignes neuves DEDANS, et le run
+            # `} else {` + son corps est équilibré (net 0). Le supprimer
+            # REPARENTE la ligne neuve qui suivait : le `noTone()` du `else`
+            # atterrissait dans le `if`, juste après le `tone()` — ça compile,
+            # et la note ne joue JAMAIS. Corruption de comportement
+            # silencieuse, la classe que ce projet refuse partout.
+            #
+            # La règle : on ne supprime qu'un run qui COMMENCE à la
+            # profondeur 0 du bloc émis — donc un énoncé complet (un `if
+            # {...}` entier, une ligne d'init), jamais un morceau pris à
+            # l'intérieur d'une structure dont d'autres lignes survivent.
+            # Le cas courant (le modèle réémet le bloc entier d'une
+            # fonctionnalité PUIS ajoute le sien) commence bien à 0 et reste
+            # dédupliqué. Quand la garde refuse, le bloc du modèle reste
+            # ENTIER : redondant avec l'existant, mais visible à l'écran et
+            # sémantiquement juste — un mauvais compromis se répare, une
+            # inversion muette ne se voit pas.
+            top_level = depth[i] == 0
+            # Une DÉCLARATION dupliquée se supprime même ISOLÉE. La règle
+            # « une ligne dupliquée isolée est gardée » protège un
+            # `delay(1000);` légitimement partagé — mais deux déclarations
+            # IDENTIQUES du même nom dans le même bloc ne compilent JAMAIS
+            # (`redeclaration of 'int etatBouton'`, mesuré à l'arduino-cli le
+            # 2026-08-31). C'est le vrai défaut du code « imbriqué » : sur un
+            # ajout qui doit réagir à l'état d'une fonctionnalité existante,
+            # le modèle relit l'entrée lui-même (4 générations sur 4), donc
+            # redéclare sa variable — et le sketch assemblé ne compilait pas.
+            # La supprimer fait consommer celle du fournisseur : c'est la
+            # composition par état partagé, obtenue mécaniquement plutôt
+            # qu'en suppliant le modèle. `feature_links` suit ce lien (les
+            # locales de corps y sont des `providers` depuis le même jour),
+            # donc la contrainte de réordonnancement le protège.
+            # Limite assumée : `existing` ne porte que des signatures, sans
+            # profondeur — une déclaration IMBRIQUÉE du fournisseur (dans son
+            # propre `if`) fait quand même supprimer celle du consommateur,
+            # qui aurait pu coexister. Le résultat est alors une erreur de
+            # compilation VISIBLE (variable hors portée), pas un silence.
+            is_decl = any(_declares_local(lines[k]) for k in run)
+            if balanced and top_level and ((j - i) >= 2 or is_decl
+                                           or any(_init_key(lines[k]) is not None
+                                                  for k in run)):
                 for k in run:
                     drop[k] = True
             i = j

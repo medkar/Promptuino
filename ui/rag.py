@@ -441,11 +441,67 @@ def _render_lib_block(lib: dict) -> str:
     return "\n".join(parts)
 
 
+_INCLUDE_HEADER_RE = re.compile(
+    r"#\s*include\s*[<\"]\s*([^>\"\s]+)\s*[>\"]")
+
+
+def api_context_for_code(code: str, max_libs: int = 3) -> str:
+    """Les blocs d'API des bibliotheques du CORPUS que `code` inclut.
+
+    Ecrit pour le prompt de REPARATION (QA AB2 bis du #82, 2026-08-31) : le
+    reparateur recevait l'erreur et le code, mais AUCUNE connaissance de
+    l'API de la lib. Sur `motor2.forward(2000)` -- une methode reelle,
+    appelee avec un argument qu'elle ne prend pas -- il devait DEVINER la
+    signature, et un modele 2B devine mal : la reparation echouait sur un
+    correctif d'une ligne (`forward()` est sans argument, la variante
+    temporisee s'appelle `forwardFor`). Ce bloc lui donne la meme verite que
+    la generation a recue.
+
+    ⚠️ **Seul le PREMIER en-tete d'une entree lui appartient** -- meme regle,
+    et pour la meme raison, que `lib_by_header._from_corpus` : les en-tetes
+    suivants sont des COMPAGNONS (`Adafruit_GFX.h` sous `adafruit-ssd1306`),
+    et associer un compagnon a l'entree affirmerait une correspondance
+    fausse.
+
+    Rend "" si aucun include ne correspond au corpus -- l'appelant n'ajoute
+    alors rien au prompt. Borne a `max_libs` blocs (l'ordre des includes du
+    code fait foi), le bloc median pesant ~95 tokens (#66).
+    """
+    if not code or not code.strip():
+        return ""
+    if not _load_corpus():
+        return ""
+    vus: list[str] = []
+    blocs: list[str] = []
+    for header in _INCLUDE_HEADER_RE.findall(code):
+        if len(blocs) >= max_libs:
+            break
+        cle = header.strip().lower()
+        for entry in _corpus:
+            headers = entry.get("headers") or []
+            if not headers or headers[0].strip().lower() != cle:
+                continue
+            eid = str(entry.get("id") or "")
+            if eid in vus:
+                break
+            vus.append(eid)
+            blocs.append(_render_lib_block(dict(entry)))
+            break
+    if not blocs:
+        return ""
+    return (
+        "Authoritative API for the included libraries — any fix MUST match "
+        "these exact signatures (do not invent methods or arguments):\n\n"
+        + "\n\n".join(blocs)
+    )
+
+
 def build_lib_context(prompt: str, k: int = 3, threshold: float | None = None,
                       forced_libs: list[dict] | None = None,
                       declared_component_forced: bool = False,
                       on_resemblance: Callable[[bool], None] | None = None,
-                      ranking_hint: str = ""
+                      ranking_hint: str = "",
+                      banned_libs: frozenset[str] = frozenset()
                       ) -> str:
     """Enveloppe publique de `_build_lib_context` : rend le contexte seul.
 
@@ -469,7 +525,7 @@ def build_lib_context(prompt: str, k: int = 3, threshold: float | None = None,
     ctx, by_resemblance = _build_lib_context(
         prompt, k=k, threshold=threshold, forced_libs=forced_libs,
         declared_component_forced=declared_component_forced,
-        ranking_hint=ranking_hint)
+        ranking_hint=ranking_hint, banned_libs=banned_libs)
     if on_resemblance is not None:
         on_resemblance(by_resemblance)
     return ctx
@@ -478,7 +534,8 @@ def build_lib_context(prompt: str, k: int = 3, threshold: float | None = None,
 def _build_lib_context(prompt: str, k: int = 3, threshold: float | None = None,
                        forced_libs: list[dict] | None = None,
                        declared_component_forced: bool = False,
-                       ranking_hint: str = ""
+                       ranking_hint: str = "",
+                       banned_libs: frozenset[str] = frozenset()
                        ) -> tuple[str, bool]:
     """Run retrieval and format results as a context block ready to be
     prepended to a user prompt. Empty string if no lib clears the threshold
@@ -510,6 +567,18 @@ def _build_lib_context(prompt: str, k: int = 3, threshold: float | None = None,
     it (that would either make the forced lib permissive or the retrieved
     lib falsely authoritative, the exact regression #37 fixed). Defaults to
     ``False`` so every existing caller keeps today's behavior unchanged.
+
+    ``banned_libs`` (TODO #85) : ids corpus bannis par un swap de puce persist
+    sur les features ciblées (``feat.banned_lib_ids``, cible NUE — servo →
+    relais). C'est la porte UNIQUE du ban : elle filtre le retrieval
+    (``retrieve_libs``), le sauvetage des puces nommées ET les ``forced_libs``
+    résiduels. Mesuré le 2026-08-31 avant le correctif : ban « servo » + prompt
+    qui écrit « servo » → le sauvetage ``named_corpus_libs`` réinjectait la lib
+    bannie en bloc IMPÉRATIF (le swap était annulé), et le cas liste-vide
+    coupait tout le retrieval (une feature servo+capteur perdait aussi le
+    contexte du capteur). Un ban est inconditionnel — nommer la puce ne la
+    ramène pas : le swap est postérieur au prompt, c'est lui la décision.
+    Vide par défaut : aucun appelant existant ne change.
 
     ``ranking_hint`` (TODO #64) : les numeros de piece que le projet utilise
     DEJA (« bme280 »), fabriques par `project_chips.chip_hint`. Ajoute au seul
@@ -569,6 +638,12 @@ def _build_lib_context(prompt: str, k: int = 3, threshold: float | None = None,
         forced_keys = {_lib_key(lib) for lib in libs}
         libs += [lib for lib in named_corpus_libs(prompt)
                  if _lib_key(lib) not in forced_keys]
+        # #85 : le ban gagne sur TOUT, y compris le sauvetage ci-dessus (la
+        # fuite mesurée) et un forced résiduel — une lib bannie ne s'injecte
+        # par aucune porte.
+        if banned_libs:
+            libs = [lib for lib in libs
+                    if (lib.get("id") or "") not in banned_libs]
     elif _prompt_is_i2c_scan(prompt):
         # I2C scanner: inject the canonical `Wire` (core lib) sketch
         # deterministically. No third-party lib is needed, but without context a
@@ -577,6 +652,14 @@ def _build_lib_context(prompt: str, k: int = 3, threshold: float | None = None,
         # lib outside the corpus, and the prompt scores as noise.)
         _log("[RAG] scanner I2C -> exemple Wire (core) injecte")
         libs = [dict(_WIRE_I2C_SCANNER_REF)]
+    elif _prompt_needs_debounce(prompt):
+        # Anti-rebond (TODO #90) : même forme que le scanner I2C ci-dessus —
+        # aucune bibliothèque n'est en jeu, mais sans le motif le modèle
+        # écrit un compteur qui ne compte JAMAIS (mesuré 0/4 même sans
+        # composition). Placé AVANT la garde « composant de base », qu'il
+        # contourne donc par construction sans la modifier.
+        _log("[RAG] anti-rebond -> motif Debounce.ino injecte")
+        libs = [dict(_DEBOUNCE_PATTERN_REF)]
     else:
         plain_retrieval = True
         # "Basic component" guard: a plain LED, button, buzzer, pot… need
@@ -591,7 +674,8 @@ def _build_lib_context(prompt: str, k: int = 3, threshold: float | None = None,
                  f"{prompt[:80]!r}")
             return "", False
         try:
-            libs = retrieve_libs(ranked_on, k=k, threshold=threshold)
+            libs = retrieve_libs(ranked_on, k=k, threshold=threshold,
+                                 banned_ids=banned_libs)
         except Exception as e:
             _log(f"[RAG] retrieve_libs failed: {e}")
             return "", False
@@ -661,7 +745,8 @@ def _build_lib_context(prompt: str, k: int = 3, threshold: float | None = None,
     # retrieval paths above, which are untouched by this parameter.
     if declared_component_forced and forced_libs is not None:
         try:
-            candidates = retrieve_libs(ranked_on, k=k, threshold=threshold)
+            candidates = retrieve_libs(ranked_on, k=k, threshold=threshold,
+                                       banned_ids=banned_libs)
         except Exception as e:
             _log(f"[RAG] retrieve_libs (declared-component supplement) failed: {e}")
             candidates = []
@@ -752,6 +837,42 @@ def _example_calls(example: str) -> set[str]:
     best available ground truth for which methods matter — and it costs
     nothing, being already there."""
     return set(_CALL_RE.findall(example or ""))
+
+
+# Deux formes, dans cet ordre : la DECLARATION (`L298N motor(EN, IN1, IN2)`,
+# ou le nom qui compte est la CLASSE, pas la variable) puis l'appel
+# (`motor.setSpeed(150)`). Une seule regex capturait `motor` au lieu de
+# `L298N` et l'arite du constructeur n'etait jamais associee a la classe --
+# mesure avant livraison : le bloc L298N passait au constructeur 2 broches
+# que le cablage ignore deliberement (#83).
+_DECL_ARITY_RE = re.compile(r"\b([A-Za-z_]\w*)\s+\w+\s*\(([^()]*)\)")
+_ANY_CALL_ARITY_RE = re.compile(r"\b(\w+)\s*\(([^()]*)\)")
+
+
+def _example_call_arities(example: str) -> dict[str, int]:
+    """{nom -> arite} des appels de l'exemple, constructeurs compris.
+
+    Sert au choix de la SURCHARGE emise (cf. `_format_api_signatures`) : la
+    variante dont l'arite colle a l'appel de l'exemple gagne. Approximation
+    assumee : les appels dont les arguments portent des parentheses
+    imbriquees ne matchent pas la regex et ne se prononcent pas -- on retombe
+    alors sur « la plus simple », jamais sur une erreur. Premiere occurrence
+    vue = celle qui compte, et les declarations passent AVANT les appels
+    (le nom de la variable peut collisionner avec une methode, jamais
+    l'inverse).
+    """
+    arities: dict[str, int] = {}
+
+    def _compter(args: str) -> int:
+        corps = args.strip()
+        return 0 if not corps else corps.count(",") + 1
+
+    for regex in (_DECL_ARITY_RE, _ANY_CALL_ARITY_RE):
+        for nom, args in regex.findall(example or ""):
+            if nom in arities:
+                continue
+            arities[nom] = _compter(args)
+    return arities
 
 
 def _format_api_signatures(api: dict, example: str = "") -> str:
@@ -847,14 +968,60 @@ def _format_api_signatures(api: dict, example: str = "") -> str:
                                            key=_class_key):
         if not sigs:
             continue
+        # ⚠️ **Parmi les surcharges d'un meme nom : l'EXEMPLE d'abord, la
+        # simplicite ensuite.** C'etait « premiere declaree gagne », et la QA
+        # AB2 ter du #82 (2026-08-31) a montre le bloc TRAHIR un modele
+        # obeissant : la lib L298N declare `forwardFor(delay, callback)` AVANT
+        # `forwardFor(delay)`, donc le bloc n'annoncait que la variante a
+        # callback — et le reparateur, somme de suivre « ces signatures
+        # exactes », ecrivait un callback invente au lieu du correctif d'une
+        # ligne.
+        #
+        # ⚠️ Et « la plus simple gagne » TOUT COURT etait trop general —
+        # mesure sur les 125 entrees a API avant de livrer : 16 blocs
+        # changeaient, plusieurs vers du PIRE, parce que pour un CONSTRUCTEUR
+        # la variante la plus simple est souvent la degeneree
+        # (`Adafruit_NeoPixel(void)`, `Encoder()`, `File(void)`) — et le
+        # L298N passait au constructeur 2 broches que le cablage ignore
+        # deliberement (#83). La regle juste est celle que ce formateur
+        # applique deja partout : l'exemple est la verite terrain. La
+        # surcharge dont l'arite colle a l'appel de l'exemple gagne
+        # (bornes : parametres obligatoires ≤ arite ≤ parametres declares,
+        # pour respecter les valeurs par defaut) ; la plus simple seulement
+        # quand l'exemple ne se prononce pas. L'EMPLACEMENT de chaque nom
+        # dans le bloc ne bouge pas — seul le texte de la variante retenue
+        # change.
+        arities = _example_call_arities(example)
+
+        def _param_bounds(sig: str) -> tuple[int, int]:
+            i, j = sig.find("("), sig.rfind(")")
+            if i < 0 or j <= i:
+                return (0, 0)
+            corps = sig[i + 1:j].strip()
+            if not corps:
+                return (0, 0)
+            parts = corps.split(",")
+            requis = sum(1 for p in parts if "=" not in p)
+            return (requis, len(parts))
+
+        def _overload_key(sig: str, fname: str, decl_idx: int) -> tuple:
+            requis, total = _param_bounds(sig)
+            arite = arities.get(fname)
+            colle = 0 if (arite is not None
+                          and requis <= arite <= total) else 1
+            return (_sig_rank(class_name, sig), colle, total, decl_idx)
+
+        best_by_name: dict[str, tuple] = {}
+        for k_idx, sig in enumerate(sigs):
+            fname = _function_name(sig)
+            cle = _overload_key(sig, fname, k_idx)
+            if (fname not in best_by_name
+                    or cle < best_by_name[fname][0]):
+                best_by_name[fname] = (cle, sig)
         seen: set[str] = set()
         kept: list[str] = []
         for sig in sorted(sigs, key=lambda s: _sig_rank(class_name, s)):
             fname = _function_name(sig)
-            # Deduplicate OVERLOADS by name, first variant wins. Kept although
-            # the caps are gone: six spellings of `readline` teach the model
-            # nothing the first one did not, and the block is read, not
-            # compiled.
             if fname in seen:
                 continue
             # A filter written for one library must not amputate another:
@@ -863,7 +1030,7 @@ def _format_api_signatures(api: dict, example: str = "") -> str:
             if _is_internal_name(fname) and fname not in called:
                 continue
             seen.add(fname)
-            kept.append(sig)
+            kept.append(best_by_name[fname][1])
         if not kept:
             continue
         lines.append(f"- {class_name}:")
@@ -884,6 +1051,7 @@ def augment_user_prompt(
     declared_component_forced: bool = False,
     on_resemblance: Callable[[bool], None] | None = None,
     ranking_hint: str = "",
+    banned_libs: frozenset[str] = frozenset(),
 ) -> str:
     """Prepend retrieved-lib context to ``prompt``. Returns ``prompt``
     unchanged if RAG returns nothing.
@@ -896,6 +1064,10 @@ def augment_user_prompt(
 
     ``on_resemblance`` : transmis tel quel à ``build_lib_context`` (voir sa
     docstring). ``None`` par défaut.
+
+    ``banned_libs`` (TODO #85) : transmis tel quel à ``build_lib_context``
+    (voir `_build_lib_context`) — les libs bannies par un swap de puce vers
+    une cible nue. Vide par défaut : aucun appelant existant ne change.
 
     ``ranking_hint`` : transmis tel quel à ``build_lib_context`` (voir sa
     docstring) — les puces que le projet utilise déjà. Contrairement à
@@ -945,7 +1117,8 @@ def augment_user_prompt(
                             forced_libs=forced_libs,
                             declared_component_forced=declared_component_forced,
                             on_resemblance=on_resemblance,
-                            ranking_hint=ranking_hint)
+                            ranking_hint=ranking_hint,
+                            banned_libs=banned_libs)
     if not ctx:
         return prompt
     return (
@@ -1182,17 +1355,168 @@ def corpus_signature_tokens() -> frozenset[str]:
     return _SIGNATURE_TOKEN_CACHE
 
 
+_MOTOR_DRIVER_DOC_IDS: frozenset | None = None
+
+# ⚠️ **Deux drivers du registre sont EXEMPTES du filtre, et la suite de tests
+# les a designes elle-meme** (2026-08-31 : deux caracterisations existantes
+# ont rougi, exactement sur ces deux entrees, et sur AUCUNE autre). La
+# frontiere n'est pas « function=motor_driver » : c'est « le besoin a-t-il
+# une forme SANS puce ». Un moteur DC ou un pas-a-pas se pilotent en broches
+# nues, et la modale de cablage offre le choix du driver ensuite. Mais :
+#   - `pca9685` : « driver 16 servos » -- Servo.h plafonne a 12 sorties sur
+#     Uno, la puce EST le besoin. Le supprimer laissait remonter du bruit
+#     radio/wifi (si4713, wiz820io...) a la place ;
+#   - `drv2605` : « driver de vibration haptique » -- aucun equivalent nu.
+# Meme statut que les ecrans : quelqu'un doit choisir une puce pour ecrire la
+# premiere ligne, et mieux vaut le mecanisme visible et corrigeable que la
+# memoire du SLM. Un NOUVEAU driver ajoute au registre est supprime PAR
+# DEFAUT (la direction sure pour #82) ; l'exempter exige de passer ici et
+# d'assumer l'argument « pas de forme nue ».
+_NO_BARE_FORM_DRIVER_DOCS = frozenset({"pca9685", "drv2605"})
+# Mots d'un nom de produit qui ne discriminent RIEN : le bruit d'edition
+# (« library »), et -- dans une famille qui ne contient QUE des drivers de
+# moteur -- les mots « motor »/« driver » eux-memes. Les exiger faisait
+# echouer un nommage parfaitement explicite : « piloter deux moteurs DC avec
+# un shield Adafruit » ne contient pas le mot anglais « motor » (le francais
+# ecrit « moteurs », et meme l'anglais ecrit « motors », pluriel). Mesure au
+# banc : 4 cas « decrit precis » passaient de correct a wrong sur ce seul
+# oubli. Ce qui discrimine, c'est la marque et la forme (« adafruit »,
+# « shield », « grove ») -- pas la categorie que tout le jeu partage.
+_PRODUCT_NOISE_WORDS = {"library", "lib", "arduino",
+                        "motor", "motors", "driver", "drivers"}
+
+
+def _prompt_names_product(entry: dict, prompt_low: str) -> bool:
+    """Le prompt ecrit le NOM DE PRODUIT complet de l'entree.
+
+    Second passe-droit du filtre motor_driver, et il existe pour une raison
+    precise : deux produits de ce jeu n'ont PAS de part-number nommable.
+    « Grove I2C Motor Driver » n'a comme tokens de signature que `l298` et
+    `0x0f` -- ecrire son nom en toutes lettres ne comptait pas comme le
+    nommer. Le « Adafruit Motor Shield V2 » n'a AUCUN token. Sans ce test, le
+    filtre transformait un nommage parfaitement explicite en silence.
+
+    ⚠️ TOUS les mots du nom (≥3 caracteres, hors bruit « library »/« vN »)
+    doivent etre presents : « motor driver » seul ne debloque rien, il faut
+    « grove i2c motor driver ». C'est ce qui garde le test categoriel --
+    nommer une CATEGORIE (« un pont en H ») n'est pas nommer un produit.
+    Local au filtre : le boost lexical, lui, ne change pas.
+    """
+    name = (entry.get("arduino_lib_name") or "").lower()
+    if not name:
+        return False
+    def _stem(w: str) -> str:
+        # Singulier/pluriel replies : « shields » nomme autant que « shield ».
+        return w[:-1] if len(w) > 3 and w.endswith("s") else w
+
+    words = [w for w in re.findall(r"[a-z0-9]+", name)
+             if len(w) >= 3 and w not in _PRODUCT_NOISE_WORDS
+             and not re.fullmatch(r"v\d+", w)]
+    if not words:
+        return False
+    prompt_words = {_stem(w) for w in re.findall(r"[a-z0-9]+", prompt_low)}
+    return all(_stem(w) in prompt_words for w in words)
+
+
+def _motor_driver_doc_ids() -> frozenset:
+    """Documents du corpus rattaches a un composant `function="motor_driver"`
+    du registre. DERIVE, jamais ecrit a la main : une liste locale aurait
+    oublie le prochain driver ajoute, exactement le trou que la checklist de
+    CLAUDE.md existe pour empecher.
+
+    Mesure le 2026-08-31 : 11 documents (l298n, sparkfun-tb6612,
+    grove-i2c-motor-driver, drv8825, tmc2209, stspin220, drv8833, l293d,
+    pca9685, drv2605, adafruit-motorshield-v2).
+    """
+    global _MOTOR_DRIVER_DOC_IDS
+    if _MOTOR_DRIVER_DOC_IDS is None:
+        try:
+            _MOTOR_DRIVER_DOC_IDS = (_all_motor_driver_doc_ids()
+                                     - _NO_BARE_FORM_DRIVER_DOCS)
+        except Exception:
+            # Registre illisible : on prefere le comportement d'avant (tout
+            # injectable) a un retrieval qui change de forme sur une erreur
+            # d'import.
+            _MOTOR_DRIVER_DOC_IDS = frozenset()
+    return _MOTOR_DRIVER_DOC_IDS
+
+
+_ALL_MOTOR_DRIVER_DOC_IDS: frozenset | None = None
+
+
+def _all_motor_driver_doc_ids() -> frozenset:
+    """Tous les documents des composants `function="motor_driver"`, SANS la
+    soustraction des exemptions — celle-ci n'a de sens que pour le filtre
+    d'injection (`_motor_driver_doc_ids`)."""
+    global _ALL_MOTOR_DRIVER_DOC_IDS
+    if _ALL_MOTOR_DRIVER_DOC_IDS is None:
+        try:
+            from .component_registry import REGISTRY
+            comps = (REGISTRY.values() if isinstance(REGISTRY, dict)
+                     else REGISTRY)
+            _ALL_MOTOR_DRIVER_DOC_IDS = frozenset(
+                doc for c in comps if c.function == "motor_driver"
+                for doc in c.documents)
+        except Exception:
+            _ALL_MOTOR_DRIVER_DOC_IDS = frozenset()
+    return _ALL_MOTOR_DRIVER_DOC_IDS
+
+
+def prompt_names_motor_driver_lib(prompt: str) -> bool:
+    """Le prompt nomme-t-il un driver moteur dont le corpus porte une LIB ?
+
+    Sert au gating du bloc MOTOR du prompt systeme (`codegen_rules`) : quand
+    la reponse est oui, le RAG injecte l'API de cette bibliotheque sous
+    en-tete imperatif, et le pattern broches-nues du bloc MOTOR devient une
+    consigne CONTRADICTOIRE. Mesure A/B en QA AB2 du #82 (2026-08-31,
+    gemma4:e2b, 6 generations par bras) : sans le bloc MOTOR 0/6 chimeres,
+    avec lui 3/6 — le modele epissait les deux consignes
+    (`motor1.digitalWrite(...)`), le code ne compilait pas, et la reparation
+    derivait vers le `setMotor` que le bloc lui ordonnait d'ecrire. Le
+    conflit n'avait que deux jours : l'entree corpus L298N date du #83.
+
+    Meme double critere de nommage que le filtre de `retrieve_libs` :
+    tokens de signature (`l298n`), ou nom de produit complet en toutes
+    lettres (« shield Adafruit », « Grove I2C motor driver ») — et TOUS les
+    drivers du registre comptent ici, exemptions du filtre comprises :
+    nommer un PCA9685 injecte aussi sa lib, le conflit est le meme.
+    """
+    if not prompt or not prompt.strip():
+        return False
+    if not _load_corpus():
+        return False
+    prompt_tokens = _prompt_tokens(prompt)
+    prompt_low = prompt.lower()
+    for doc_id in _all_motor_driver_doc_ids():
+        entry = corpus_entry(doc_id)
+        if not entry or not (entry.get("arduino_lib_name") or "").strip():
+            continue
+        if _signature_tokens(entry) & prompt_tokens:
+            return True
+        if _prompt_names_product(entry, prompt_low):
+            return True
+    return False
+
+
 def retrieve_libs(
     prompt: str,
     k: int = 3,
     threshold: float = 0.25,
     relative_gate: float = 0.85,
+    banned_ids: frozenset[str] = frozenset(),
 ) -> list[dict]:
     """Return up to ``k`` corpus entries with score ≥ ``threshold``.
 
     Sorted by descending score. Each entry is the raw corpus dict augmented
     with a ``_score`` float. Empty list on any failure or if nothing clears the
     threshold.
+
+    ``banned_ids`` (TODO #85) : ids corpus qu'un swap de puce a BANNIS de la
+    feature (cible nue, ``feat.banned_lib_ids``). Ils sont écartés du
+    classement — sans quoi la lib remplacée ressurgirait par similarité, le
+    prompt lui ressemblant toujours. Contrairement au filtre driver ci-dessous,
+    nommer la puce ne la ramène PAS : le swap est POSTÉRIEUR au prompt, c'est
+    lui la décision. Vide par défaut : aucun appelant existant ne change.
 
     Score = cosine similarity + a LEXICAL BOOST (``_LEXICAL_BOOST``) when a
     "part-number" token of the entry (e.g. ``INA3221``) appears verbatim in the
@@ -1229,17 +1553,57 @@ def retrieve_libs(
             scores[i] += _LEXICAL_BOOST
 
     order = np.argsort(-scores)
+    # ⛔ **Une lib liee a une puce de DRIVER ne s'injecte que si la puce est
+    # nommee** (TODO #82, mesure du 2026-08-31 : 7 prompts moteur generiques
+    # sur 18 injectaient un driver -- « deux moteurs DC » recevait le
+    # SparkFun TB6612 a 0.605 DEVANT l'entree generique, et « un robot a deux
+    # roues » recevait L298N + Motor Shield sans meme `dc_motor`). Le SLM
+    # obeit au contexte (mesure au #37), donc il codait pour une puce que
+    # l'utilisateur n'a jamais mentionnee ; depuis que les noms de libs sont
+    # corriges (#83), ca COMPILE -- l'echec silencieux que le #37 existe pour
+    # supprimer.
+    #
+    # Le principe etait deja tranche ailleurs : le choix du driver appartient
+    # a la modale de cablage (les ClarifyGroup excluent moteurs et drivers
+    # pour cette raison), et le code moteur a une forme SANS lib -- PWM +
+    # broches de direction -- qui est celle que tout le pipeline de cablage
+    # attend (groupement niveau 3, cards de drivers, offre de regeneration).
+    # S'engager sur une puce a la generation, c'est decider a la place de la
+    # modale.
+    #
+    # Categoriel, sans seuil : le critere de nommage est EXACTEMENT celui du
+    # boost lexical ci-dessus (`_signature_tokens & prompt_tokens`), donc une
+    # puce nommee est a la fois boostee et injectable. Et comme
+    # `_build_lib_context` concatene le `ranking_hint` (#64) au prompt AVANT
+    # cet appel, la puce du PROJET passe aussi -- un prompt de suite sur un
+    # projet L298N garde sa lib (bande 3 de `bench_motor_agnostic`, 0 perdu).
+    #
+    # ⚠️ NE PAS generaliser aux autres familles : un ecran ou un capteur n'a
+    # PAS de forme sans lib -- quelqu'un doit choisir une puce pour ecrire la
+    # premiere ligne, et mieux vaut que ce soit le mecanisme visible et
+    # corrigeable (retrieval + bannière + swap) que la memoire du SLM.
+    suppressed = _motor_driver_doc_ids()
     top_score: float | None = None
     out: list[dict] = []
-    for idx in order[:k]:
+    for idx in order:
+        if len(out) >= k:
+            break
         score = float(scores[idx])
         if score < threshold:
             break
+        raw = _corpus[idx]
+        # #85 : un ban est inconditionnel (pas de passe-droit « nommé »).
+        if raw.get("id") in banned_ids:
+            continue
+        if (raw.get("id") in suppressed
+                and not (_signature_tokens(raw) & prompt_tokens)
+                and not _prompt_names_product(raw, prompt.lower())):
+            continue
         if top_score is None:
             top_score = score
         elif score < relative_gate * top_score:
             break
-        entry = dict(_corpus[idx])
+        entry = dict(raw)
         entry["_score"] = score
         out.append(entry)
     return out
@@ -1367,6 +1731,103 @@ _WIRE_I2C_SCANNER_REF = {
         "  }\n"
         "  if (count == 0) Serial.println(\"Aucun peripherique I2C\");\n"
         "  delay(5000);\n"
+        "}"
+    ),
+}
+
+
+# ─── Anti-rebond : motif de code, pas bibliothèque (TODO #90) ────────────
+# Mesuré le 2026-08-31 : sur « compte les appuis sur un bouton »,
+# `gemma4:e2b` écrit un anti-rebond qui compte ZÉRO appui — dans les QUATRE
+# configurations essayées (seul 0/4, en ajout 3/5, après consigne ciblée
+# 4/5, après fusion 5/5). Toujours le même bug : une condition de front en
+# TROP (`if (lastButtonState == HIGH)`) sur une variable que le bloc
+# précédent vient d'aligner, ce qui rend l'incrément inatteignable. Ça
+# compile, le schéma est juste, et rien ne le dit.
+#
+# Le modèle n'a besoin d'AUCUNE bibliothèque ici — il a besoin du bon
+# MOTIF. Exactement la situation du scanner I2C ci-dessus, et le même
+# remède : injection déterministe, sans seuil, dans la branche AVANT la
+# garde « composant de base » (laquelle répond à une autre question — « ce
+# composant a-t-il besoin d'une lib ? » — et reste intacte).
+#
+# Indices en DEUX groupes, tous deux exigés : un bouton, ET un besoin de
+# détecter un ÉVÉNEMENT (compter, à chaque appui, anti-rebond). Un simple
+# « allume la LED quand le bouton est appuyé » lit un ÉTAT, n'a pas besoin
+# de ce motif et ne doit pas le recevoir — c'est le cas validé en QA AE1.
+_DEBOUNCE_BUTTON_CUES = (
+    "bouton", "boutons", "poussoir", "button", "buttons", "push-button",
+    "pushbutton", "boton", "botón", "botones", "pulsador", "pulsante",
+    "pulsanti",
+)
+_DEBOUNCE_EVENT_CUES = (
+    # anti-rebond nommé explicitement
+    "anti-rebond", "antirebond", "anti rebond", "rebond", "debounce",
+    "antirrebote", "rimbalzo",
+    # compter des appuis / réagir à CHAQUE appui (détection de front)
+    "compte les appui", "compter les appui", "compte le nombre",
+    "nombre d'appui", "nombre de fois", "combien de fois", "chaque appui",
+    "chaque pression", "appuis", "appuye 3", "appuyé 3",
+    "count the press", "counts the press", "number of press", "each press",
+    # « presses » au PLURIEL seulement : « count the button presses » le
+    # porte, « when the button is pressed » ne le porte pas (pressed).
+    "presses",
+    "press count", "times the button", "every press",
+    "cuenta las pulsacion", "numero de pulsacion", "número de pulsacion",
+    "cada pulsacion", "cada pulsación",
+    "conta le pression", "numero di pression", "ogni pression",
+)
+
+
+def _prompt_needs_debounce(prompt: str) -> bool:
+    """True si le prompt demande de détecter un ÉVÉNEMENT d'appui (compter,
+    réagir à chaque appui, anti-rebond) — pas simplement de lire l'état d'un
+    bouton. Les deux groupes d'indices sont exigés : sans le bouton, « compte
+    le nombre de tours » n'a rien à voir ; sans l'événement, « allume la LED
+    quand le bouton est appuyé » n'a pas besoin de ce motif (QA AE1)."""
+    t = prompt.lower()
+    return (any(c in t for c in _DEBOUNCE_BUTTON_CUES)
+            and any(c in t for c in _DEBOUNCE_EVENT_CUES))
+
+
+# Motif d'anti-rebond AUTHENTIQUE — celui de l'exemple officiel Arduino
+# `Debounce.ino`, VÉRIFIÉ par simulation (`scripts/simu_rebond_reimplementation.py`) :
+# il compte 3 sur 3 appuis nets de 200 ms, là où toutes les variantes
+# écrites par le modèle comptent 0.
+# ⚠️ Ne PAS y ajouter de condition de front supplémentaire sur
+# `lastButtonState` : c'est précisément l'erreur du modèle, et elle rend
+# l'incrément inatteignable (`buttonState` a déjà été aligné au-dessus).
+_DEBOUNCE_PATTERN_REF = {
+    "name": "Anti-rebond d'un bouton (motif Arduino officiel, sans bibliothèque)",
+    "headers": [],
+    "example_code": (
+        "const int buttonPin = 2;\n"
+        "int buttonState = HIGH;         // etat STABLE (apres anti-rebond)\n"
+        "int lastReading = HIGH;         // derniere lecture BRUTE\n"
+        "unsigned long lastDebounceTime = 0;\n"
+        "const unsigned long debounceDelay = 50;\n"
+        "int pressCount = 0;\n"
+        "\n"
+        "void setup() {\n"
+        "  pinMode(buttonPin, INPUT_PULLUP);\n"
+        "  Serial.begin(9600);\n"
+        "}\n"
+        "\n"
+        "void loop() {\n"
+        "  int reading = digitalRead(buttonPin);\n"
+        "  if (reading != lastReading) {\n"
+        "    lastDebounceTime = millis();   // la lecture bouge : on repart\n"
+        "  }\n"
+        "  if (millis() - lastDebounceTime > debounceDelay) {\n"
+        "    if (reading != buttonState) {  // l'etat STABLE change\n"
+        "      buttonState = reading;\n"
+        "      if (buttonState == LOW) {    // front d'APPUI : compter ICI\n"
+        "        pressCount++;\n"
+        "        Serial.println(pressCount);\n"
+        "      }\n"
+        "    }\n"
+        "  }\n"
+        "  lastReading = reading;\n"
         "}"
     ),
 }

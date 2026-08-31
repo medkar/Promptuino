@@ -1490,6 +1490,14 @@ BATTERY_VOLTAGE_RANGES: dict[tuple[str, str | None], tuple[float, float]] = {
     ("stepper_motor", "uln2003"):   (5.0, 12.0),
     # NEMA17 + A4988
     ("nema17", "a4988"):            (8.0, 35.0),
+    # Memes valeurs que l'A4988 pour les trois autres drivers pas-a-pas
+    # (detectes par signature depuis le 2026-08-29) : ce sont des breakouts
+    # de meme encombrement, poses cote a cote du meme moteur. Sans ces
+    # entrees, le placement retombait sur un defaut qui ne tenait pas compte
+    # de la paire.
+    ("nema17", "drv8825"):          (8.0, 35.0),
+    ("nema17", "tmc2209"):          (8.0, 35.0),
+    ("nema17", "stspin220"):        (8.0, 35.0),
 }
 
 

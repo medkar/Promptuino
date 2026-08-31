@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import re
 
+from .assembler import _BODY_DECL_RE, _DECL_CONTROL_WORDS
 from .feature_model import (
     Feature, _C_KEYWORDS, _DEFINE_RE, _GLOBAL_NAME_RE,
 )
@@ -46,6 +47,28 @@ def providers(feature: Feature) -> set[str]:
     for fn in feature.functions:
         if fn.name:
             names.add(fn.name)
+    # Les VARIABLES LOCALES de `setup()`/`loop()` fournissent elles aussi un
+    # nom (2026-08-31). Elles manquaient, et c'était un trou de la même
+    # nature que celui du graphe des globales : les contributions de toutes
+    # les fonctionnalités atterrissent dans LE MÊME corps de `loop()`, donc
+    # une locale déclarée par A est visible — et consommable — par B. Depuis
+    # que l'assembleur supprime la redéclaration dupliquée de B (sinon le
+    # sketch ne compile pas), B consomme RÉELLEMENT celle de A : sans ce
+    # fournisseur, aucun lien n'était dessiné, la solidarité de glisser ne
+    # jouait pas, et rien n'empêchait de faire remonter B au-dessus de A —
+    # ce qui ne compile plus (variable utilisée avant sa déclaration).
+    #
+    # Seule la profondeur 0 compte : une déclaration dans un `if` de A est
+    # scopée à ce bloc et n'est visible de personne (même règle de
+    # profondeur que la garde d'imbrication de l'assembleur).
+    for body in (feature.setup_lines, feature.loop_lines):
+        depth = 0
+        for line in body:
+            if depth == 0:
+                m = _BODY_DECL_RE.match(line)
+                if m and m.group(1) not in _DECL_CONTROL_WORDS:
+                    names.add(m.group(2))
+            depth += line.count("{") - line.count("}")
     return {n for n in names if len(n) >= _MIN_NAME_LEN}
 
 

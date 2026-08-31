@@ -102,19 +102,32 @@ def test_classic_section_excerpt_found_differs_fr_it():
     _reset_lang()
 
 
-def test_grouped_section_differs_fr_it():
-    from PyQt6.QtWidgets import QGroupBox, QRadioButton
+def test_a_lone_motor_uses_the_consolidated_section_too():
+    """⚠️ CONTRAT CHANGE LE 2026-08-29 (QA).
+
+    Un moteur UNIQUE passait par `_build_grouped_section` — radios « Oui,
+    c'est un moteur DC » / « Non, ce sont des composants séparés » — et deux
+    moteurs ou plus par la section consolidée, en cases à cocher. Deux
+    présentations pour la même question, et l'utilisateur tombait sur l'une ou
+    l'autre selon la porte : « la vue est différente entre la modif composant
+    via engrenage et modifier mes choix ». Il n'y en a plus qu'une.
+
+    Ce test garde ce qu'il gardait — les libellés suivent la langue — sur la
+    vue qui reste.
+    """
+    from PyQt6.QtWidgets import QCheckBox, QGroupBox, QRadioButton
     dlg_fr = _grouped_dialog("fr", with_excerpt=False)
     dlg_it = _grouped_dialog("it", with_excerpt=False)
     title_fr = dlg_fr.findChild(QGroupBox).title()
     title_it = dlg_it.findChild(QGroupBox).title()
     assert title_fr != title_it, (title_fr, title_it)
-    radios_fr = {r.text() for r in dlg_fr.findChildren(QRadioButton)}
-    radios_it = {r.text() for r in dlg_it.findChildren(QRadioButton)}
-    assert "Oui, c'est un moteur DC" in radios_fr, radios_fr
-    assert "Sì, è un motore DC" in radios_it, radios_it
-    assert "Non, ce sont des composants séparés" in radios_fr, radios_fr
-    assert "No, sono componenti separati" in radios_it, radios_it
+    # Plus aucune radio « oui/non » : ce sont les cases de la section
+    # consolidee qui portent desormais la question, pour 1 comme pour N.
+    assert not dlg_fr.findChildren(QRadioButton),         [r.text() for r in dlg_fr.findChildren(QRadioButton)]
+    cases_fr = {c.text() for c in dlg_fr.findChildren(QCheckBox)}
+    cases_it = {c.text() for c in dlg_it.findChildren(QCheckBox)}
+    assert "C'est bien un moteur" in cases_fr, cases_fr
+    assert cases_fr.isdisjoint(cases_it), (cases_fr, cases_it)
     _reset_lang()
 
 
@@ -153,8 +166,13 @@ def test_consolidated_section_and_limit_warning_differ_fr_it():
     _reset_lang()
 
 
-def _driver_names(dlg, key: str = "D1") -> dict:
-    """{type_driver: nom affiche sur sa card}."""
+def _driver_names(dlg, key: str = "__consolidated__") -> dict:
+    """{type_driver: nom affiche sur sa card}.
+
+    La cle est celle du sous-menu PARTAGE : depuis le 2026-08-29 les moteurs
+    passent tous par la section consolidee, meme seuls, donc leurs cards de
+    pilote vivent sous `__consolidated__` et non plus sous la ref du
+    composant."""
     return {d: card.name for d, card in dlg._driver_cards[key].items()}
 
 
@@ -196,7 +214,7 @@ TESTS = [
     test_window_title_differs_fr_it,
     test_classic_section_no_excerpt_differs_fr_it,
     test_classic_section_excerpt_found_differs_fr_it,
-    test_grouped_section_differs_fr_it,
+    test_a_lone_motor_uses_the_consolidated_section_too,
     test_grouped_excerpt_paths_differ_fr_it,
     test_consolidated_section_and_limit_warning_differ_fr_it,
     test_driver_card_labels_tell_the_two_l293d_apart_in_each_language,

@@ -278,6 +278,33 @@ DIALOG_LABELS: dict[str, dict[str, str]] = {
         "es": "¿Qué módulo controla este motor?",
         "it": "Quale modulo pilota questo motore?",
     },
+    # Engrenage d'un driver pas-a-pas : le code a NOMME la puce, la seule
+    # question restante est la variante qu'on tient dans la main. Le message le
+    # dit, sinon la grille se lit comme un aveu d'ignorance -- alors qu'elle
+    # affiche une certitude que l'utilisateur a le droit de corriger.
+    # Moteurs de NIVEAU 1 (le code appelle une lib de driver) : la seule
+    # question est la carte pilote — et en changer passe par une
+    # regeneration, le code etant la source. Le message le dit pour que le
+    # choix n'ait pas l'air d'un simple redessin.
+    "lib_motors_question": {
+        "fr": "Le code pilote ces moteurs par une librairie. Pour changer "
+              "de carte pilote, choisis-la — je proposerai de régénérer le "
+              "code :",
+        "en": "The code drives these motors through a library. To change the "
+              "driver board, pick it — I will offer to regenerate the code:",
+        "es": "El código controla estos motores mediante una biblioteca. "
+              "Para cambiar de placa, elígela — propondré regenerar el "
+              "código:",
+        "it": "Il codice pilota questi motori tramite una libreria. Per "
+              "cambiare scheda driver, sceglila — proporrò di rigenerare il "
+              "codice:",
+    },
+    "stepper_driver_question": {
+        "fr": "Le code nomme ce driver. Si tu en as un autre, choisis-le :",
+        "en": "The code names this driver. If yours is different, pick it:",
+        "es": "El código nombra este driver. Si el tuyo es otro, elígelo:",
+        "it": "Il codice nomina questo driver. Se il tuo è un altro, scegli:",
+    },
     # Consolidated section: >=2 grouped motors, 1 checkbox per motor + 1 SINGLE
     # shared driver (aligns beginner mode with advanced mode).
     "motors_consolidated_question": {
@@ -403,21 +430,105 @@ DIALOG_LABELS: dict[str, dict[str, str]] = {
         "fr": "Broche {net}", "en": "Pin {net}",
         "es": "Pin {net}", "it": "Pin {net}",
     },
+    # ── Rail des décisions (TODO #73) ──────────────────────────────────
+    # Le rail dit COMBIEN de décisions attendent et où on en est. C'est
+    # exactement ce que la pile défilante ne disait nulle part : il fallait
+    # faire défiler pour découvrir qu'il y en avait d'autres.
+    "rail_title_one": {
+        "fr": "1 décision", "en": "1 decision",
+        "es": "1 decisión", "it": "1 decisione",
+    },
+    "rail_title_many": {
+        "fr": "{n} décisions", "en": "{n} decisions",
+        "es": "{n} decisiones", "it": "{n} decisioni",
+    },
+    "rail_remaining": {
+        "fr": "{n} à confirmer", "en": "{n} to confirm",
+        "es": "{n} por confirmar", "it": "{n} da confermare",
+    },
+    "rail_all_done": {
+        "fr": "toutes confirmées", "en": "all confirmed",
+        "es": "todas confirmadas", "it": "tutte confermate",
+    },
+    # « proposé » et non « choisi » : tant que l'utilisateur n'a pas cliqué,
+    # ce qui est affiché vient du détecteur. Présenter sa déduction comme une
+    # décision de l'utilisateur serait lui faire dire ce qu'il n'a pas dit.
+    # Rien n'est retenu : l'app ne sait pas, et elle le DIT. Ce n'est pas la
+    # meme chose que « propose : ... », qui affiche une deduction.
+    "rail_undecided": {
+        "fr": "à préciser", "en": "to specify",
+        "es": "por precisar", "it": "da precisare",
+    },
+    "rail_proposed": {
+        "fr": "proposé : {label}", "en": "suggested: {label}",
+        "es": "propuesto: {label}", "it": "proposto: {label}",
+    },
+    "rail_motors_all": {
+        "fr": "les {n} sont des moteurs", "en": "all {n} are motors",
+        "es": "los {n} son motores", "it": "tutti e {n} sono motori",
+    },
+    "rail_motors_none": {
+        "fr": "aucun n'est un moteur", "en": "none is a motor",
+        "es": "ninguno es un motor", "it": "nessuno è un motore",
+    },
+    "rail_motors_some": {
+        "fr": "{k} sur {n} sont des moteurs",
+        "en": "{k} of {n} are motors",
+        "es": "{k} de {n} son motores",
+        "it": "{k} su {n} sono motori",
+    },
+    # Le retour en arrière vit LÀ OÙ les broches ont été libérées. Avant, la
+    # case à recocher était dans la section consolidée, tout en haut, pendant
+    # que les broches apparaissaient tout en bas : l'annulation existait mais
+    # restait introuvable.
+    "rail_regroup": {
+        "fr": "Regrouper en moteur", "en": "Group back as a motor",
+        "es": "Reagrupar como motor", "it": "Raggruppa come motore",
+    },
+    "rail_regroup_tip": {
+        "fr": "Remet les broches {pins} ensemble comme un seul moteur.",
+        "en": "Puts pins {pins} back together as a single motor.",
+        "es": "Vuelve a unir los pines {pins} como un solo motor.",
+        "it": "Rimette insieme i pin {pins} come un solo motore.",
+    },
     "prompt_excerpt": {
         "fr": "<i>Dans ton prompt :</i> « {excerpt} »",
         "en": "<i>In your prompt:</i> “{excerpt}”",
         "es": "<i>En tu prompt:</i> «{excerpt}»",
         "it": "<i>Nel tuo prompt:</i> «{excerpt}»",
     },
+    # ⚠️ La phrase parle de la BROCHE, jamais du composant : cette branche ne
+    # sait qu'une chose — aucun extrait par broche n'a été trouvé. La
+    # rédaction d'origine (« Pas de mention explicite dans ton prompt — le
+    # composant a été détecté... ») devenait FAUSSE dès que le prompt nommait
+    # le composant sans nommer la broche (« un potentiomètre » → la page
+    # affichait « pas de mention explicite » ; QA AC2, 2026-08-31).
     "prompt_excerpt_missing": {
-        "fr": "<i>Pas de mention explicite dans ton prompt — le composant "
-              "a été détecté à partir du code.</i>",
-        "en": "<i>No explicit mention in your prompt — the component was "
-              "detected from the code.</i>",
-        "es": "<i>Sin mención explícita en tu prompt — el componente se "
-              "detectó a partir del código.</i>",
-        "it": "<i>Nessuna menzione esplicita nel tuo prompt — il "
-              "componente è stato rilevato dal codice.</i>",
+        "fr": "<i>Ton prompt ne précise pas cette broche — le composant a "
+              "été déduit du code.</i>",
+        "en": "<i>Your prompt does not name this pin — the component was "
+              "inferred from the code.</i>",
+        "es": "<i>Tu prompt no menciona este pin — el componente se dedujo "
+              "del código.</i>",
+        "it": "<i>Il tuo prompt non nomina questo pin — il componente è "
+              "stato dedotto dal codice.</i>",
+    },
+    # Composant de niveau 1 (signature_detected) : rien n'a été deviné, la
+    # phrase « pas de mention explicite dans ton prompt » serait FAUSSE dès
+    # que le prompt nomme le composant (QA AC1, 2026-08-31 : un servo nommé
+    # dans le prompt ET reconnu par sa librairie affichait cette phrase).
+    # « le code nomme ce composant » plutôt que « utilise sa librairie »
+    # (retouche QA AC2) : exact aussi pour un driver pas-à-pas reconnu via
+    # AccelStepper(DRIVER, …), qui n'a AUCUNE librairie propre — la
+    # signature peut être un constructeur, pas seulement un #include.
+    "signature_excerpt": {
+        "fr": "<i>Reconnu avec certitude — le code nomme ce composant.</i>",
+        "en": "<i>Recognized with certainty — the code names this "
+              "component.</i>",
+        "es": "<i>Reconocido con certeza — el código nombra este "
+              "componente.</i>",
+        "it": "<i>Riconosciuto con certezza — il codice nomina questo "
+              "componente.</i>",
     },
     "motor_yes_dc": {
         "fr": "Oui, c'est un moteur DC",

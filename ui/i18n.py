@@ -219,8 +219,11 @@ class Strings:
     ia_ollama_subtitle:         str
     ia_ollama_running:          str
     md_title:                   str
+
+    md_manage:                  str
     md_suggested:               str
-    md_suggested_note:          str
+    md_suggested_note:          str
+
     md_default_badge:           str
     md_downloaded:              str
     md_none:                    str
@@ -239,7 +242,8 @@ class Strings:
     md_cancelled:               str
     md_free_space:              str
     md_freed:                   str
-    md_free_locked:             str
+    md_free_locked:             str
+
     md_no_space:                str
     md_delete_tip:              str
     md_delete_title:            str
@@ -316,6 +320,11 @@ class Strings:
     gen_modal_regenerate_desc: str
     gen_modal_add:             str
     gen_modal_add_desc:        str
+    gen_modal_looks_like_modif: str
+    blocking_offer_title:      str
+    blocking_offer_body:       str
+    blocking_offer_yes:        str
+    blocking_offer_no:         str
     gen_modal_correct:         str
     gen_modal_correct_desc:    str
     gen_modal_target:          str
@@ -380,7 +389,8 @@ TRANSLATIONS: dict[str, Strings] = {
         ia_key_saved           = "Clé enregistrée",
         ia_ollama_subtitle          = "Utilise le serveur Ollama local. Aucune clé API requise.",
         ia_ollama_running           = "Serveur actif — modèle disponible",
-        md_title                    = "Télécharger un modèle",
+        md_title                    = "Gérer les modèles",
+        md_manage                   = "Modèles…",
         md_suggested                = "Modèles suggérés",
         md_suggested_note           = "La taille indique la mémoire nécessaire : le modèle doit tenir dans la <b>VRAM</b> de votre carte graphique. Sans carte dédiée, la génération fonctionnera mais sera très lente.",
         md_default_badge            = "modèle par défaut",
@@ -397,7 +407,8 @@ TRANSLATIONS: dict[str, Strings] = {
         md_cancel_note              = "L'espace disque n'est pas libéré : Ollama réserve le fichier entier dès le départ. Un nouvel essai reprendra où celui-ci s'est arrêté.",
         md_close                    = "Fermer",
         md_failed                   = "Échec : {err}",
-        md_done                     = "Téléchargement terminé.",
+        md_done                     = "Téléchargement terminé.",
+
         md_cancelled                = "Téléchargement annulé.",
         md_free_space               = "Libérer l'espace",
         md_freed                    = "{n} fichier(s) supprimé(s) — {taille} libérés. Un prochain téléchargement repartira de zéro.",
@@ -664,6 +675,11 @@ TRANSLATIONS: dict[str, Strings] = {
         gen_modal_regenerate_desc = "Repartir de zéro avec cette description",
         gen_modal_add             = "Ajouter une fonctionnalité",
         gen_modal_add_desc        = "Garder l'existant, ajouter ce comportement",
+        gen_modal_looks_like_modif = "Cette demande semble porter sur une fonctionnalité existante : « Modifier » est présélectionné. Choisis « Ajouter » si tu veux vraiment une nouvelle fonctionnalité à côté.",
+        blocking_offer_title       = "Une fonctionnalité met la carte en pause",
+        blocking_offer_body        = "« {feature} » met la carte en <b>pause {sec} s à chaque tour</b>.<br><br>Pendant ce temps, <b>{victims}</b> ne lit son entrée qu’une fois toutes les {sec} s : tout ce qui change entre deux lectures est perdu. Toutes les fonctionnalités partagent la même boucle.<br><br>Rendre « {feature} » non bloquante ? Son code sera régénéré — même comportement, mêmes durées, mais sans figer la carte.",
+        blocking_offer_yes         = "Rendre non bloquante",
+        blocking_offer_no          = "Garder tel quel",
         gen_modal_correct         = "Modifier",
         gen_modal_correct_desc    = "Modifier une fonctionnalité existante",
         gen_modal_target          = "Fonctionnalité(s) à modifier :",
@@ -722,7 +738,8 @@ TRANSLATIONS: dict[str, Strings] = {
         ia_key_saved           = "Key saved",
         ia_ollama_subtitle          = "Uses the local Ollama server. No API key required.",
         ia_ollama_running           = "Server active — model available",
-        md_title                    = "Download a model",
+        md_title                    = "Manage models",
+        md_manage                   = "Models…",
         md_suggested                = "Suggested models",
         md_suggested_note           = "The size shows the memory needed: the model must fit in your graphics card's <b>VRAM</b>. Without a dedicated card, generation will work but will be very slow.",
         md_default_badge            = "default model",
@@ -739,7 +756,8 @@ TRANSLATIONS: dict[str, Strings] = {
         md_cancel_note              = "Disk space is not freed: Ollama reserves the whole file up front. A new attempt will resume where this one stopped.",
         md_close                    = "Close",
         md_failed                   = "Failed: {err}",
-        md_done                     = "Download complete.",
+        md_done                     = "Download complete.",
+
         md_cancelled                = "Download cancelled.",
         md_free_space               = "Free the space",
         md_freed                    = "{n} file(s) deleted — {taille} freed. A future download will start over from scratch.",
@@ -1005,6 +1023,11 @@ TRANSLATIONS: dict[str, Strings] = {
         gen_modal_regenerate_desc = "Start over from this description",
         gen_modal_add             = "Add a feature",
         gen_modal_add_desc        = "Keep the existing code, add this behavior",
+        gen_modal_looks_like_modif = "This request looks like it changes an existing feature: « Modify » is preselected. Pick « Add » if you really want a separate new feature.",
+        blocking_offer_title       = "One feature pauses the board",
+        blocking_offer_body        = "“{feature}” pauses the board for <b>{sec} s on every loop</b>.<br><br>Meanwhile <b>{victims}</b> only reads its input once every {sec} s: anything that changes in between is lost. All features share the same loop.<br><br>Make “{feature}” non-blocking? Its code will be regenerated — same behavior, same timings, without freezing the board.",
+        blocking_offer_yes         = "Make it non-blocking",
+        blocking_offer_no          = "Keep as is",
         gen_modal_correct         = "Modify",
         gen_modal_correct_desc    = "Modify an existing feature",
         gen_modal_target          = "Feature(s) to modify:",
@@ -1063,7 +1086,8 @@ TRANSLATIONS: dict[str, Strings] = {
         ia_key_saved           = "Clave guardada",
         ia_ollama_subtitle          = "Usa el servidor Ollama local. No requiere clave API.",
         ia_ollama_running           = "Servidor activo — modelo disponible",
-        md_title                    = "Descargar un modelo",
+        md_title                    = "Gestionar los modelos",
+        md_manage                   = "Modelos…",
         md_suggested                = "Modelos sugeridos",
         md_suggested_note           = "El tamaño indica la memoria necesaria: el modelo debe caber en la <b>VRAM</b> de tu tarjeta gráfica. Sin tarjeta dedicada, la generación funcionará pero será muy lenta.",
         md_default_badge            = "modelo predeterminado",
@@ -1080,7 +1104,8 @@ TRANSLATIONS: dict[str, Strings] = {
         md_cancel_note              = "El espacio en disco no se libera: Ollama reserva el archivo completo desde el principio. Un nuevo intento continuará donde se detuvo este.",
         md_close                    = "Cerrar",
         md_failed                   = "Error: {err}",
-        md_done                     = "Descarga completada.",
+        md_done                     = "Descarga completada.",
+
         md_cancelled                = "Descarga cancelada.",
         md_free_space               = "Liberar el espacio",
         md_freed                    = "{n} archivo(s) eliminado(s) — {taille} liberados. Una próxima descarga empezará desde cero.",
@@ -1348,6 +1373,11 @@ TRANSLATIONS: dict[str, Strings] = {
         gen_modal_regenerate_desc = "Empezar de cero con esta descripción",
         gen_modal_add             = "Añadir una función",
         gen_modal_add_desc        = "Mantener lo existente, añadir este comportamiento",
+        gen_modal_looks_like_modif = "Esta petición parece modificar una funcionalidad existente: se preselecciona « Modificar ». Elige « Añadir » si de verdad quieres una funcionalidad nueva aparte.",
+        blocking_offer_title       = "Una funcionalidad pausa la placa",
+        blocking_offer_body        = "«{feature}» pausa la placa <b>{sec} s en cada vuelta</b>.<br><br>Mientras tanto, <b>{victims}</b> solo lee su entrada una vez cada {sec} s: todo lo que cambia entre dos lecturas se pierde. Todas las funcionalidades comparten el mismo bucle.<br><br>¿Hacer que «{feature}» no bloquee? Su código se regenerará — mismo comportamiento, mismos tiempos, sin congelar la placa.",
+        blocking_offer_yes         = "Hacer que no bloquee",
+        blocking_offer_no          = "Dejar como está",
         gen_modal_correct         = "Modificar",
         gen_modal_correct_desc    = "Modificar una función existente",
         gen_modal_target          = "Función(es) a modificar:",
@@ -1406,7 +1436,8 @@ TRANSLATIONS: dict[str, Strings] = {
         ia_key_saved           = "Chiave salvata",
         ia_ollama_subtitle          = "Usa il server Ollama locale. Nessuna chiave API richiesta.",
         ia_ollama_running           = "Server attivo — modello disponibile",
-        md_title                    = "Scarica un modello",
+        md_title                    = "Gestire i modelli",
+        md_manage                   = "Modelli…",
         md_suggested                = "Modelli suggeriti",
         md_suggested_note           = "La dimensione indica la memoria necessaria: il modello deve stare nella <b>VRAM</b> della scheda grafica. Senza scheda dedicata, la generazione funzionerà ma sarà molto lenta.",
         md_default_badge            = "modello predefinito",
@@ -1423,7 +1454,8 @@ TRANSLATIONS: dict[str, Strings] = {
         md_cancel_note              = "Lo spazio su disco non viene liberato: Ollama riserva l'intero file fin dall'inizio. Un nuovo tentativo riprenderà da dove si è fermato.",
         md_close                    = "Chiudi",
         md_failed                   = "Errore: {err}",
-        md_done                     = "Download completato.",
+        md_done                     = "Download completato.",
+
         md_cancelled                = "Download annullato.",
         md_free_space               = "Libera lo spazio",
         md_freed                    = "{n} file eliminati — {taille} liberati. Un prossimo download ripartirà da zero.",
@@ -1690,6 +1722,11 @@ TRANSLATIONS: dict[str, Strings] = {
         gen_modal_regenerate_desc = "Ricominciare da questa descrizione",
         gen_modal_add             = "Aggiungi una funzione",
         gen_modal_add_desc        = "Mantieni l'esistente, aggiungi questo comportamento",
+        gen_modal_looks_like_modif = "Questa richiesta sembra modificare una funzionalità esistente: « Modifica » è preselezionato. Scegli « Aggiungi » se vuoi davvero una nuova funzionalità separata.",
+        blocking_offer_title       = "Una funzionalità mette in pausa la scheda",
+        blocking_offer_body        = "«{feature}» mette la scheda <b>in pausa {sec} s a ogni giro</b>.<br><br>Nel frattempo <b>{victims}</b> legge il suo ingresso solo una volta ogni {sec} s: tutto ciò che cambia tra due letture è perso. Tutte le funzionalità condividono lo stesso loop.<br><br>Rendere «{feature}» non bloccante? Il suo codice sarà rigenerato — stesso comportamento, stessi tempi, senza congelare la scheda.",
+        blocking_offer_yes         = "Rendere non bloccante",
+        blocking_offer_no          = "Lasciare com'è",
         gen_modal_correct         = "Modifica",
         gen_modal_correct_desc    = "Modifica una funzione esistente",
         gen_modal_target          = "Funzione/i da modificare:",
@@ -1952,7 +1989,7 @@ _EXTRA_STRINGS: dict[str, dict[str, str]] = {
     "fr": {
         "onnx_window_title":                 "Configuration initiale — Promptuino",
         "onnx_title":                        "Téléchargement du modèle de recherche",
-        "onnx_desc":                         "Promptuino a besoin d'un modèle d'embedding (~449 Mo) pour la recommandation de bibliothèques Arduino. Ce fichier n'est téléchargé qu'une seule fois, puis stocké localement.",
+        "onnx_desc":                         "Promptuino a besoin d'un modèle d'embedding (~449 Mo) pour la recommandation de librairies Arduino. Ce fichier n'est téléchargé qu'une seule fois, puis stocké localement.",
         "onnx_ready":                        "Prêt à télécharger.",
         "onnx_btn_cancel":                   "Annuler",
         "onnx_btn_start":                    "Télécharger",
@@ -1982,22 +2019,22 @@ _EXTRA_STRINGS: dict[str, dict[str, str]] = {
         "registry_lib_not_found":      "Composant « {part} » inconnu : code généré sans référence, le code risque de ne pas être fonctionnel. Joindre une documentation (.md/.txt) peut aider.",
         "registry_install_failed":     "Composant « {part} » : la librairie « {lib} » existe bien au registre Arduino, mais elle n'a pas pu être téléchargée. Vérifie ta connexion internet, puis relance la génération.",
         "registry_change_lib":         "Changer de librairie",
-        "rag_guess_by_resemblance":    "Aucun composant reconnu dans ta demande — une bibliothèque a été proposée au modèle <b>par ressemblance</b>. Donne la référence exacte de ton composant (ex. « BMP280 ») pour un résultat sûr.",
+        "rag_guess_by_resemblance":    "Aucun composant reconnu dans ta demande — une librairie a été proposée au modèle <b>par ressemblance</b>. Donne la référence exacte de ton composant (ex. « BMP280 ») pour un résultat sûr.",
         "lib_choice_title":            "Choisir la librairie",
         "lib_choice_body":             "Pour <b>{part}</b>, l'app utilise « <b>{lib}</b> ». Choisis celle qui correspond au matériel que tu as.",
         "lib_choice_search_placeholder": "Nom de la librairie…",
-        "lib_choice_search_empty":     "Aucune bibliothèque ne correspond à « {q} ».",
+        "lib_choice_search_empty":     "Aucune librairie ne correspond à « {q} ».",
         "lib_choice_search_unavailable": "Recherche indisponible : arduino-cli est absent. Les librairies déjà trouvées restent proposées.",
         "lib_choice_ok":               "Utiliser cette librairie",
         "lib_choice_cancel":           "Annuler",
         "lib_choice_let_app_decide":   "Laisser l'app décider",
         "lib_choice_let_app_decide_hint": "Efface ton choix ; l'app cherchera à nouveau à la prochaine génération.",
-        "lib_choice_no_library":      "Aucune bibliothèque n’est nécessaire",
+        "lib_choice_no_library":      "Aucune librairie n’est nécessaire",
         "lib_choice_no_library_hint": "Ce composant se pilote directement, sans #include. L’app cessera d’en chercher une.",
         "lib_choice_loading":          "Chargement du catalogue Arduino…",
-        "lib_choice_count":            "{n} bibliothèques trouvées",
-        "lib_choice_count_one":        "1 bibliothèque trouvée",
-        "lib_choice_count_capped":     "{total} bibliothèques correspondent — les {shown} premières sont affichées, précise ta recherche.",
+        "lib_choice_count":            "{n} librairies trouvées",
+        "lib_choice_count_one":        "1 librairie trouvée",
+        "lib_choice_count_capped":     "{total} librairies correspondent — les {shown} premières sont affichées, précise ta recherche.",
         "lib_choice_badge_in_use":     "en usage",
         "lib_choice_badge_retired":    "abandonnée",
         "lib_choice_badge_incompatible": "incompatible avec ta carte",
@@ -2010,6 +2047,8 @@ _EXTRA_STRINGS: dict[str, dict[str, str]] = {
         "lib_swap_regen_yes":          "Régénérer",
         "lib_swap_regen_no":           "Garder tel quel",
         "lib_swap_unchecked":          "Librairie changée pour {part} : {new}. Impossible de vérifier si le code utilise encore l'ancienne librairie — pense à régénérer la fonctionnalité concernée si besoin.",
+        "lib_mismatch_title":          "Le code ne semble pas correspondre",
+        "lib_mismatch_body":           "Tu viens de choisir&nbsp;:<br><br>{items}<br><br>Or le code ne s'en sert <b>pas</b> : il ne pilotera donc probablement pas ce que tu viens de choisir.<br><br>Le <b>schéma</b> sera correct ; le <b>code</b>, lui, reste celui d'avant. Pour les rendre cohérents, <b>régénère ton code</b> en décrivant ce composant dans ta demande.",
         "motor_mismatch_title":        "Code et schéma à harmoniser",
         "motor_mismatch_body":         "Ton code utilise un pattern moteur (<code>setMotor(...)</code>), mais tu n'as choisi aucun moteur pour le schéma.<br><br>Le câblage sera correct mais le <b>code reste celui d'un moteur</b>.<br><br>Pour les rendre cohérents, regénère ton code avec une description plus précise.",
         "projects_title":              "Mes projets",
@@ -2292,7 +2331,7 @@ _EXTRA_STRINGS: dict[str, dict[str, str]] = {
         # formulation supprime.
         "picker_search_placeholder":       "Chercher un composant…",
         "picker_count_category":           "Composants proposés pour cette broche : {n}",
-        "picker_count_all":                "Recherche dans toute la bibliothèque : {n}",
+        "picker_count_all":                "Recherche dans toute la librairie : {n}",
         "picker_count_capped":             "{total} composants correspondent — les {shown} premiers sont affichés, précise ta recherche.",
         "picker_group_requalify":          "— ou requalifier en —",
         "picker_group_yours":              "— tes composants —",
@@ -2362,6 +2401,8 @@ _EXTRA_STRINGS: dict[str, dict[str, str]] = {
         "lib_swap_regen_yes":          "Regenerate",
         "lib_swap_regen_no":           "Keep as is",
         "lib_swap_unchecked":          "Library changed for {part}: now {new}. Could not check whether the existing code still uses the old one — consider regenerating the affected feature manually.",
+        "lib_mismatch_title":          "The code does not seem to match",
+        "lib_mismatch_body":           "You just picked:<br><br>{items}<br><br>But the code makes <b>no</b> use of that, so it probably will not drive what you just picked.<br><br>The <b>schematic</b> will be correct; the <b>code</b> stays as it was. To make them consistent, <b>regenerate your code</b> describing this component in your request.",
         "motor_mismatch_title":        "Code and schematic to reconcile",
         "motor_mismatch_body":         "Your code uses a motor pattern (<code>setMotor(...)</code>), but you didn't pick any motor for the schematic.<br><br>The wiring will be correct, but the <b>code still drives a motor</b>.<br><br>To make them consistent, regenerate your code with a more precise description.",
         "projects_title":              "My projects",
@@ -2703,6 +2744,8 @@ _EXTRA_STRINGS: dict[str, dict[str, str]] = {
         "lib_swap_regen_yes":          "Regenerar",
         "lib_swap_regen_no":           "Dejarlo así",
         "lib_swap_unchecked":          "Librería de {part} cambiada a {new}. No se pudo comprobar si el código existente todavía usa la anterior — considera regenerar la funcionalidad afectada manualmente.",
+        "lib_mismatch_title":          "El código no parece corresponder",
+        "lib_mismatch_body":           "Acabas de elegir:<br><br>{items}<br><br>Pero el código <b>no</b> hace ninguna referencia a eso: probablemente no controlará lo que acabas de elegir.<br><br>El <b>esquema</b> será correcto; el <b>código</b> sigue igual. Para hacerlos coherentes, <b>regenera tu código</b> describiendo este componente en tu petición.",
         "motor_mismatch_title":        "Código y esquema por armonizar",
         "motor_mismatch_body":         "Tu código usa un patrón de motor (<code>setMotor(...)</code>), pero no elegiste ningún motor para el esquema.<br><br>El cableado será correcto, pero el <b>código sigue siendo el de un motor</b>.<br><br>Para hacerlos coherentes, regenera tu código con una descripción más precisa.",
         "projects_title":              "Mis proyectos",
@@ -3044,6 +3087,8 @@ _EXTRA_STRINGS: dict[str, dict[str, str]] = {
         "lib_swap_regen_yes":          "Rigenera",
         "lib_swap_regen_no":           "Lascia com'è",
         "lib_swap_unchecked":          "Libreria di {part} cambiata in {new}. Impossibile verificare se il codice esistente usa ancora quella precedente — valuta di rigenerare manualmente la funzionalità interessata.",
+        "lib_mismatch_title":          "Il codice non sembra corrispondere",
+        "lib_mismatch_body":           "Hai appena scelto:<br><br>{items}<br><br>Ma il codice <b>non</b> ne fa alcuna menzione: probabilmente non piloterà quello che hai appena scelto.<br><br>Lo <b>schema</b> sarà corretto; il <b>codice</b> resta quello di prima. Per renderli coerenti, <b>rigenera il codice</b> descrivendo questo componente nella tua richiesta.",
         "motor_mismatch_title":        "Codice e schema da armonizzare",
         "motor_mismatch_body":         "Il tuo codice usa un pattern per motore (<code>setMotor(...)</code>), ma non hai scelto alcun motore per lo schema.<br><br>Il cablaggio sarà corretto, ma il <b>codice resta quello di un motore</b>.<br><br>Per renderli coerenti, rigenera il codice con una descrizione più precisa.",
         "projects_title":              "I miei progetti",

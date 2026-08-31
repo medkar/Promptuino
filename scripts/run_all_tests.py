@@ -82,6 +82,14 @@ def run_one(path: Path) -> tuple[Path, int, float, str]:
 
 
 def main() -> int:
+    # Meme parade que bench_rag (et pour la meme raison, payee le
+    # 2026-08-31) : sous Git Bash stdout est cp1252, et IMPRIMER la sortie
+    # d'un test qui echoue crashe le lanceur des qu'elle porte un caractere
+    # hors table (un � de sortie de sous-processus suffit). Le crash
+    # remplacait alors le VRAI diagnostic -- deux tests rouges se lisaient
+    # comme un bug d'encodage du lanceur.
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(errors="replace")
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("-k", "--filter", metavar="MOTIF",

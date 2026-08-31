@@ -95,15 +95,33 @@ def test_the_classic_section_proposes_the_same_category_in_cards():
     print(f"  OK - types proposes : {ids}")
 
 
-def test_the_current_type_is_preselected():
-    """Le picker s'ouvre sur ce que le detecteur a cru voir, jamais vierge —
-    et c'est ce type-la que la modale enregistre tant qu'on n'y touche pas."""
+def test_an_ambiguous_pin_opens_with_nothing_selected():
+    """⚠️ CE CONTRAT S'EST INVERSE LE 2026-08-29 (retour utilisateur).
+
+    Ce test affirmait l'inverse : « le picker s'ouvre sur ce que le detecteur
+    a cru voir, jamais vierge ». Sur une AMBIGUITE, ce type est un DEFAUT --
+    toute sortie numerique nue sort en « led » --, pas une deduction, et le
+    cocher faisait passer une ignorance pour une reponse : « Valider » etait
+    actif au-dessus de questions auxquelles personne n'avait repondu.
+    """
     led = _led()
     dlg = _dialog([led])
     picker = dlg._pickers["D1"]
-    assert picker.current_type_id() == "led", picker.current_type_id()
-    assert dlg._chosen_type["D1"] == "led", dlg._chosen_type
-    assert picker.card_for("led").is_selected()
+    assert picker.current_type_id() is None, picker.current_type_id()
+    assert "D1" not in dlg._chosen_type, dlg._chosen_type
+    assert not picker.card_for("led").is_selected()
+    assert not _ok_enabled(dlg), "rien n'est choisi, Valider doit etre gris"
+
+
+def test_a_component_read_from_the_code_keeps_its_type():
+    """Le pendant du precedent : l'engrenage ouvert sur un composant detecte
+    avec CERTITUDE. La son type est une information, pas un defaut."""
+    led = _led()
+    led.type = "relay"
+    led.attributes["_confidence"] = "high"
+    dlg = _dialog([led])
+    assert dlg._pickers["D1"].current_type_id() == "relay"
+    assert dlg._chosen_type["D1"] == "relay", dlg._chosen_type
 
 
 def test_the_cross_category_escape_hatches_stay_reachable():
@@ -133,7 +151,10 @@ def test_a_search_that_hides_the_choice_forbids_validating():
     led = _led()
     dlg = _dialog([led])
     picker = dlg._pickers["D1"]
-    assert _ok_enabled(dlg), "Valider devrait etre actif au depart"
+    # Rien n'est preselectionne depuis 2026-08-29 : on choisit d'abord, sinon
+    # « Valider » est gris pour une raison qui n'a rien a voir avec Q9.
+    QTest.mouseClick(picker.card_for("led"), Qt.MouseButton.LeftButton)
+    assert _ok_enabled(dlg), "Valider devrait etre actif apres un choix"
 
     picker.set_query("zzzzzzz")
     assert picker.current_type_id() is None, picker.visible_type_ids()
@@ -288,13 +309,58 @@ def test_the_shared_driver_applies_to_every_motor():
         dlg._chosen_driver
 
 
+def test_a_signature_component_does_not_claim_the_prompt_said_nothing():
+    """QA AC1 (2026-08-31) : le gear d'un servo reconnu par `Servo.h` ouvrait
+    la page avec « Pas de mention explicite dans ton prompt — le composant a
+    ete detecte a partir du code » — FAUX des que le prompt nomme le
+    composant (la phrase parlait de l'extrait PAR BROCHE, que le prompt ne
+    peut pas fournir puisqu'il ne nomme pas « D9 »). Un composant de niveau 1
+    a sa propre phrase : rien n'a ete devine, le code utilise sa
+    bibliotheque."""
+    from PyQt6.QtWidgets import QLabel
+    from ui.wiring.netlist import Component, Pin
+    from ui.wiring.visual_ambiguity_catalog import dialog_label
+    servo = Component(
+        ref="SV1", type="servo",
+        pins=[Pin("VCC", "5V"), Pin("GND", "GND"), Pin("SIG", "D9")],
+        attributes={"signature_detected": True})
+    dlg = _dialog([servo],
+                  prompt="un servo commande par un potentiometre")
+    textes = [l.text() for l in dlg.findChildren(QLabel)]
+    # « le code nomme ce composant » (retouche QA AC2) : exact aussi pour un
+    # driver signature SANS librairie propre (A4988 via AccelStepper).
+    assert any("certitude" in t and "nomme" in t for t in textes), textes
+    missing = dialog_label("prompt_excerpt_missing", "fr")
+    assert all(missing not in t for t in textes), textes
+    # La phrase existe dans les 4 langues (garde de derive du catalogue).
+    for lang in ("fr", "en", "es", "it"):
+        assert dialog_label("signature_excerpt", lang), lang
+
+
+def test_the_missing_excerpt_phrase_speaks_of_the_pin_not_the_component():
+    """QA AC2 (2026-08-31) : « Pas de mention explicite dans ton prompt — le
+    composant a ete detecte... » devenait FAUX des que le prompt nommait le
+    composant sans nommer la broche (« un potentiometre » -> la page du pot
+    affichait cette phrase). La branche ne sait qu'une chose — aucun extrait
+    PAR BROCHE n'a ete trouve — donc la phrase ne parle que de la broche."""
+    from ui.wiring.visual_ambiguity_catalog import dialog_label
+    for lang in ("fr", "en", "es", "it"):
+        assert dialog_label("prompt_excerpt_missing", lang), lang
+    fr = dialog_label("prompt_excerpt_missing", "fr").lower()
+    assert "broche" in fr, fr
+    assert "mention explicite" not in fr, fr
+
+
 # ---------------------------------------------------------------------------
 # Runner
 # ---------------------------------------------------------------------------
 
 TESTS = [
+    test_a_signature_component_does_not_claim_the_prompt_said_nothing,
+    test_the_missing_excerpt_phrase_speaks_of_the_pin_not_the_component,
     test_the_classic_section_proposes_the_same_category_in_cards,
-    test_the_current_type_is_preselected,
+    test_an_ambiguous_pin_opens_with_nothing_selected,
+    test_a_component_read_from_the_code_keeps_its_type,
     test_the_cross_category_escape_hatches_stay_reachable,
     test_clicking_a_card_records_the_choice,
     test_a_search_that_hides_the_choice_forbids_validating,

@@ -90,10 +90,8 @@
       "prompt": "piloter un moteur pas a pas",
       "lang": "fr",
       "band_label": "described/vague",
-      "outcome": "wrong",
-      "stray": [
-        "tmc2209"
-      ]
+      "outcome": "silent",
+      "stray": []
     },
     {
       "prompt": "moteur pas a pas avec rampe d'acceleration",
@@ -192,9 +190,7 @@
       "lang": "fr",
       "band_label": "described/specific",
       "outcome": "correct",
-      "stray": [
-        "sparkfun-tb6612"
-      ]
+      "stray": []
     },
     {
       "prompt": "detecter un mouvement avec un capteur PIR",
@@ -470,7 +466,6 @@
       "band_label": "described/specific",
       "outcome": "correct",
       "stray": [
-        "sparkfun-tb6612",
         "dc_motor"
       ]
     },
@@ -1046,9 +1041,7 @@
       "lang": "it",
       "band_label": "described/specific",
       "outcome": "correct",
-      "stray": [
-        "sparkfun-tb6612"
-      ]
+      "stray": []
     },
     {
       "prompt": "rilevare movimento con un sensore PIR",
@@ -1231,7 +1224,7 @@
       {
         "prompt": "affiche un compteur de secondes sur le moniteur serie",
         "lang": "fr",
-        "score": 0.48017609119415283
+        "score": 0.4918133616447449
       },
       {
         "prompt": "blink an led on pin 13",
@@ -1246,7 +1239,7 @@
       {
         "prompt": "fais clignoter une led sur la broche 13",
         "lang": "fr",
-        "score": 0.24419447779655457
+        "score": 0.26791322231292725
       },
       {
         "prompt": "haz parpadear un led en el pin 13",

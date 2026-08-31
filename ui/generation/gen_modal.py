@@ -46,7 +46,8 @@ class GenerationModal(QDialog):
     sélectionner ») requests merging them into a single one (cf studio_view)."""
 
     def __init__(self, features, prompt: str, parent=None, *,
-                 preselect_target_id=None, default_override=None):
+                 preselect_target_id=None, default_override=None,
+                 modification_hint: bool = False):
         super().__init__(parent)
         s = lang_manager.current
         self._features = features
@@ -55,6 +56,18 @@ class GenerationModal(QDialog):
         self.setWindowTitle(s.gen_modal_title)
         self.setMinimumWidth(420)
         root = QVBoxLayout(self)
+
+        # `modification_hint` (TODO #88) : le routeur a reconnu une demande
+        # de MODIFICATION déguisée en ajout et a présélectionné « Modifier ».
+        # On le DIT — une présélection muette laisserait croire à un défaut
+        # arbitraire — et on donne l'échappatoire dans la même phrase. La
+        # décision reste à l'utilisateur : on ne clique pas Générer à sa
+        # place (même principe que le retrait du préfixe magique).
+        if modification_hint:
+            hint = QLabel(s.gen_modal_looks_like_modif)
+            hint.setWordWrap(True)
+            hint.setStyleSheet("color: #f59e0b; margin-bottom: 6px;")
+            root.addWidget(hint)
 
         self._group = QButtonGroup(self)
         self._rb = {}

@@ -86,7 +86,11 @@ def test_addendum_excludes_p3_when_no_motor():
     assert _MOTOR_RULES not in out
 
 def test_addendum_includes_p3_when_motor():
-    out = build_wiring_addendum("fais tourner un moteur DC avec un L298N")
+    # ⚠️ Le prompt d'origine nommait « un L298N » : depuis la scission du
+    # 2026-08-31, nommer un driver A BIBLIOTHEQUE selectionne la variante
+    # `_MOTOR_RULES_LIB` (testee plus bas). Ce test-ci garde le contrat
+    # historique sur un prompt moteur SANS lib nommee.
+    out = build_wiring_addendum("fais tourner un moteur DC")
     assert "MOTOR RULES START" in out
     assert _MOTOR_RULES in out
 
@@ -95,6 +99,40 @@ def test_addendum_p3_last():
     out = build_wiring_addendum("moteur")
     assert out.index(_HARDWARE_RULE) < out.index(_MOTOR_RULES)
     assert out.index(_DISAMBIGUATION_RULE) < out.index(_MOTOR_RULES)
+
+
+# ── P3 a deux variantes : la lib pilote quand elle est nommee ───────────
+# Mesure A/B du 2026-08-31 (QA AB2 du #82, gemma4:e2b, 6 generations/bras) :
+# sans bloc MOTOR 0/6 chimeres, avec lui 3/6 -- le pattern broches-nues
+# contredisait l'API de la lib L298N injectee imperativement, et le modele
+# epissait les deux. Ces tests exigent le prompt BRUT (le gating de l'app
+# passe rules_prompt=prompt brut, precisement pour ca).
+
+def test_a_named_lib_driver_swaps_the_pattern_for_the_library():
+    a = build_wiring_addendum("2 moteurs DC avec un L298N")
+    assert "LIBRARY context" in a, a[-400:]
+    assert "void setMotor" not in a, (
+        "le helper broches-nues ne doit plus etre ordonne quand la lib "
+        "est injectee")
+    # La PROSE (nommer le driver, jamais << to motor pin >>) vaut dans les
+    # deux mondes et reste.
+    assert "name the driver chip" in a
+    assert "MOTOR RULES START" in a and "MOTOR RULES END" in a
+
+
+def test_a_generic_motor_prompt_keeps_the_bare_pattern():
+    b = build_wiring_addendum("deux moteurs DC")
+    assert "void setMotor" in b
+    assert "LIBRARY context" not in b
+
+
+def test_a_driver_without_a_corpus_lib_keeps_the_bare_pattern():
+    """La distinction fine : « TB6612 » nomme un driver, mais son entree
+    corpus n'a PAS de bibliotheque -- le pattern broches-nues reste le bon,
+    il n'y a aucune API a contredire."""
+    c = build_wiring_addendum("un moteur avec un TB6612")
+    assert "void setMotor" in c
+    assert "LIBRARY context" not in c
 
 
 TESTS = [
@@ -106,6 +144,9 @@ TESTS = [
     test_no_motor_collision_coche, test_no_motor_substring_enfant,
     test_addendum_always_has_p1_p2, test_addendum_excludes_p3_when_no_motor,
     test_addendum_includes_p3_when_motor, test_addendum_p3_last,
+    test_a_named_lib_driver_swaps_the_pattern_for_the_library,
+    test_a_generic_motor_prompt_keeps_the_bare_pattern,
+    test_a_driver_without_a_corpus_lib_keeps_the_bare_pattern,
 ]
 
 

@@ -435,11 +435,12 @@ class OpenAICompatBackend(AIBackend):
         return self._repair_from_response(code, raw)
 
     def repair_region(self, region: str, errors: str, language: str,
-                      board_name: str) -> str:
+                      board_name: str, api_context: str = "") -> str:
         return self._clean(self._complete(
             self._build_repair_region_system(board_name),
             [{"role": "user",
-              "content": self._build_repair_region_user(region, errors)}],
+              "content": self._build_repair_region_user(region, errors,
+                                                        api_context)}],
             temperature=self._code_temp))
 
     def _complete_stream(self, system: str, messages: list[dict], *,

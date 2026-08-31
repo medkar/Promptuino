@@ -1,26 +1,29 @@
-"""« Modifier les choix » ne reste plus actif quand il n'y a rien a modifier
-(TODO #53).
+"""L'etat du bouton « Modifier les composants » du schema.
 
-Le bouton du schema etait TOUJOURS cliquable. Sur un schema sans composant
-ambigu, `_on_regenerate_clicked` re-resolvait avec `force_remodal=True`,
-`collect_ambiguous` rendait une liste VIDE, aucune modale ne s'ouvrait, et le
-clic se terminait sur un re-rendu identique : un bouton qui promet une action
-qu'il ne rend pas.
+⚠️ **LE CRITERE A CHANGE LE 2026-08-29, et ce fichier avec lui.**
 
-Ce que ces tests verrouillent, et pourquoi chaque piege merite le sien :
+Ce bouton s'appelait « Modifier les choix » et rouvrait la modale
+d'AMBIGUITE : son etat suivait `collect_re_editable`, c'est-a-dire les seuls
+composants incertains. Deux manques, signales en QA :
 
-1. Le critere repond OUI quand il y a de l'ambigu, NON quand il n'y en a pas.
-2. `collect_re_editable` doit lire une netlist FRAICHEMENT ANALYSEE. Mesure du
-   2026-08-17 : resoudre efface `_confidence == "low"`, donc interroger la
-   netlist RESOLUE que la fenetre detient repondrait « rien a modifier » a tous
-   les coups et griserait le bouton en permanence — l'inverse exact du but.
-3. Le peel-off servo : un servo nomme dans le prompt est resolu en silence et
-   n'atteint jamais la modale. Il est donc ambigu ET non re-editable ; sans ce
-   cas, le bouton resterait actif sur un sketch dont la seule ambiguite est un
-   servo, c'est-a-dire le bug d'origine sous un autre visage.
-4. Le predicat servo est PARTAGE avec `studio_view._resolve_wiring_netlist`.
-   Deux copies ecrites a la main derivraient, et la derive rendrait le bouton
-   menteur precisement dans le cas 3.
+- on ne pouvait pas revenir sur un composant reconnu AVEC CERTITUDE, alors
+  que son engrenage, lui, le permet depuis toujours ;
+- avec deux fonctionnalites ambigues generees a la suite, la premiere cessait
+  d'etre joignable par ce bouton.
+
+Il ouvre desormais TOUS les composants corrigibles du schema
+(`collect_all_editable`), et son etat suit la meme regle. `collect_re_editable`
+n'avait plus d'appelant : supprimee plutot que laissee a ressembler a du code
+vivant.
+
+Ce que le TODO #53 avait etabli et qui RESTE vrai : un bouton ne doit pas
+promettre une action qu'il ne rend pas. Le critere a change, pas la regle --
+il est grise quand le schema n'offre rien a modifier.
+
+⚠️ Reste aussi, et pour une raison qui n'a rien a voir avec le bouton : le
+peel-off servo. Un servo nomme dans le prompt est resolu en SILENCE et
+n'atteint jamais la modale ; `studio_view` doit UTILISER
+`is_silently_resolved_servo` et non le recopier.
 
 Run : python scripts/test_regen_button_state.py
 """
@@ -33,11 +36,16 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from ui.wiring.ambiguity_dialog import (
-    apply_saved_resolution, collect_ambiguous, collect_re_editable,
+# Qt est requis : `collect_all_editable` s'appuie sur `gear_menu_editable`,
+# qui vit dans le module de la fenetre du schema.
+from PyQt6.QtWidgets import QApplication  # noqa: E402
+_APP = QApplication.instance() or QApplication([])
+
+from ui.wiring.ambiguity_dialog import (  # noqa: E402
+    apply_saved_resolution, collect_all_editable, collect_ambiguous,
     is_silently_resolved_servo,
 )
-from ui.wiring.layout.pipeline import analyze_netlist
+from ui.wiring.layout.pipeline import analyze_netlist  # noqa: E402
 
 # Deux sorties digitales nues : le detecteur ne peut pas savoir si ce sont des
 # LED, des buzzers ou des relais -> deux composants `_confidence == "low"`.
@@ -57,63 +65,50 @@ void loop() { s.write(90); delay(1000); s.write(0); delay(1000); }
 """
 
 
-def test_ambiguous_sketch_has_choices_to_edit():
+def test_an_ambiguous_sketch_has_components_to_edit():
     n = analyze_netlist(CODE_AMBIGU, "uno")
-    assert collect_re_editable(n), (
-        "deux sorties nues doivent etre re-editables"
-    )
+    assert collect_all_editable(n), "deux sorties nues sont modifiables"
 
 
-def test_unambiguous_sketch_has_nothing_to_edit():
+def test_a_recognized_component_is_editable_TOO():
+    """LE changement du 2026-08-29. Un servo reconnu par sa signature n'a
+    aucune ambiguite a lever -- l'ancien bouton le laissait donc hors de
+    portee. Mais il porte un engrenage dans le schema, donc il est
+    modifiable, donc il doit etre dans cette liste."""
     n = analyze_netlist(CODE_CERTAIN, "uno")
-    assert not collect_re_editable(n), (
-        "un servo detecte par signature n'a rien a re-decider"
-    )
+    trouves = collect_all_editable(n)
+    assert trouves, "un servo reconnu doit rester modifiable"
+    assert any(c.type == "servo" for c in trouves), \
+        [(c.ref, c.type) for c in trouves]
 
 
-def test_resolving_empties_the_criterion_so_it_needs_a_FRESH_netlist():
-    """Le piege central du #53, mesure plutot que suppose.
+def test_resolving_does_not_empty_the_criterion():
+    """Contre-epreuve du piege du #53, retournee.
 
-    Si le critere lisait la netlist que la fenetre detient (deja resolue), il
-    repondrait « rien » systematiquement.
+    L'ancien critere se VIDAIT a la resolution (elle efface
+    `_confidence == "low"`), ce qui obligeait a re-analyser le code a chaque
+    fois. Le nouveau ne depend pas de l'incertitude : une fois les choix
+    faits, les composants restent modifiables -- c'est exactement ce que
+    l'utilisateur demandait.
     """
     n = analyze_netlist(CODE_AMBIGU, "uno")
-    avant = collect_re_editable(n)
-    assert avant, "pre-condition : il y a bien de l'ambigu avant resolution"
+    avant = collect_ambiguous(n)
+    assert len(avant) == 2, f"pre-condition : 2 ambigus, vu {len(avant)}"
     for c in list(avant):
         apply_saved_resolution(c, "buzzer", n)
-    assert not collect_re_editable(n), (
-        "resoudre efface `_confidence=low` : c'est PRECISEMENT pourquoi le "
-        "critere doit re-analyser le code au lieu de lire la netlist resolue"
-    )
+    assert not collect_ambiguous(n), "resoudre efface bien `_confidence=low`"
+    assert len(collect_all_editable(n)) >= 2, \
+        "les composants resolus doivent rester modifiables"
 
 
-def test_prompt_named_servo_is_ambiguous_but_NOT_re_editable():
-    """Le peel-off servo doit etre predit, sinon le bouton ment.
-
-    On annote une sortie nue comme le fait le detecteur quand le prompt nomme
-    un servo : elle reste `_confidence == "low"` (donc dans `collect_ambiguous`)
-    mais le resolveur la pele avant la modale.
-    """
+def test_infrastructure_stays_out():
+    """Resistance de limitation, pile, driver deduit : l'utilisateur ne les a
+    pas choisis, il n'a pas a les corriger (regle du TODO #62)."""
     n = analyze_netlist(CODE_AMBIGU, "uno")
-    amb = collect_ambiguous(n)
-    assert len(amb) == 2, f"pre-condition : 2 ambigus, vu {len(amb)}"
-    for c in amb:
-        c.attributes["_prompt_suggested_type"] = "servo"
-    assert collect_ambiguous(n), "toujours ambigus au sens du detecteur"
-    assert not collect_re_editable(n), (
-        "un servo nomme dans le prompt n'atteint jamais la modale : le bouton "
-        "doit etre grise"
-    )
-
-
-def test_partial_servo_annotation_keeps_the_others_editable():
-    n = analyze_netlist(CODE_AMBIGU, "uno")
-    amb = collect_ambiguous(n)
-    amb[0].attributes["_prompt_suggested_type"] = "servo"
-    restants = collect_re_editable(n)
-    assert len(restants) == 1, f"1 attendu, vu {len(restants)}"
-    assert restants[0].ref == amb[1].ref
+    for c in collect_ambiguous(n):
+        apply_saved_resolution(c, "led", n)   # ajoute des R serie
+    types = {c.type for c in collect_all_editable(n)}
+    assert "resistor" not in types, types
 
 
 def test_servo_predicate_is_shared_with_the_resolver():
@@ -154,11 +149,10 @@ def test_the_four_languages_have_the_disabled_tooltip():
 
 
 TESTS = [
-    test_ambiguous_sketch_has_choices_to_edit,
-    test_unambiguous_sketch_has_nothing_to_edit,
-    test_resolving_empties_the_criterion_so_it_needs_a_FRESH_netlist,
-    test_prompt_named_servo_is_ambiguous_but_NOT_re_editable,
-    test_partial_servo_annotation_keeps_the_others_editable,
+    test_an_ambiguous_sketch_has_components_to_edit,
+    test_a_recognized_component_is_editable_TOO,
+    test_resolving_does_not_empty_the_criterion,
+    test_infrastructure_stays_out,
     test_servo_predicate_is_shared_with_the_resolver,
     test_predicate_reads_the_annotation,
     test_the_four_languages_have_the_disabled_tooltip,

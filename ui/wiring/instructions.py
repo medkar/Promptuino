@@ -763,6 +763,32 @@ _SECTION_TITLES: dict[str, dict[str, str]] = {
         "es": "Motores detectados pero no cableados",
         "it": "Motori rilevati ma non cablati",
     },
+    # Variante pour les moteurs que le CODE nomme : ils ne passent par aucune
+    # modale, donc renvoyer l'utilisateur a << Modifier les composants >>
+    # serait une porte morte. On lui dit ce qui est vrai -- c'est son code
+    # qu'il faut changer.
+    "skipped_motors_explainer_from_code": {
+        "fr": "Promptuino se limite à 2 moteurs DC dans le schéma. Les "
+              "moteurs ci-dessous sont bien reconnus dans ton code mais ne "
+              "sont pas câblés sur le diagramme. Ton code les déclare "
+              "lui-même, donc il n'y a rien à corriger ici : pour en "
+              "câbler d'autres, change les moteurs déclarés dans le code.",
+        "en": "Promptuino is limited to 2 DC motors in the diagram. The "
+              "motors below are recognized in your code but not wired on "
+              "the diagram. Your code declares them itself, so there is "
+              "nothing to fix here: to wire different ones, change the "
+              "motors declared in the code.",
+        "es": "Promptuino se limita a 2 motores DC en el esquema. Los "
+              "motores de abajo se reconocen en tu código pero no están "
+              "cableados en el diagrama. Tu código los declara, así que no "
+              "hay nada que corregir aquí: para cablear otros, cambia los "
+              "motores declarados en el código.",
+        "it": "Promptuino si limita a 2 motori DC nello schema. I motori "
+              "qui sotto sono riconosciuti nel tuo codice ma non cablati "
+              "sul diagramma. Il tuo codice li dichiara, quindi non c'è "
+              "nulla da correggere qui: per cablarne altri, cambia i "
+              "motori dichiarati nel codice.",
+    },
     "skipped_motors_explainer": {
         "fr": "Promptuino se limite à 2 moteurs DC dans le schéma. "
               "Les moteurs ci-dessous sont bien reconnus dans ton code "
@@ -1058,6 +1084,28 @@ _WARNING_TEMPLATES: dict[str, dict[str, str]] = {
               "perché quello che hai scritto gli somiglia — verifica che sia "
               "il tuo e correggilo con l'ingranaggio altrimenti.",
     },
+    # Le driver est pilote par UART : son exemple officiel ne revele aucune
+    # broche STEP/DIR, et on n'en a invente aucune. Un dessin incomplet doit
+    # se DIRE, sinon il se lit comme complet -- meme regle que les filets
+    # `unrecognized` et `presumed_*` voisins.
+    "stepper_uart_not_wired": {
+        "fr": "**{name}** se pilote par liaison série (UART) : le schéma "
+              "dessine le module et son alimentation, mais **pas** les fils "
+              "de commande — ton code ne dit pas sur quelles broches ils "
+              "vont. Vérifie-les dans la documentation de ta carte.",
+        "en": "**{name}** is driven over a serial link (UART): the diagram "
+              "shows the module and its power, but **not** the control "
+              "wires — your sketch does not say which pins they use. Check "
+              "them in your board's documentation.",
+        "es": "**{name}** se controla por enlace serie (UART): el esquema "
+              "dibuja el módulo y su alimentación, pero **no** los cables de "
+              "control — tu código no dice en qué pines van. Compruébalos en "
+              "la documentación de tu placa.",
+        "it": "**{name}** si pilota via collegamento seriale (UART): lo "
+              "schema disegna il modulo e la sua alimentazione, ma **non** i "
+              "fili di comando — il tuo codice non dice su quali pin vanno. "
+              "Verificali nella documentazione della tua scheda.",
+    },
     "presumed_analog_component": {
         "fr": "Composant **présumé** sur {pin} : ton code lit une valeur "
               "analogique, mais rien n'indique ce qui est branché. Le schéma "
@@ -1205,6 +1253,14 @@ def render_instructions(netlist: Netlist, mode: str = "simple",
     if not netlist.components:
         return _SECTION_TITLES["no_components"][lang]
 
+    # ⚠️ **Ce qui n'est PAS du cablage passe en TETE** (demande utilisateur,
+    # 2026-08-31). Les avertissements et la liste des moteurs non cables
+    # etaient en BAS, apres toutes les etapes de branchement : sur un montage
+    # a plusieurs composants il fallait faire defiler tout le panneau pour
+    # apprendre qu'une partie du schema etait une devinette, ou qu'un moteur
+    # declare n'y figurait pas. Ce qui conditionne la lecture du reste doit se
+    # lire d'abord.
+    entete: list[str] = []
     parts: list[str] = []
 
     # Grouping by feature.
@@ -1225,7 +1281,7 @@ def render_instructions(netlist: Netlist, mode: str = "simple",
         parts.append("")
 
     if netlist.warnings:
-        parts.append(f"## {_SECTION_TITLES['warnings'][lang]}\n")
+        entete.append(f"## {_SECTION_TITLES['warnings'][lang]}\n")
         for w in netlist.warnings:
             # `info` porte le meme ⚠️ que `warning` (decision utilisateur
             # 2026-08-10). Tout ce qui atterrit dans cette section demande un
@@ -1240,7 +1296,7 @@ def render_instructions(netlist: Netlist, mode: str = "simple",
                 SEVERITY_WARNING: "⚠️",
                 SEVERITY_INFO:    "⚠️",
             }.get(w.severity, "•")
-            parts.append(f"- {icon} {_render_warning_message(w, lang)}")
+            entete.append(f"- {icon} {_render_warning_message(w, lang)}")
 
     # Dedicated section for the motors marked _skip_wiring=True (= recognized
     # in the code but deliberately not wired, typically when the
@@ -1249,17 +1305,25 @@ def render_instructions(netlist: Netlist, mode: str = "simple",
     # `netlist.metadata["_skipped_motors"]`.
     skipped = netlist.metadata.get("_skipped_motors") or []
     if skipped:
-        parts.append(f"\n## {_SECTION_TITLES['skipped_motors'][lang]}\n")
-        parts.append(_SECTION_TITLES['skipped_motors_explainer'][lang])
-        parts.append("")
+        entete.append(f"\n## {_SECTION_TITLES['skipped_motors'][lang]}\n")
+        cle = ("skipped_motors_explainer_from_code"
+               if all(m.get("from_code") for m in skipped)
+               else "skipped_motors_explainer")
+        entete.append(_SECTION_TITLES[cle][lang])
+        entete.append("")
         for m in skipped:
             ctrl = m.get("control_pin", "?")
             dirs = m.get("aux_dir_pins") or []
             dirs_txt = ", ".join(dirs) if dirs else "—"
-            parts.append(f"- **{m['ref']}** : broche PWM `{ctrl}`, "
+            entete.append(f"- **{m['ref']}** : broche PWM `{ctrl}`, "
                           f"broches direction `{dirs_txt}`")
 
-    return "\n".join(parts).strip() + "\n"
+    # L'en-tete d'abord, le cablage ensuite. Une ligne vide les separe quand
+    # les deux existent, sinon le premier titre de composant se collerait a la
+    # derniere puce d'avertissement.
+    if entete:
+        entete.append("")
+    return "\n".join(entete + parts).strip() + "\n"
 
 
 # ─── Internals ───────────────────────────────────────────────────────────

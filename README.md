@@ -109,7 +109,7 @@ things deserve to be said plainly:
   with lexical and semantic selection, no network call
 - **Static analysis of the sketch** for component recognition, then breadboard
   placement and A\* wire routing
-- **234 test scripts**, runnable in one command:
+- **241 test scripts**, runnable in one command:
   ```bash
   python scripts/run_all_tests.py -j 6
   ```
@@ -245,7 +245,7 @@ quotidien. Deux choses méritent d'être dites franchement :
   avec sélection lexicale et sémantique, sans appel réseau
 - **Analyse statique du sketch** pour la reconnaissance des composants, puis
   placement sur breadboard et routage A\* des fils
-- **234 scripts de test** exécutables d'un coup :
+- **241 scripts de test** exécutables d'un coup :
   ```bash
   python scripts/run_all_tests.py -j 6
   ```

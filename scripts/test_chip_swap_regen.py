@@ -17,7 +17,11 @@ from ui.generation.feature_model import Feature
 
 
 def test_screen_to_screen_regenerates():
-    # ecran -> autre ecran = vrai changement de lib.
+    # ecran -> autre ecran = vrai changement de lib. Non-regression #82 : ce
+    # cas passait deja par ClarifyGroups avant le routage registre, et passe
+    # encore (test_chip_swaps_are_untouched_by_the_registry_routing dupliquait
+    # cette assertion mot pour mot -- retire le 2026-08-29, zero couverture en
+    # plus, mutation-verifie).
     assert _chip_swap_regen_target("oled_ssd1306", "sh1106") == "sh1106"
 
 
@@ -33,8 +37,13 @@ def test_bare_target_regenerates_to_drop_lib():
 
 
 def test_bare_to_bare_no_regen():
-    # Aucun des deux n'a d'entree corpus (led/relay/button) : le cablage
-    # change, pas le code.
+    # Aucun des deux n'a d'entree corpus : le cablage change, pas le code.
+    # NB : "button" figurait ici jusqu'au 2026-08-29 (#82) -- FAUX depuis que
+    # le registre existe (2026-07-31) : il A une entree ("onebutton", une
+    # vraie bibliotheque). Cf. test_a_registry_only_mapping_also_regenerates.
+    # Non-regression #82 : led/relay restent tous deux sans cid meme routes
+    # par le registre (test_chip_swaps_are_untouched_by_the_registry_routing
+    # dupliquait cette assertion mot pour mot -- retire le 2026-08-29).
     assert _chip_swap_regen_target("led", "relay") is None
 
 
@@ -55,7 +64,98 @@ def test_a_corpus_entry_without_a_library_still_regenerates():
         assert not (entry.get("arduino_lib_name") or "").strip(), (
             f"{bare} a gagne une librairie : ce test ne prouve plus rien")
         assert _chip_swap_regen_target("led", bare) == bare, bare
-    assert _chip_swap_regen_target("button", "led") is None
+
+
+def test_a_registry_only_mapping_also_regenerates():
+    """Trouvaille faite en implementant #82 : cette suite affirmait depuis le
+    2026-07-29 que `_chip_swap_regen_target("button", "led")` rend None, une
+    ligne ecrite AVANT que le registre (2026-07-31) ne declare que le document
+    de "button" est "onebutton" (vraie bibliotheque, contrairement a
+    buzzer/ldr/mq135 ci-dessus). "button" n'est ambigu avec rien, donc aucun
+    `ClarifyGroup` ne le liste et `corpus_id_of_type` le manquait
+    structurellement -- pas parce qu'il n'a pas d'entree corpus. Meme racine
+    que les drivers : le registre la connait, et #82 la fait desormais
+    compter. Passer de bouton (digitalRead) a LED (digitalWrite) change bien
+    le code."""
+    assert _chip_swap_regen_target("button", "led") == "led"
+
+
+def test_driver_swaps_now_have_a_target_via_the_registry():
+    """Mesure du 2026-08-29 : _chip_swap_regen_target rendait None pour TOUS
+    les couples de drivers -- corpus_id_of_type derive des ClarifyGroup, qui
+    excluent moteurs et drivers. Le registre, lui, connait les
+    correspondances. Sans cible, changer de driver ne peut jamais offrir de
+    regeneration."""
+    assert _chip_swap_regen_target("l298n", "drv8833") == "drv8833"
+    assert _chip_swap_regen_target("drv8833", "l298n") == "l298n"
+    assert _chip_swap_regen_target("a4988", "drv8825") == "drv8825"
+    # tb6612fng: entree corpus SANS lib depuis #83 -- compte quand meme
+    # (meme regle que buzzer/ldr : c'est le CODE qui doit changer).
+    assert _chip_swap_regen_target("l298n", "tb6612fng") == "tb6612fng"
+
+
+def test_regenerate_feature_with_chip_resolves_driver_swaps_via_the_registry():
+    """Verrouille le VRAI defaut trouve en revue (2026-08-29) : avant #82,
+    `_regenerate_feature_with_chip` (ui/studio_view.py -- le SECOND appelant
+    de la resolution type->corpus, distinct de `_chip_swap_regen_target`)
+    resolvait old_cid/new_cid via `corpus_id_of_type` SEULE. Reverter
+    uniquement ces deux lignes vers `corpus_id_of_type` laissait la suite au
+    vert (225/225) : aucun test n'appelait cette methode avec un type de
+    driver, chaque test banned_lib_ids/forced_lib_ids construit un Feature
+    a la main avec des identifiants deja resolus. Celui-ci appelle la VRAIE
+    methode -- mutation-verifie : il echoue si les deux lignes sont
+    reverties vers `corpus_id_of_type`."""
+    from ui.studio_view import StudioView
+    v = StudioView()
+    v._on_mode_changed("intermediate")
+    v._features = [Feature(id="f1", prompt="pilote un moteur DC avec un L298N")]
+    v.save_project = lambda *a, **k: None
+    v._start_assembly_verify = lambda: False
+    captured = {}
+
+    def fake_launch(action, fn_id, prompt, from_scratch=False,
+                    forced_override=None):
+        captured["prompt"] = prompt
+        captured["forced_override"] = forced_override
+    v._launch_generation = fake_launch
+
+    v._regenerate_feature_with_chip("f1", "l298n", "drv8833")
+
+    feat = next(f for f in v._features if f.id == "f1")
+    assert feat.banned_lib_ids == ["l298n"], feat.banned_lib_ids
+    assert feat.forced_lib_ids == ["drv8833"], feat.forced_lib_ids
+    ids = [lib.get("id") for lib in (captured["forced_override"] or [])]
+    assert ids == ["drv8833"], ids
+    note = captured["prompt"].split("\n\n")[-1]
+    assert "DRV8833" in note and "L298N" in note, note
+    assert "use the DRV8833" in note, note
+
+
+def test_corpus_id_of_type_has_no_second_caller_in_studio_view():
+    """Garde structurelle (meme forme que
+    `test_no_mode_test_survives_in_the_resolution_path`,
+    scripts/test_unified_modal_all_modes.py) : `corpus_id_of_type` ne doit
+    avoir QU'UN SEUL appelant dans ce fichier, `_corpus_id` -- le point de
+    passage unique par le registre (#82). Un second appelant reproduirait
+    en silence le defaut que le test ci-dessus verrouille par le
+    comportement ; celui-ci verrouille la FORME du code, pour qu'un
+    TROISIEME appelant futur ne puisse pas rouvrir le meme trou sans faire
+    rougir la suite. Mutation-verifie."""
+    src = (Path(__file__).resolve().parents[1]
+           / "ui" / "studio_view.py").read_text(encoding="utf-8")
+    start = src.index("def _corpus_id(")
+    end = src.index("\ndef ", start + 10)  # prochaine def de niveau module
+    body = src[start:end]
+    assert body.count("corpus_id_of_type(") == 1, (
+        "`_corpus_id` doit etre le SEUL appelant de `corpus_id_of_type` -- "
+        "introuvable dans son propre corps.")
+    rest = src[:start] + src[end:]
+    offenders = [ln.strip() for ln in rest.splitlines()
+                 if "corpus_id_of_type(" in ln]
+    assert not offenders, (
+        "`corpus_id_of_type` a un second appelant hors de `_corpus_id` : "
+        f"{offenders} -- doit passer par le registre (`_corpus_id`), pas "
+        "par ClarifyGroups seul (#82).")
 
 
 def test_empty_no_regen():
@@ -99,12 +199,61 @@ def test_apply_lib_overrides_replays_swap_on_regen():
     assert "sh1106" in ids, ids
 
 
-def test_apply_lib_overrides_ban_only_suppresses_retrieval():
-    # Swap vers une cible NUE : ban sans remplacant -> liste VIDE (supprime le
-    # retrieval, sinon la lib bannie ressurgit par similarite semantique).
+def test_apply_lib_overrides_ban_only_no_longer_suppresses_retrieval():
+    # #85 : swap vers une cible NUE (ban sans remplacant) -> None, PAS [].
+    # La liste vide coupait TOUT le retrieval de la generation (mesure
+    # 2026-08-31 : une feature servo+capteur perdait aussi le contexte du
+    # capteur), pendant que la lib bannie revenait quand meme par le
+    # sauvetage des puces nommees. Le ban filtre desormais l'injection
+    # (rag.build_lib_context(banned_libs=...)), le retrieval tourne.
     feat = Feature(id="f1", prompt="ecran",
                    banned_lib_ids=["adafruit-ssd1306"], forced_lib_ids=[])
-    assert _apply_lib_overrides(None, [feat]) == []
+    assert _apply_lib_overrides(None, [feat]) is None
+
+
+def test_banned_lib_ids_exposes_the_bans_of_the_targeted_features():
+    # #85 : la porte unique du ban. C'est cet ensemble que _start_generation
+    # descend jusqu'au RAG -- s'il oublie une feature, la lib bannie revient.
+    from ui.studio_view import _banned_lib_ids
+    f1 = Feature(id="f1", prompt="ecran",
+                 banned_lib_ids=["adafruit-ssd1306"], forced_lib_ids=[])
+    f2 = Feature(id="f2", prompt="servo", banned_lib_ids=["servo"])
+    assert _banned_lib_ids([f1, f2]) == {"adafruit-ssd1306", "servo"}
+    assert _banned_lib_ids([Feature(id="f3", prompt="x")]) == frozenset()
+
+
+def test_start_generation_threads_the_bans_down_to_the_prompt_assembly():
+    """#85, test de FIL (lecon des trois bancs verts du 2026-08-31 : tester la
+    chaine que l'app appelle, pas une reconstitution). Un ensemble calcule
+    mais jamais transmis serait invisible aux tests unitaires du RAG ; ici on
+    conduit _start_generation avec une feature bannie et on verifie que
+    augment_user_prompt recoit bien les bans."""
+    import ui.studio_view as sv
+    v = sv.StudioView()
+    v._on_mode_changed("intermediate")
+    feat = Feature(id="f1", prompt="un servo qui suit le potentiometre",
+                   banned_lib_ids=["servo"], forced_lib_ids=[])
+    v._features = [feat]
+    seen = {}
+
+    def _record_augment(instr, **kw):
+        seen["banned_libs"] = kw.get("banned_libs")
+        return instr
+
+    orig_augment = sv.augment_user_prompt
+    orig_backstage = sv.StudioView._prompt_backstage
+    sv.augment_user_prompt = _record_augment
+    # Coulisses annulees : la generation s'arrete proprement juste APRES
+    # l'assemblage du prompt -- aucun backend appele.
+    sv.StudioView._prompt_backstage = (
+        lambda self, *a, **k: sv._BACKSTAGE_CANCELLED)
+    try:
+        v._start_generation(None, sv.CORRECT, "f1",
+                            "change la vitesse", from_scratch=False)
+    finally:
+        sv.augment_user_prompt = orig_augment
+        sv.StudioView._prompt_backstage = orig_backstage
+    assert seen.get("banned_libs") == frozenset({"servo"}), seen
 
 
 def test_apply_lib_overrides_noop_without_overrides():
@@ -320,10 +469,16 @@ TESTS = [
     test_screen_to_screen_regenerates, test_no_change_no_regen,
     test_bare_target_regenerates_to_drop_lib, test_bare_to_bare_no_regen,
     test_a_corpus_entry_without_a_library_still_regenerates,
+    test_a_registry_only_mapping_also_regenerates,
+    test_driver_swaps_now_have_a_target_via_the_registry,
+    test_regenerate_feature_with_chip_resolves_driver_swaps_via_the_registry,
+    test_corpus_id_of_type_has_no_second_caller_in_studio_view,
     test_empty_no_regen, test_corpus_id_of_type_maps_wiring_type,
     test_feature_persists_lib_overrides,
     test_apply_lib_overrides_replays_swap_on_regen,
-    test_apply_lib_overrides_ban_only_suppresses_retrieval,
+    test_apply_lib_overrides_ban_only_no_longer_suppresses_retrieval,
+    test_banned_lib_ids_exposes_the_bans_of_the_targeted_features,
+    test_start_generation_threads_the_bans_down_to_the_prompt_assembly,
     test_apply_lib_overrides_noop_without_overrides,
     test_regen_note_restates_the_swap,
     test_regen_note_for_a_ban_without_replacement,

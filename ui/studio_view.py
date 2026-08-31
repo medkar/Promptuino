@@ -116,6 +116,43 @@ def _regen_plan(selected: list) -> tuple:
             combine_feature_prompts([f.full_prompt() for f in selected]))
 
 
+def _corpus_id(t: str) -> str | None:
+    """Corpus id d'un type wiring. Le REGISTRE d'abord : c'est lui qui possede
+    l'identite d'un composant, et seul le 1er document lui appartient -- meme
+    PRINCIPE que `Component.default_document` (`ui/component_registry.py:166`,
+    la vraie autorite ici), pas la regle de `lib_by_header` : celle-ci porte
+    sur le 1er HEADER d'une entree corpus, une structure differente ; meme
+    motif, autre proprietaire.
+
+    `corpus_id_of_type` (ClarifyGroups) reste le repli, mais il est INERTE sur
+    le domaine atteignable AUJOURD'HUI (mesure 2026-08-29, pas une projection) :
+    des 62 types que les `ClarifyGroup` couvrent, le registre en resout deja
+    50 directement -- ce sont les seuls qui sont de VRAIS types wiring. Les 12
+    restants (`rtclib`, `sd`, `lora`...) sont des identifiants de corpus BRUTS
+    que `clarification_groups.candidates_of_function` documente deja comme
+    n'etant JAMAIS des types wiring (TODO #67, meme fichier). Le repli est
+    donc gardé pour un candidat FUTUR de ClarifyGroup absent du registre, pas
+    parce qu'il couvre un cas reel aujourd'hui. Et les groupes EXCLUENT
+    deliberement moteurs et drivers, ce qui rendait None pour tous leurs
+    couples (mesure 2026-08-29, #82).
+
+    Module-level (et non plus imbriquee dans `_chip_swap_regen_target`, comme
+    a l'origine de #82) : `_regenerate_feature_with_chip` en a besoin aussi.
+    Avant, elle resolvait old_cid/new_cid via `corpus_id_of_type` SEULE --
+    une SECONDE autorite en desaccord avec celle-ci. Mesure : un swap de
+    driver (l298n -> drv8833) y rendait `new_entry=None` malgre une entree
+    corpus reelle, et la consigne envoyee au modele disait
+    « stop using the L298N library » sans jamais dire d'utiliser celle du
+    DRV8833 -- le defaut exact que #82 corrige ici, laisse en place la-bas
+    (revue 2026-08-29)."""
+    from .clarification_groups import corpus_id_of_type
+    from .component_registry import by_id
+    comp = by_id(t)
+    if comp is not None and comp.documents:
+        return comp.documents[0]
+    return corpus_id_of_type(t)
+
+
 def _chip_swap_regen_target(old_type: str, new_type: str) -> str | None:
     """`new_type` si remplacer `old_type` par `new_type` dans le schema oblige
     le CODE a changer : types differents ET l'un des deux mappe vers une entree
@@ -132,8 +169,42 @@ def _chip_swap_regen_target(old_type: str, new_type: str) -> str | None:
 
     ⚠️ Le docstring a longtemps dit « change vraiment la LIBRAIRIE », ce que le
     code ne fait pas et n'a jamais fait. Formulation corrigee le 2026-08-10,
-    apres qu'elle a failli faire « corriger » le comportement voulu."""
-    from .clarification_groups import corpus_id_of_type
+    apres qu'elle a failli faire « corriger » le comportement voulu.
+
+    ⚠️ Mesure du 2026-08-29 (#82, apres le passage de `_corpus_id` par le
+    REGISTRE) : sur les 217 types wiring/registre connus (`registry()` +
+    `component_catalog.CATALOG` + `component_registry.
+    NON_COMPONENT_WIRING_TYPES` -- ce dernier ne contient QU'`uart_module`,
+    un seul type structurel, pas « quelques »), `_has_lib` bascule de False a
+    True pour 104 d'entre eux -- ZERO dans l'autre sens (mesure rejouable :
+    balayer ce meme ensemble, comparer `corpus_id_of_type` seul contre
+    `_corpus_id`). Bien plus large que les seuls drivers du ticket : servo,
+    neopixel, keypad, hx711, mpu6050, gps, pir, sd_card... La direction est
+    uniforme SUR L'OFFRE (plus d'offres de regeneration, jamais moins) et
+    chaque offre reste confirmee par l'utilisateur (`_confirm_regen_after_swap`)
+    -- mais ce n'est PAS prouve par une suite verte, seulement par cette
+    mesure : un appelant qui gate desormais sur `signature_detected`
+    (`_resolve_wiring_netlist_tracked`) empeche la plupart des 104 de se
+    declencher aujourd'hui, ce qui n'est pas la meme chose que « inoffensif
+    partout ».
+
+    ⚠️ « Uniforme » NE VAUT QUE POUR L'OFFRE -- pas pour ACCEPTER l'offre.
+    Une fois acceptee, `_regenerate_feature_with_chip` peut bannir la lib de
+    depart SANS remplacant et ce chemin est lui-meme beaucoup plus atteignable
+    depuis #82 (50 -> 154 types a cid non vide, mesure separement). Trouvaille
+    de revue (2026-08-29), NON CORRIGEE ICI, mesuree bout en bout : cf. le
+    docstring de `_regenerate_feature_with_chip` pour le detail et pourquoi le
+    correctif evident (ne jamais persister un ban sans remplacant) serait
+    FAUX -- il romprait un comportement voulu depuis 2026-07-29.
+
+    Effet de bord assume, non corrige : deux types qui partagent LE MEME
+    document (ds1307/ds3231 -> rtclib, gps/gps_em406 -> tinygps-plus,
+    sd_card/microsd_card_module -> sd) -- ou, pour bmp085/bmp180, deux
+    documents DIFFERENTS mais la MEME bibliotheque installee
+    (Adafruit_BMP085.h) -- offrent desormais une regeneration qui ne
+    changera RIEN au code une fois lancee. L'offre reste correcte (elle ne
+    ment pas : le CODE devrait bien etre revu), seulement inutile dans ce
+    cas precis."""
     from .rag import corpus_entry
 
     def _has_lib(t: str) -> bool:
@@ -146,7 +217,7 @@ def _chip_swap_regen_target(old_type: str, new_type: str) -> str | None:
         # Resserrer ce test sur `arduino_lib_name` supprimerait ces trois cas
         # en silence -- et AUCUN test ne le rattraperait (essaye le
         # 2026-08-10 : 23/23 au vert malgre la regression).
-        cid = corpus_id_of_type(t)
+        cid = _corpus_id(t)
         return bool(cid) and corpus_entry(cid) is not None
 
     if not new_type or new_type == old_type:
@@ -162,9 +233,15 @@ def _apply_lib_overrides(forced, features) -> list[dict] | None:
     au forçage de libs d'une génération. Sans ce hook, un ↻ ultérieur
     recalculait le défaut RAG et la puce remplacée revenait en silence.
 
-    Retour : la liste ajustée. Une liste VIDE est retournée quand des bans
-    existent sans remplaçant forcé : elle SUPPRIME le retrieval (sinon la lib
-    bannie ressurgirait par similarité sémantique)."""
+    Retour : la liste ajustée, ou None quand il ne reste rien à forcer.
+
+    ⚠️ Jusqu'au #85 (2026-08-31), un ban sans remplaçant rendait une liste
+    VIDE — qui supprimait TOUT le retrieval de la génération (mesuré : une
+    feature servo+capteur perdait aussi le contexte du capteur), pendant que
+    la lib bannie revenait quand même par le sauvetage des puces nommées de
+    `_build_lib_context`. Le ban est désormais appliqué là où les libs
+    s'injectent (`_banned_lib_ids` → `rag.build_lib_context(banned_libs=…)`,
+    porte unique) : ici on rend None et le retrieval tourne, filtré."""
     from .rag import corpus_entry
     banned = {cid for f in features
               for cid in getattr(f, "banned_lib_ids", [])}
@@ -180,7 +257,17 @@ def _apply_lib_overrides(forced, features) -> list[dict] | None:
                 out.append(dict(entry))
     if out:
         return out
-    return [] if banned else forced
+    return None if banned else forced
+
+
+def _banned_lib_ids(features) -> frozenset[str]:
+    """Ids corpus bannis par les swaps persistés des features ciblées (#85).
+    Transmis à `rag.build_lib_context(banned_libs=…)`, qui les écarte de
+    TOUTES les portes d'injection (retrieval, sauvetage des puces nommées,
+    forced résiduel) — au lieu de couper le retrieval entier comme le faisait
+    la liste vide de `_apply_lib_overrides`."""
+    return frozenset(cid for f in features
+                     for cid in getattr(f, "banned_lib_ids", []))
 
 
 # A part number: ONE word, >= 4 chars, letters AND digits (same shape as
@@ -415,6 +502,115 @@ def _preference_was_overridden(r) -> str:
 # arrives in (`#include <Foo.h>`, `#include "Foo.h"`), captured WITHOUT the
 # angle brackets / quotes.
 _SET_MOTOR_RE = _re.compile(r"\bsetMotor\s*\(")
+
+
+def stepper_code_is_driver_agnostic(code: str) -> bool:
+    """True si le code pilote son moteur pas-a-pas SANS bibliotheque de
+    driver -- typiquement `AccelStepper(DRIVER, STEP, DIR)`, ou du step/dir
+    a la main.
+
+    ⚠️ **Sans cette question, la fonctionnalite de swap se contredisait
+    elle-meme** (mesure du 2026-08-29). Les quatre drivers sont broche-a-
+    broche compatibles en step/dir, et c'est PRECISEMENT pourquoi l'app ne
+    peut pas les distinguer dans le code et pourquoi l'utilisateur a besoin
+    de les corriger a la main. Mais trois d'entre eux ont une bibliotheque au
+    corpus (l'A4988 n'en a AUCUNE : docs=()), si bien qu'un swap A4988 ->
+    DRV8825 declenchait << le code ne semble pas inclure DRV8825 >> -- vrai a
+    la lettre, faux en substance : le sketch AccelStepper pilote deja un
+    DRV8825 sans rien changer.
+
+    La question est donc : le code cite-t-il la bibliotheque PROPRE d'un de
+    ces drivers ? Si non, aucune bibliotheque n'est en jeu et le swap ne
+    touche pas le code.
+
+    ⚠️ **Ce predicat est NECESSAIRE au constat, pas suffisant, et la premiere
+    redaction pretendait le contraire** (<< si oui, la divergence est reelle
+    et le constat legitime >>). Mesure de revue, 2026-08-29 : sur le cas le
+    plus probable -- code `DRV8825.h`, l'utilisateur choisit un A4988 --
+    `missing_libs_for_resolved` rend `[]`, parce que l'A4988 n'a AUCUNE entree
+    corpus (`documents=()`). Rendre False laisse donc seulement le constat
+    POSSIBLE ; c'est le registre qui decide s'il sort. Ecrire l'inverse
+    faisait promettre a ce filtre un comportement qu'il n'a pas.
+    """
+    from .component_registry import by_id
+    from .rag import corpus_entry
+    from .wiring.markers import STEPPER_DRIVERS
+
+    bas = (code or "").lower()
+    for type_id in STEPPER_DRIVERS:
+        fiche = by_id(type_id)
+        if fiche is None or not fiche.documents:
+            continue
+        doc = corpus_entry(fiche.documents[0]) or {}
+        for header in (doc.get("headers") or []):
+            if header and header.lower() in bas:
+                return False
+    return True
+
+
+def _stepper_types() -> tuple[str, ...]:
+    """Les drivers pas-a-pas, importes tard : `ui.wiring.markers` traine tout
+    le detecteur, et ce module est deja lourd a charger."""
+    from .wiring.markers import STEPPER_DRIVERS
+    return STEPPER_DRIVERS
+
+
+def missing_libs_for_resolved(code: str, components) -> list[tuple[str, str]]:
+    """(type, nom de bibliothèque) pour chaque composant fraîchement résolu
+    dont la bibliothèque n'apparaît nulle part dans le code.
+
+    Passer une LED en servo écrit un servo dans le schéma pendant que le code
+    continue de faire clignoter la broche avec `digitalWrite` — et rien ne le
+    disait (question utilisateur, 2026-08-29). L'offre de régénération
+    existante (`_chip_swap_regen_target`) ne peut pas couvrir ce cas : elle
+    exige `signature_detected`, donc un composant LU dans le code, alors que
+    la modale d'ambiguïté ne traite QUE des composants incertains.
+
+    ⚠️ **Constat, pas verdict.** On regarde si le fichier d'en-tête est cité
+    quelque part ; rien n'interdit une inclusion indirecte. D'où le « ne
+    semble pas » du message, et l'absence de toute action automatique.
+
+    ⚠️ **La correspondance type → corpus passe par le REGISTRE**, pas par
+    `clarification_groups.corpus_id_of_type` : celui-ci dérive sa table des
+    `ClarifyGroup`, qui excluent délibérément moteurs et servos, et répond
+    donc `None` pour `servo`, `neopixel` et `dc_motor` — précisément les cas
+    qu'on veut couvrir (mesuré le 2026-08-29).
+
+    Muet, et chaque silence est voulu :
+    - composant SANS bibliothèque (LED, buzzer, relais, LDR…) : il n'y a rien
+      à manquer, `digitalWrite` suffit ;
+    - composant DÉCLARÉ par l'utilisateur (`custom:`) : l'app ne connaît pas
+      son code, l'accuser de ne pas correspondre serait une devinette ;
+    - en-tête déjà présent : c'est le cas normal, on se tait.
+    """
+    from .component_registry import by_id
+    from .declared_components import TYPE_PREFIX
+    from .rag import corpus_entry
+
+    bas = (code or "").lower()
+    manquants: list[tuple[str, str]] = []
+    vus: set[str] = set()
+    for c in components:
+        type_id = (getattr(c, "type", "") or "").strip()
+        if not type_id or type_id in vus or type_id.startswith(TYPE_PREFIX):
+            continue
+        fiche = by_id(type_id)
+        if fiche is None or not fiche.documents:
+            continue
+        # Seul le PREMIER document appartient au composant — même règle que
+        # `lib_by_header` : les suivants sont des compagnons.
+        doc = corpus_entry(fiche.documents[0])
+        if not doc:
+            continue
+        headers = [h for h in (doc.get("headers") or []) if h]
+        lib = (doc.get("arduino_lib_name") or "").strip()
+        if not headers or not lib:
+            continue
+        if any(h.lower() in bas for h in headers):
+            continue
+        vus.add(type_id)
+        manquants.append((type_id, lib))
+    return manquants
 
 
 def code_says_motor_but_none_chosen(code: str, resolved_types) -> bool:
@@ -2916,21 +3112,40 @@ class StudioView(QWidget):
         if not self._features:
             action, target_id = REGENERATE, None
         else:
-            decision = self._open_action_modal(prompt)
+            # TODO #88 : une demande de MODIFICATION déguisée en ajout (« le
+            # clignotement ne doit avoir lieu QUE SI… ») ne peut pas être
+            # rattrapée en aval — le contrat d'Ajout interdit au modèle de
+            # toucher au code existant, il fabrique donc un second
+            # comportement en parallèle (mesuré 2/2, ça compile et la demande
+            # n'est pas satisfaite). On la reconnaît ICI et la modale s'ouvre
+            # sur « Modifier <la bonne fonctionnalité> » — proposée, jamais
+            # imposée.
+            from .generation.add_router import modification_target
+            cible_modif = modification_target(prompt, self._features)
+            decision = self._open_action_modal(
+                prompt,
+                default_override=CORRECT if cible_modif else None,
+                preselect_target_id=cible_modif,
+                modification_hint=bool(cible_modif))
             if decision is None:
                 return
             action, target_id = decision
         self._launch_generation(action, target_id, prompt)
 
     def _open_action_modal(self, prompt: str, *, default_override=None,
-                           preselect_target_id=None):
+                           preselect_target_id=None,
+                           modification_hint: bool = False):
         """Ouvre la modale {Régénérer/Ajouter/Modifier} et renvoie
         (action, target_id), ou None si annulée. `default_override` force
         l'action pré-cochée (cf. open_modify_flow) ; `preselect_target_id`
-        pré-coche la fonction cible en mode Modifier."""
+        pré-coche la fonction cible en mode Modifier ;
+        `modification_hint` (#88) affiche la phrase qui EXPLIQUE la
+        présélection quand elle vient du routeur — une présélection muette
+        passerait pour un défaut arbitraire."""
         modal = GenerationModal(self._features, prompt, self,
                                 preselect_target_id=preselect_target_id,
-                                default_override=default_override)
+                                default_override=default_override,
+                                modification_hint=modification_hint)
         if (modal.exec() != QDialog.DialogCode.Accepted
                 or modal.result_choice is None):
             return None
@@ -3169,35 +3384,53 @@ class StudioView(QWidget):
                                         prompts_by_fn, *, force_remodal=False,
                                         scoped_to_ref=None):
         """Wrapper de `_resolve_wiring_netlist` passé au WiringDiagramDialog :
-        détecte quand une édition scopée (engrenage) remplace une puce DÉTECTÉE
-        PAR SIGNATURE par un autre type qui change les libs du code (cf.
+        détecte quand une édition remplace une puce DÉTECTÉE PAR SIGNATURE par
+        un autre type qui change les libs du code (cf.
         `_chip_swap_regen_target` : puce→puce OU puce→composant nu). Propose
         AUSSITÔT (à la validation du nouveau composant) de régénérer ; si oui, on
         ferme le schéma et la régénération part à sa fermeture (un seul popup).
 
-        Le cas NON scopé n'a pas besoin de tracking : la modale non scopée ne
-        voit que les composants `_confidence == "low"` (collect_ambiguous) —
-        jamais une puce détectée par signature (invariant SP2)."""
-        old_type = None
-        fn_id = ""
-        if scoped_to_ref is not None:
-            dlg = getattr(self, "_open_wiring_dialog", None)
-            cur_nl = getattr(dlg, "_netlist", None) if dlg is not None else None
-            if cur_nl is not None:
-                c0 = next((c for c in cur_nl.components
-                           if c.ref == scoped_to_ref), None)
-                if c0 is not None and c0.attributes.get("signature_detected"):
-                    old_type = c0.type
-                    fn_id = c0.fn_id or ""
+        ⚠️ Le tracking couvre les DEUX portes depuis la QA AC1 (2026-08-31) :
+        l'engrenage (scoped_to_ref) ET « Modifier les composants » (non
+        scopé). Ce wrapper disait « le cas non scopé n'a pas besoin de
+        tracking : la modale non scopée ne voit que les composants low » —
+        un invariant que le #81 a rendu FAUX en rendant tout composant
+        éditable (`collect_all_editable`). Conséquence mesurée : un swap
+        écran → LED validé par cette porte n'offrait jamais la
+        régénération, en silence. On photographie donc TOUTES les puces
+        signature avant résolution, et on compare par ref après (les
+        transforms conservent la ref) ; une seule question par validation,
+        comme la branche moteur de la boucle d'acceptation."""
+        dlg = getattr(self, "_open_wiring_dialog", None)
+        cur_nl = getattr(dlg, "_netlist", None) if dlg is not None else None
+        before: dict[str, tuple[str, str]] = {}
+        if cur_nl is not None:
+            for c0 in cur_nl.components:
+                if c0.attributes.get("signature_detected"):
+                    before[c0.ref] = (c0.type, c0.fn_id or "")
         nl = self._resolve_wiring_netlist(
             code, board_id, prompt, context, prompts_by_fn,
             force_remodal=force_remodal, scoped_to_ref=scoped_to_ref)
-        if nl is not None and old_type is not None:
-            c1 = next((c for c in nl.components
-                       if c.ref == scoped_to_ref), None)
-            tgt = (_chip_swap_regen_target(old_type, c1.type)
-                   if c1 is not None else None)
-            if tgt is not None:
+        if (nl is not None and before
+                and getattr(self, "_pending_regen_swap", None) is None):
+            for c1 in nl.components:
+                old = before.get(c1.ref)
+                if old is None or old[0] == c1.type:
+                    continue
+                old_type, fn_id = old
+                # ⛔ Exemption #84 : un swap entre drivers pas-a-pas step/dir
+                # (a4988 <-> drv8825...) n'offre JAMAIS la regeneration — ils
+                # sont broche-a-broche compatibles et le code AccelStepper est
+                # agnostique. La generalisation « deux portes » (QA AC1) avait
+                # perdu cette asymetrie voulue : la popup affirmait « le code
+                # decrit encore un a4988 », ce qui est faux — le code ne
+                # decrit aucun driver (rattrape en QA AD1, 2026-08-31).
+                if (old_type in _stepper_types()
+                        and c1.type in _stepper_types()):
+                    continue
+                tgt = _chip_swap_regen_target(old_type, c1.type)
+                if tgt is None:
+                    continue
                 fn = (fn_id or (c1.fn_id or "")
                       or self._feature_for_chip_swap(old_type, tgt))
                 if fn and self._confirm_regen_after_swap(old_type, tgt):
@@ -3208,6 +3441,10 @@ class StudioView(QWidget):
                     if dlg is not None:
                         from PyQt6.QtCore import QTimer
                         QTimer.singleShot(0, dlg.accept)
+                # Une seule question par validation — qu'elle ait été
+                # acceptée ou refusée (même règle que `_swap_deja_demande`
+                # dans la boucle d'acceptation).
+                break
         return nl
 
     def _process_pending_chip_swaps(self) -> None:
@@ -3268,8 +3505,30 @@ class StudioView(QWidget):
         Le choix est PERSISTÉ sur la Feature (banned/forced_lib_ids, sauvés
         dans .promptuino.json) : les ↻ ultérieurs le ré-appliquent via
         `_apply_feature_lib_overrides` — sans ça, le prochain ↻ recalculait le
-        défaut RAG et l'ancienne puce revenait en silence."""
-        from .clarification_groups import corpus_id_of_type
+        défaut RAG et l'ancienne puce revenait en silence.
+
+        old_cid/new_cid passent par `_corpus_id` (module-level, PAS
+        `corpus_id_of_type` seule) depuis #82 : c'était la SECONDE autorité
+        qui divergeait de `_chip_swap_regen_target` — un swap l298n->drv8833
+        y rendait `new_entry=None` malgré une entrée corpus réelle, donc
+        aucun `forced_lib_ids`, et la consigne ci-dessous disait « stop using
+        the L298N » sans jamais dire d'utiliser celle du DRV8833.
+
+        ✅ La trouvaille de la revue du 2026-08-29 est CORRIGÉE (#85,
+        2026-08-31). Quand `new_cid` est vide (cible NUE, ex. servo -> relay),
+        `old_cid` est banni SANS remplaçant — et jusqu'au #85 la génération
+        suivante en payait deux prix mesurés : `_apply_lib_overrides` rendait
+        `[]` (liste vide, pas None), ce qui coupait TOUT le retrieval RAG (une
+        feature servo+capteur perdait aussi le contexte du capteur) ; et la
+        lib bannie revenait quand même en bloc IMPÉRATIF par le sauvetage des
+        puces nommées de `_build_lib_context` dès que le prompt l'écrivait.
+        Désormais le ban descend séparément (`_banned_lib_ids` →
+        `rag.build_lib_context(banned_libs=…)`), le retrieval tourne filtré,
+        et un ban est inconditionnel (nommer la puce ne la ramène pas — le
+        swap est postérieur au prompt). La persistance d'un ban sans
+        remplaçant, elle, reste voulue depuis 64c4ef4 : c'est elle qui fait
+        lâcher la lib au code régénéré (`test_bare_target_regenerates_to_
+        drop_lib`)."""
         from .rag import corpus_entry, forced_libs_for_generation
         from .wiring.replacement_catalog import label_of
         from .wiring.instructions import _label as _type_label
@@ -3285,8 +3544,8 @@ class StudioView(QWidget):
         # machine du prompt.
         new_lbl = label_of(new_type) or _type_label(new_type, "en") or new_type
         old_lbl = label_of(old_type) or _type_label(old_type, "en") or old_type
-        old_cid = corpus_id_of_type(old_type)
-        new_cid = corpus_id_of_type(new_type)
+        old_cid = _corpus_id(old_type)
+        new_cid = _corpus_id(new_type)
         new_entry = corpus_entry(new_cid) if new_cid else None
         # Persistance du swap : l'ancienne lib est bannie, la nouvelle forcée.
         # Un re-swap qui revient à l'ancienne puce la dé-bannit (symétrique).
@@ -3324,6 +3583,70 @@ class StudioView(QWidget):
         # Ajouter comme si l'utilisateur l'avait écrit).
         self._launch_generation(CORRECT, fn_id, prompt, from_scratch=True,
                                 forced_override=(forced or None))
+
+    def _offer_non_blocking_rewrite(self) -> None:
+        """TODO #89 — après livraison : si une fonctionnalité fige la boucle
+        et qu'une AUTRE lit une entrée, le dire et proposer de la réécrire
+        sans `delay()`.
+
+        Mesuré le 2026-08-31 : 6 fonctionnalités générées sur 8 bloquent
+        (médiane 2 000 ms), et la conversion rend 3/3 un code qui compile,
+        sans blocage restant ni attente active. Le défaut est donc fréquent
+        ET le remède marche — les deux conditions pour mériter une offre.
+
+        ⚠️ **Une seule question par fonctionnalité bloquante.** Un refus se
+        mémorise (`_blocking_offer_declined`) : re-proposer à chaque
+        génération suivante ferait de l'avertissement du décor, et le décor
+        finit par ne plus être lu (leçon des nudges, QA G3). La mémoire est
+        volontairement en SESSION et non sur disque : elle vaut pour le
+        travail en cours, et rouvrir le projet plus tard reposera la
+        question — l'utilisateur aura peut-être changé d'avis, ou ajouté la
+        fonctionnalité que le blocage gêne vraiment.
+
+        Silencieux dans tous les autres cas : une seule fonctionnalité, un
+        blocage sous le seuil, ou aucune victime (personne ne lit d'entrée).
+        """
+        if self._gen_busy is not None or self._beginner_running:
+            return
+        from .generation.blocking_scan import find_conflict, non_blocking_directive
+        conflit = find_conflict(self._features)
+        if conflit is None:
+            return
+        if conflit.blocker_id in getattr(self, "_blocking_offer_declined", set()):
+            return
+        feat = next((f for f in self._features
+                     if f.id == conflit.blocker_id), None)
+        if feat is None:
+            return
+        from .generation import feature_combo_label
+        victimes = ", ".join(
+            feature_combo_label(f) for f in self._features
+            if f.id in conflit.victim_ids)
+        s = lang_manager.current
+        from PyQt6.QtWidgets import QMessageBox
+        box = QMessageBox(self)
+        box.setWindowTitle(s.blocking_offer_title)
+        box.setTextFormat(Qt.TextFormat.RichText)
+        box.setText(s.blocking_offer_body.format(
+            feature=feature_combo_label(feat),
+            sec=f"{conflit.blocker_ms / 1000:.1f}".rstrip("0").rstrip("."),
+            victims=victimes))
+        oui = box.addButton(s.blocking_offer_yes,
+                            QMessageBox.ButtonRole.AcceptRole)
+        box.addButton(s.blocking_offer_no, QMessageBox.ButtonRole.RejectRole)
+        box.exec()
+        if box.clickedButton() is not oui:
+            self._blocking_offer_declined = (
+                getattr(self, "_blocking_offer_declined", set())
+                | {conflit.blocker_id})
+            return
+        # Régénération de la SEULE fonctionnalité bloquante, par le chemin du
+        # swap de puce : prompt interne (le champ visible n'est pas touché —
+        # ce texte est une consigne machine, pas une saisie utilisateur) et
+        # `from_scratch` pour rejouer l'intention complète.
+        prompt = (feat.full_prompt().rstrip() + "\n\n"
+                  + non_blocking_directive())
+        self._launch_generation(CORRECT, feat.id, prompt, from_scratch=True)
 
     def open_modify_flow(self, seed: str) -> None:
         """Flux « Modifier » GUIDÉ (déclenché par le chat). Affiche d'abord un
@@ -3403,10 +3726,14 @@ class StudioView(QWidget):
                   else self._resolve_lib_ambiguity(prompt))
         # Swaps de puce persistés sur les features ciblées (schéma) : bans et
         # forçages ré-appliqués à CHAQUE régénération (idempotent — y compris
-        # sur le forced_override du swap lui-même).
+        # sur le forced_override du swap lui-même). Les bans descendent
+        # SÉPARÉMENT jusqu'au RAG (#85) : ils filtrent l'injection au lieu de
+        # couper le retrieval.
+        banned_libs: frozenset[str] = frozenset()
         if action == CORRECT:
-            forced = _apply_lib_overrides(
-                forced, self._correct_targets(target_id))
+            targets = self._correct_targets(target_id)
+            forced = _apply_lib_overrides(forced, targets)
+            banned_libs = _banned_lib_ids(targets)
         self._pending_action = (action, target_id)
         # ↻ (from_scratch) vs Modifier : lu par _on_generation_done pour
         # l'historique des prompts (un ↻ rejoue l'intent existant, il ne
@@ -3439,12 +3766,14 @@ class StudioView(QWidget):
                 lambda results: self._continue_generation(
                     backend, action, target_id, prompt,
                     forced=forced, registry_results=results,
-                    declared_component_forced=declared_component_forced))
+                    declared_component_forced=declared_component_forced,
+                    banned_libs=banned_libs))
             self._registry_worker.start()
             return
         self._continue_generation(backend, action, target_id, prompt,
                                   forced=forced, registry_results=None,
-                                  declared_component_forced=declared_component_forced)
+                                  declared_component_forced=declared_component_forced,
+                                  banned_libs=banned_libs)
 
     def _registry_request(self, prompt: str) -> tuple[list[str], dict, bool]:
         """(tokens à chercher au registre, préférences de lib, déclaré-forcé).
@@ -4050,7 +4379,8 @@ class StudioView(QWidget):
 
     def _continue_generation(self, backend, action, target_id, prompt, *,
                              forced, registry_results,
-                             declared_component_forced: bool = False):
+                             declared_component_forced: bool = False,
+                             banned_libs: frozenset[str] = frozenset()):
         """Seconde moitié de _start_generation, après l'éventuel lookup
         registre asynchrone (composant hors-corpus).
 
@@ -4058,7 +4388,12 @@ class StudioView(QWidget):
         seulement quand `forced` provient du déclencheur composant déclaré
         SANS part-number inconnu impliqué (calculé dans `_start_generation`,
         AVANT l'ajout du token déclaré à `unknown`, pour ne jamais confondre
-        les deux déclencheurs sur un prompt qui nomme les deux)."""
+        les deux déclencheurs sur un prompt qui nomme les deux).
+
+        ``banned_libs`` (#85) : libs bannies par les swaps persistés des
+        features CIBLÉES — donc seul le chemin CORRECT (Modifier / ↻ ciblé)
+        en reçoit ; Add et REGENERATE n'appliquent pas les overrides et
+        passent l'ensemble vide."""
         if registry_results is not None and self._gen_busy is None:
             return   # génération annulée pendant le lookup registre
         # Loader démarré AVANT l'assemblage du prompt : _start_gen_loader vide
@@ -4146,7 +4481,8 @@ class StudioView(QWidget):
                                               retrieval_context=self._context_full_text(),
                                               declared_component_forced=declared_component_forced,
                                               on_resemblance=self._note_resemblance,
-                                              ranking_hint=self._project_chip_hint())
+                                              ranking_hint=self._project_chip_hint(),
+                                              banned_libs=banned_libs)
         else:
             # Add (or Correct without an existing target -> add): we supply the
             # EXISTING sketch to the model (read-only) so it does not have to
@@ -4800,6 +5136,13 @@ class StudioView(QWidget):
                  else s.studio_verify_ok)
         self._active_output_area().begin_phase(
             label, theme_manager.current.signal_ok)
+        # TODO #89 : le code est LIVRÉ (il compile) — et il peut être
+        # correct fonctionnalité par fonctionnalité tout en étant cassé à la
+        # COMPOSITION : un `delay()` fige la boucle ENTIÈRE, donc le bouton
+        # d'une autre fonctionnalité ne répond plus qu'une fois par tour. On
+        # le dit ici, après la livraison, jamais avant : tant que la vérif
+        # tourne, il n'y a pas encore de code à commenter.
+        self._offer_non_blocking_rewrite()
 
     def _finalize_verify_failure(self, errors: str):
         """Échec final (compile KO + réparations KO, recombine épuisé ou non
@@ -5404,6 +5747,8 @@ class StudioView(QWidget):
           qui s'occupe de ceux-là.
         """
         from .wiring.ambiguity_dialog import apply_saved_resolution
+        from .wiring.markers import (STEPPER_DRIVERS,
+                                     apply_stepper_driver_swap)  # noqa: F401
         from .wiring.netlist import COMPANION_ROLES
         seen = {c.ref for c in ambiguous}
         mutated = False
@@ -5430,6 +5775,24 @@ class StudioView(QWidget):
                 continue
             key = self._resolution_key_for(c, netlist)
             if not key[1]:
+                continue
+            # ⚠️ Un driver pas-a-pas rejoue SON chemin, sous SA cle. Deux
+            # raisons, la seconde mesuree en revue le 2026-08-29 :
+            #   - `apply_saved_resolution(a4988, "drv8825")` rend une **LED**
+            #     (ce dispatch ne connait que les composants ambigus) ;
+            #   - la cle NUE d'un driver est PARTAGEE. `_resolution_key_for`
+            #     remonte au signal Arduino, et le NEMA17 relie au driver y
+            #     aboutit aussi : les deux valent `('', 'D2')`. Ecrire le type
+            #     du driver sous cette cle-la faisait heriter le MOTEUR (et, sur
+            #     un TMC2209 UART, la PILE) d'une resolution qui n'etait pas la
+            #     sienne -- ils devenaient des LED a la reouverture. Le suffixe
+            #     dedie, que le plan exigeait et que j'avais economise, supprime
+            #     la collision a la source.
+            if c.type in STEPPER_DRIVERS:
+                choisi = self._wiring_resolutions.get(
+                    (key[0], key[1] + "::_stepper_driver"))
+                if choisi and apply_stepper_driver_swap(c, choisi):
+                    mutated = True
                 continue
             saved = self._wiring_resolutions.get(key)
             if not saved or saved == c.type:
@@ -5565,7 +5928,29 @@ class StudioView(QWidget):
         the R, which is misleading — the R has no ambiguity to resolve,
         it is an implicit passive of the parent component.
         """
+        from .wiring.markers import STEPPER_DRIVERS
         out: set[str] = set()
+        # Les drivers pas-a-pas sont editables SANS resolution prealable, et
+        # c'est la seule population dans ce cas. Ils sont detectes par
+        # SIGNATURE (le code nomme la puce), donc ils ne passent jamais par la
+        # modale d'ambiguite -- mais un A4988 et un DRV8825 sont broche-a-
+        # broche compatibles et se ressemblent, et on a le droit de corriger
+        # ce que la signature a suppose. `is_replaceable` rend False pour eux
+        # (regle du #62), donc sans cette inclusion l'engrenage n'apparait
+        # jamais et il n'existe AUCUNE porte vers ce choix.
+        for c in netlist.components:
+            if c.type not in STEPPER_DRIVERS:
+                continue
+            # ⛔ Seulement s'il est REELLEMENT remplacable. Un TMC2209 detecte
+            # en UART n'a ni STEP ni DIR, donc `apply_stepper_driver_swap` le
+            # refuse -- a juste titre, il n'y a aucune broche a reporter. Mais
+            # l'engrenage s'ouvrait quand meme : l'utilisateur choisissait,
+            # validait, et RIEN ne bougeait sans un mot. Une porte qui ne mene
+            # nulle part ment autant qu'un mauvais schema.
+            step, direction = c.pin("STEP"), c.pin("DIR")
+            if (step is not None and direction is not None
+                    and step.net and direction.net):
+                out.add(c.ref)
         if not self._wiring_resolutions:
             return out
         editable_motors: set[str] = set()
@@ -5608,7 +5993,13 @@ class StudioView(QWidget):
         netlist instead of freezing at construction time.
 
         Mirrors `_resolve_wiring_netlist` up to the modal decision: same
-        analysis, same declared-library pass, then `collect_re_editable`.
+        analysis, same declared-library pass, then `collect_all_editable`.
+
+        ⚠️ Le critere a change le 2026-08-29 : c'etait `collect_re_editable`
+        (les seules AMBIGUITES). Le bouton s'appelle desormais « Modifier les
+        composants » et ouvre TOUT ce qui porte un engrenage, donc il reste
+        actif tant que le schema contient un composant corrigible -- y compris
+        apres que toutes les ambiguites ont ete tranchees.
 
         Fails OPEN (True) rather than raising: a probe for a button state must
         never break the schema, and of the two possible errors — a button that
@@ -5616,19 +6007,46 @@ class StudioView(QWidget):
         second takes something away. The button is the cosmetic one."""
         try:
             from .wiring.layout import pipeline as _v2
-            from .wiring.ambiguity_dialog import collect_re_editable
+            from .wiring.ambiguity_dialog import collect_all_editable
             from .wiring.declared_apply import apply_library_to_netlist
             netlist = _v2.analyze_netlist(
                 code, board_id, prompt=prompt, context=context,
                 prompts_by_fn=prompts_by_fn,
+                suppressed_headers=self._banned_wiring_headers(),
             )
             apply_library_to_netlist(
                 netlist, skip_refs=self._already_resolved_refs(netlist),
                 opt_outs=self._declared_optouts(),
             )
-            return bool(collect_re_editable(netlist))
+            return bool(collect_all_editable(
+                netlist, self._editable_wiring_refs(netlist)))
         except Exception:
             return True
+
+    def _banned_wiring_headers(self) -> frozenset[str]:
+        """En-têtes des libs BANNIES par un swap de puce (cible nue) sur au
+        moins une feature — et forcées par aucune. Passés à `analyze_netlist`
+        (→ `markers._strip_suppressed_includes`) : un `#include` orphelin
+        laissé par la régénération recréait la boîte de la puce remplacée, et
+        la résolution sauvegardée du swap s'y réappliquait (QA AC1,
+        2026-08-31 — l'écran banni renaissait en « LED anode 5V »).
+
+        Règle simple assumée : les includes sont globaux au sketch, le ban
+        est par feature. Une lib bannie dans une feature ET re-forcée dans
+        une autre (re-swap inverse) reste dessinée ; une lib bannie quelque
+        part et simplement utilisée ailleurs perdrait sa boîte — cas
+        construit, accepté et documenté ici plutôt que deviné."""
+        from .rag import corpus_entry
+        forced = {cid for f in self._features
+                  for cid in getattr(f, "forced_lib_ids", [])}
+        out: set[str] = set()
+        for f in self._features:
+            for cid in getattr(f, "banned_lib_ids", []):
+                if cid in forced:
+                    continue
+                entry = corpus_entry(cid) or {}
+                out.update(h for h in (entry.get("headers") or []) if h)
+        return frozenset(out)
 
     def _resolve_wiring_netlist(self, code: str, board_id: str,
                                  prompt: str, context: str,
@@ -5657,14 +6075,16 @@ class StudioView(QWidget):
             pass
         from .wiring.layout import pipeline as _v2
         from .wiring.ambiguity_dialog import (
-            AmbiguityDialog, apply_saved_resolution, collect_ambiguous,
-            include_scoped_target, is_silently_resolved_servo,
+            AmbiguityDialog, apply_saved_resolution, collect_all_editable,
+            collect_ambiguous, include_scoped_target,
+            is_silently_resolved_servo,
         )
         from .wiring import inference
 
         netlist = _v2.analyze_netlist(
             code, board_id, prompt=prompt, context=context,
             prompts_by_fn=prompts_by_fn,
+            suppressed_headers=self._banned_wiring_headers(),
         )
         # La preuve du code (broches vues au constructeur) est photographiée
         # ICI, au plus tôt : la première application venue la détruit
@@ -5686,7 +6106,17 @@ class StudioView(QWidget):
             mutated_by_library = True
         else:
             mutated_by_library = False
-        ambiguous = collect_ambiguous(netlist)
+        # « Modifier les composants » (bouton global du schéma) ouvre TOUS les
+        # composants corrigibles, pas les seules ambiguïtés : on doit pouvoir
+        # revenir sur un composant reconnu avec certitude, et retrouver ceux
+        # d'une fonctionnalité générée plus tôt (demandé le 2026-08-29).
+        # L'ouverture AUTOMATIQUE du schéma, elle, ne montre que les
+        # ambiguïtés — c'est une question, pas un inventaire.
+        if force_remodal and scoped_to_ref is None:
+            ambiguous = collect_all_editable(
+                netlist, self._editable_wiring_refs(netlist))
+        else:
+            ambiguous = collect_ambiguous(netlist)
         # SP2: the manual replacement (gear "Modify this component")
         # also targets components detected WITH certainty (named LED,
         # servo via Servo.h, OLED I2C...), absent from collect_ambiguous. We
@@ -5705,17 +6135,6 @@ class StudioView(QWidget):
         # driver" mode, which ends up creating 2 separate drivers after
         # inference (the other motor keeps its old resolution).
         scoped_sibling_refs: set[str] = set()
-        if scoped_to_ref is not None:
-            target = next(
-                (c for c in ambiguous if c.ref == scoped_to_ref),
-                None,
-            )
-            if (target is not None
-                    and target.attributes.get("_grouped_pwm_pin")):
-                for c in ambiguous:
-                    if (c.ref != scoped_to_ref
-                            and c.attributes.get("_grouped_pwm_pin")):
-                        scoped_sibling_refs.add(c.ref)
 
         # Pre-pass: if a grouped LED (= auto-detected DC motor) has a
         # saved resolution that is NOT "dc_motor", the user has
@@ -5752,10 +6171,21 @@ class StudioView(QWidget):
         # re-proposed as a motor what the user had already declared not to be
         # one. The pre-pass therefore runs for everyone, which is what the
         # advanced path has always done.
-        skip_prepass = (
-            (force_remodal and scoped_to_ref is None)
-            or grouped_count_pre > _MOTORS_HARD_LIMIT
-        )
+        # ⛔ Le terme `force_remodal and scoped_to_ref is None` a ete RETIRE
+        # le 2026-08-29. Il faisait sauter la pre-passe pour « Modifier les
+        # choix », au motif qu'on veut pouvoir « re-marquer un moteur
+        # partiellement degroupe » — donc en re-proposant en moteur ce que
+        # l'utilisateur venait de declarer ne pas en etre un. Releve en QA :
+        # « j'avais choisi un moteur + 3 LED, mais si je veux modifier mes
+        # choix, les deux sont consideres comme moteurs ».
+        #
+        # Ce qui justifiait ce saut a disparu : le rail porte desormais un
+        # bouton « Regrouper en moteur », donc revenir en arriere ne demande
+        # plus qu'on reparte d'un etat faux. Les groupements defaits sont
+        # transmis a la modale (`ungrouped_groupings`) pour que ce bouton
+        # existe aussi sur ce chemin.
+        ungrouped_groupings: list[dict] = []
+        skip_prepass = grouped_count_pre > _MOTORS_HARD_LIMIT
         if not skip_prepass:
             from .wiring.netlist import Component, Pin
             for c in list(ambiguous):
@@ -5767,7 +6197,13 @@ class StudioView(QWidget):
                     continue
                 # Saved as non-motor -> ungroup this motor.
                 dir_pins = c.attributes.pop("_grouped_dir_pins")
-                c.attributes.pop("_grouped_pwm_pin")
+                pwm_pin = c.attributes.pop("_grouped_pwm_pin")
+                # Memoire du groupement DEFAIT : la modale en a besoin pour
+                # offrir « Regrouper en moteur ». Sans elle, la seule trace
+                # de ce montage disparait au moment meme ou l'utilisateur
+                # gagne le droit de le contredire.
+                ungrouped_groupings.append(
+                    {"pwm": pwm_pin, "dirs": list(dir_pins), "ref": c.ref})
                 for dir_pin in dir_pins:
                     ref_new = netlist.next_ref("D")
                     new_led = Component(
@@ -5778,6 +6214,23 @@ class StudioView(QWidget):
                     )
                     netlist.add_component(new_led)
                     ambiguous.append(new_led)
+
+        # Freres moteurs d'une edition scopee — calcules ICI, APRES la
+        # pre-passe. Avant, ils l'etaient AVANT : la cible apparaissait encore
+        # groupee alors que la pre-passe s'appretait a la degrouper, et
+        # l'engrenage d'une LED embarquait le groupe moteur voisin « sans
+        # raison » (releve en QA, 2026-08-29). Le partage d'un pont en H
+        # double reste la seule raison d'embarquer un frere : deux editions
+        # separees creeraient deux pilotes la ou le materiel n'en a qu'un.
+        if scoped_to_ref is not None:
+            target = next(
+                (c for c in ambiguous if c.ref == scoped_to_ref), None)
+            if (target is not None
+                    and target.attributes.get("_grouped_pwm_pin")):
+                for c in ambiguous:
+                    if (c.ref != scoped_to_ref
+                            and c.attributes.get("_grouped_pwm_pin")):
+                        scoped_sibling_refs.add(c.ref)
 
         # Pre-pass: if N candidate DC motors are grouped but at least
         # ONE has neither a saved resolution nor a per-prompt resolution, we force
@@ -5807,9 +6260,24 @@ class StudioView(QWidget):
             if len(grouped_motors) >= 2:
                 for c in grouped_motors:
                     k = self._resolution_key_for(c, netlist)
-                    has_saved = k in self._wiring_resolutions
+                    # Complet = le driver aussi : un `dc_motor` herite de
+                    # l'ancienne auto-resolution (type sans pilote) repart en
+                    # modale, et ne doit pas retenir ses freres hors de la
+                    # vue consolidee (meme regle que `has_prompt` ci-dessous).
+                    has_saved = (
+                        k in self._wiring_resolutions
+                        and (self._wiring_resolutions[k] != "dc_motor"
+                             or (k[0], k[1] + "::_driver")
+                             in self._wiring_resolutions)
+                    )
+                    # Meme exigence que la branche d'auto-resolution : une
+                    # suggestion SANS driver ne resout plus rien, donc elle ne
+                    # doit pas non plus retenir ses freres hors de la modale
+                    # -- sans quoi on recree la vue fragmentee « 1 moteur »
+                    # que ce0ca54 avait eliminee.
                     has_prompt = (
                         c.attributes.get("_prompt_suggested_type") == "dc_motor"
+                        and bool(c.attributes.get("_prompt_suggested_driver"))
                     )
                     if not has_saved and not has_prompt:
                         force_all_grouped_modal = True
@@ -5845,27 +6313,69 @@ class StudioView(QWidget):
                 if saved_type == "dc_motor":
                     driver_key = (key[0], key[1] + "::_driver")
                     saved_driver = self._wiring_resolutions.get(driver_key)
+                if (saved_type == "dc_motor" and saved_driver is None
+                        and is_grouped_motor):
+                    # ⚠️ **Un `dc_motor` sauvegarde SANS son driver n'est pas
+                    # une decision complete** — personne n'a jamais choisi le
+                    # pilote. Cet etat vient de l'ancienne auto-resolution
+                    # silencieuse (avant le 2026-08-31), qui persistait le
+                    # type et laissait l'inference poser son L298N par
+                    # defaut : tout projet moteur cree avant cette date le
+                    # porte, et il SILENCIAIT la nouvelle modale — mesure en
+                    # QA AB1, deuxieme passe : « toujours pas de modale ».
+                    # On retourne a la modale UNE fois (moteurs coches, seule
+                    # la question du driver reste) ; l'acceptation ecrit
+                    # `::_driver` et le silence revient, legitime cette fois.
+                    unresolved.append(c)
+                    continue
                 apply_saved_resolution(c, saved_type, netlist,
                                         driver_type=saved_driver)
                 mutated = True
-            elif c.attributes.get("_prompt_suggested_type") == "dc_motor":
-                # The prompt explicitly mentions the motor: auto-resolution
-                # without a modal (consistent with the explicit LED case "red led
-                # on D13"). The named driver is used if it exists; otherwise
-                # None -> inference defaults to L298N (cf inference.py). The
-                # driver/type stay editable via the pencil (Level 2) or
-                # the gear (Level 3) of the interactive schema. We persist so
-                # that the next openings stay silent.
+            elif (c.attributes.get("_prompt_suggested_type") == "dc_motor"
+                    and c.attributes.get("_prompt_suggested_driver")):
+                # Le prompt (ou le code) nomme le moteur ET son pilote :
+                # auto-resolution sans modale, il n'y a plus de question.
+                # Type et driver restent editables par l'engrenage. Persiste
+                # pour que les ouvertures suivantes restent silencieuses.
+                #
+                # ⚠️ **Le silence EXIGE le driver depuis le 2026-08-31**
+                # (decision utilisateur, QA AB1 du #82). Avant, un moteur
+                # suggere SANS pilote etait resolu quand meme, et l'inference
+                # posait le L298N par defaut (« historical behavior
+                # preserved ») : un driver que personne n'a nomme s'affichait
+                # sans un mot. Le #82 venait pourtant d'acter que le choix du
+                # driver appartient a la MODALE -- et le cas est frequent,
+                # pas marginal : il suffit que le modele nomme ses variables
+                # `motor...` (ce qu'il fait des que le prompt parle de
+                # moteurs) pour que la suggestion se pose sans puce. Ces
+                # moteurs-la tombent desormais dans `unresolved` : la modale
+                # s'ouvre, moteurs deja coches, et ne pose que LA question
+                # restante -- quelle carte pilote.
                 suggested_type = c.attributes["_prompt_suggested_type"]
                 suggested_driver = c.attributes.get("_prompt_suggested_driver")
                 apply_saved_resolution(c, suggested_type, netlist,
                                         driver_type=suggested_driver)
                 self._wiring_resolutions[key] = suggested_type
-                if suggested_driver:
-                    self._wiring_resolutions[
-                        (key[0], key[1] + "::_driver")
-                    ] = suggested_driver
+                self._wiring_resolutions[
+                    (key[0], key[1] + "::_driver")
+                ] = suggested_driver
                 mutated = True
+            elif scoped_to_ref is not None:
+                # ⛔ EN MODE SCOPÉ, ON N'EMBARQUE QUE LA CIBLE (et ses frères
+                # moteurs, traités par `is_scoped_target` plus haut).
+                #
+                # Ce `else` embarquait TOUT composant sans résolution
+                # sauvegardée, y compris ici — en contradiction directe avec
+                # le commentaire de `is_scoped_target` juste au-dessus. Relevé
+                # en QA le 2026-08-29 : l'engrenage d'une LED ouvrait la
+                # modale avec le groupe moteur du schéma à côté, « sans
+                # raison ». Le rail n'a rien créé, il a rendu VISIBLE ce que
+                # la modale recevait déjà.
+                #
+                # Ne pas l'ajouter le laisse EXACTEMENT dans l'état où le
+                # schéma l'affiche déjà — il n'est ni résolu ni dé-résolu — et
+                # « Modifier les choix » (global) continue de l'offrir.
+                pass
             else:
                 unresolved.append(c)
 
@@ -5936,6 +6446,23 @@ class StudioView(QWidget):
                 if n_grouped_unresolved > _MOTORS_HARD_LIMIT
                 else None
             )
+            # Choix deja tranches, restitues a la modale. Sans eux,
+            # « Modifier mes choix » rouvrait sur les valeurs par defaut et
+            # l'utilisateur perdait tout ce qu'il avait decide -- le pilote de
+            # chaque moteur etait deja restitue juste au-dessus, le type ne
+            # l'etait pas (retour utilisateur, 2026-08-29).
+            #
+            # ⚠️ Les cles degenerees sont ignorees : un placeholder a des nets
+            # VIDES, donc `_resolution_key_for` rend `(fn_id, "")` pour TOUS,
+            # et ils se confondraient. Meme raison que `_already_resolved_refs`.
+            initial_choices: dict[str, str] = {}
+            for _c in unresolved:
+                _key = self._resolution_key_for(_c, netlist)
+                if not _key[1]:
+                    continue
+                _saved_type = self._wiring_resolutions.get(_key)
+                if _saved_type:
+                    initial_choices[_c.ref] = _saved_type
             modal = AmbiguityDialog(
                 unresolved, parent=self,
                 prompt=prompt, context=context,
@@ -5943,6 +6470,16 @@ class StudioView(QWidget):
                 suggested_dc_driver=netlist.metadata.get("_suggested_dc_driver"),
                 netlist=netlist,
                 motors_limit=modal_motors_limit,
+                initial_choices=initial_choices,
+                # ⛔ JAMAIS en mode scopé. Ces groupements défaits existent
+                # pour que « Regrouper en moteur » reste offert sur
+                # « Modifier les choix » ; en mode scopé ils RECREENT une
+                # ligne « N moteurs DC » dans le rail, à côté du seul
+                # composant qu'on a demandé à modifier. C'est la 3e cause,
+                # et la mienne, du défaut « le moteur est là sans raison »
+                # (QA, 2026-08-29) : l'engrenage doit montrer UNE ligne.
+                ungrouped_groupings=(
+                    [] if scoped_to_ref is not None else ungrouped_groupings),
             )
             # Contextual '?' bridge: if the student clicks the help button of a
             # groupbox, the modal closes (reject) and we open the chat with
@@ -5977,9 +6514,22 @@ class StudioView(QWidget):
             # wholesale, wiping "header" -- must be captured now or the
             # opt-out below can never be recorded.
             _cand_hdr_pairs = [self._declared_opt_candidate(c) for c in unresolved]
+            # Types AVANT application : le constat de bibliotheque manquante
+            # ne parle que de ce qui a VRAIMENT change. Depuis que
+            # « Modifier les composants » ouvre tout le schema, le lancer sur
+            # des composants qu'on n'a pas touches en ferait un message
+            # bavard -- donc ignore.
+            _types_avant = [c.type for c in unresolved]
             declared_candidate_before2 = [p[0] for p in _cand_hdr_pairs]
             header_before2 = [p[1] for p in _cand_hdr_pairs]
             modal.apply_choices(netlist)
+            # UNE seule question de regeneration par validation, meme si les
+            # deux moteurs d'un pont en H double changent de driver ensemble.
+            # ⚠️ Le drapeau est indispensable et distinct de
+            # `_pending_regen_swap` : celui-ci reste vide quand l'utilisateur
+            # REFUSE, si bien qu'un garde base dessus reposait la question au
+            # moteur suivant (attrape par le test, 2026-08-29).
+            _swap_deja_demande = False
             # Persistence of the choices — generation AND edit via the gear
             # (scoped): recorded in _wiring_resolutions to survive
             # reopening (keys pre-computed BEFORE apply_choices, cf
@@ -5987,13 +6537,77 @@ class StudioView(QWidget):
             for c, key, was_declared_candidate, header in zip(
                     unresolved, keys_before,
                     declared_candidate_before2, header_before2):
+                if c.type in _stepper_types():
+                    # Cle DEDIEE : la cle nue est partagee avec le NEMA17 du
+                    # meme driver (cf. le commentaire du rejeu ci-dessus).
+                    self._wiring_resolutions[
+                        (key[0], key[1] + "::_stepper_driver")] = c.type
+                    continue
+                if (c.type == "dc_motor"
+                        and c.attributes.get("signature_detected")):
+                    # ⛔ Un moteur de NIVEAU 1 n'ecrit JAMAIS de resolution :
+                    # sa cle est DEGENEREE (les deux moteurs et leur driver
+                    # remontent au meme signal Arduino — mesure au #86 (a) :
+                    # tous trois valent `('', 'D9')`), donc ecrire ici ferait
+                    # heriter les trois du meme type, la corruption exacte que
+                    # le ticket predisait si une porte d'edition s'ouvrait
+                    # sans corriger la clef. Et il n'y a rien a persister :
+                    # le code EST la source. Changer de driver passe par la
+                    # REGENERATION — meme mecanique que le swap de puce, une
+                    # seule question par validation (T5).
+                    _courant = c.attributes.get("_chosen_driver") or "l298n"
+                    _choisi = modal.chosen_driver_for(c.ref)
+                    if (_choisi and _choisi != _courant
+                            and not _swap_deja_demande
+                            and getattr(self, "_pending_regen_swap",
+                                        None) is None):
+                        _tgt = _chip_swap_regen_target(_courant, _choisi)
+                        if _tgt is not None:
+                            _fn = (c.fn_id
+                                   or self._feature_for_chip_swap(
+                                       _courant, _choisi))
+                            if _fn:
+                                _swap_deja_demande = True
+                                if self._confirm_regen_after_swap(
+                                        _courant, _choisi):
+                                    self._pending_regen_swap = (
+                                        _fn, _courant, _choisi)
+                    continue
                 self._wiring_resolutions[key] = c.type
                 if c.type == "dc_motor":
                     driver = modal.chosen_driver_for(c.ref)
                     if driver is not None:
-                        self._wiring_resolutions[
-                            (key[0], key[1] + "::_driver")
-                        ] = driver
+                        _dkey = (key[0], key[1] + "::_driver")
+                        _ancien = self._wiring_resolutions.get(_dkey)
+                        self._wiring_resolutions[_dkey] = driver
+                        # Changer de driver, c'est changer de puce. La
+                        # divergence est REELLE meme sans bibliotheque : le
+                        # code broches-nues d'un TB6612 a un STBY, celui d'un
+                        # DRV8833 un SLEEP, celui d'un L298N un ENA. Jusqu'ici
+                        # ce choix etait persiste EN SILENCE (spec
+                        # << certitude d'abord >>, constat C4).
+                        #
+                        # Meme mecanisme que les puces : une seule offre par
+                        # validation (les deux moteurs d'un pont en H double
+                        # changent ensemble), jamais de regeneration sans
+                        # confirmation, et la cible passe par le registre
+                        # (tache 1 -- sans elle `_chip_swap_regen_target`
+                        # rendait None pour TOUS les couples de drivers).
+                        if (_ancien is not None and _ancien != driver
+                                and not _swap_deja_demande
+                                and getattr(self, "_pending_regen_swap",
+                                            None) is None):
+                            _tgt = _chip_swap_regen_target(_ancien, driver)
+                            if _tgt is not None:
+                                _fn = (c.fn_id
+                                       or self._feature_for_chip_swap(
+                                           _ancien, _tgt))
+                                if _fn:
+                                    _swap_deja_demande = True
+                                    if self._confirm_regen_after_swap(
+                                            _ancien, _tgt):
+                                        self._pending_regen_swap = (
+                                            _fn, _ancien, _tgt)
                 # Guard against the "Décrire mon composant…" sub-dialog
                 # being cancelled INSIDE apply_choices: apply_saved_resolution
                 # is then never called for this ref, c.type stays the raw
@@ -6019,6 +6633,34 @@ class StudioView(QWidget):
                     self,
                     s.motor_mismatch_title,
                     s.motor_mismatch_body,
+                )
+            # Bibliothèque manquante : le composant choisi en demande une que
+            # le code ne cite pas. Constat SEUL — aucune régénération n'est
+            # proposée ni lancée (décision utilisateur, 2026-08-29) : l'app
+            # signale, l'utilisateur décide.
+            _changes = [c for c, avant in zip(unresolved, _types_avant)
+                        if c.type != avant]
+            # Un swap entre drivers pas-a-pas ne change RIEN au code quand
+            # celui-ci pilote en step/dir generique : les quatre sont
+            # broche-a-broche compatibles, un sketch AccelStepper les pilote
+            # tous. Sans ce filtre, la fonctionnalite de swap declenchait sa
+            # propre fausse alerte -- mesure du 2026-08-29.
+            if stepper_code_is_driver_agnostic(code):
+                from .wiring.markers import STEPPER_DRIVERS as _SD
+                _changes = [c for c in _changes if c.type not in _SD]
+            _manquants = missing_libs_for_resolved(code, _changes)
+            if _manquants:
+                from PyQt6.QtWidgets import QMessageBox
+                from .wiring.instructions import _label as _lbl
+                s = lang_manager.current
+                lang = lang_manager.lang
+                _lignes = "<br>".join(
+                    f"• <b>{_lbl(t, lang)}</b> — <code>{lib}</code>"
+                    for t, lib in _manquants)
+                QMessageBox.information(
+                    self,
+                    s.lib_mismatch_title,
+                    s.lib_mismatch_body.format(items=_lignes),
                 )
             mutated = True
             # Persist the choices to disk right away so they
@@ -8921,6 +9563,13 @@ class StudioView(QWidget):
         # sauvegarde — seul endroit d'où `load_project` renonce encore — et
         # avant tout le reste.
         self._registry_banner.setVisible(False)
+        # Même raison, pour les refus de l'offre « rendre non bloquante »
+        # (#89) : ils sont indexés par ID de fonctionnalité, et les ids sont
+        # PAR PROJET (`fn-1`, `fn-2`…). Sans cette remise à zéro, refuser
+        # dans un projet faisait taire l'offre dans le suivant — la
+        # fonctionnalité bloquante du nouveau projet portant le même id
+        # (relevé en QA AF1, 2026-08-31).
+        self._blocking_offer_declined = set()
 
         code   = project_manager.load_code(project)
         prompt = project.last_prompt or ""
@@ -9097,6 +9746,13 @@ class StudioView(QWidget):
         # the ambiguity modal, bias the gears, etc.).
         self._wiring_resolutions = {}
         self._implicit_actions = {}
+        # Même raison pour les refus de l'offre « rendre non bloquante »
+        # (#89) : indexés par ID de fonctionnalité, et les ids sont PAR
+        # PROJET — la fonctionnalité bloquante du nouveau projet porte le
+        # même `fn-2`, donc un refus précédent la faisait taire (relevé en
+        # QA AF1, 2026-08-31 ; c'est ce chemin-ci que la manip empruntait,
+        # pas `load_project`).
+        self._blocking_offer_declined = set()
         self._features = []
         self._stable_features = []
         self._code_baseline = ""

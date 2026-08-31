@@ -1,6 +1,6 @@
 """Les 10 modales pedagogiques "en savoir plus" de la fin de
 ui/wiring/wiring_diagram_dialog.py (apres WiringDiagramDialog, de
-_ServoExternalPowerDialog a _A4988MicrosteppingDialog) etaient figees en
+_ServoExternalPowerDialog a _MicrosteppingDialog) etaient figees en
 francais, peu importe lang_manager -- meme mecanisme de trou que celui deja
 corrige dans ui/wiring/instructions.py (cf test_warning_templates.py) et
 ui/wiring/visual_ambiguity_catalog.py (cf test_visual_ambiguity_catalog.py) :
@@ -48,7 +48,7 @@ _SRC = ROOT / "ui" / "wiring" / "wiring_diagram_dialog.py"
 _DIALOG_PREFIXES = (
     "servo_power_", "led_series_", "btn_pullup_", "dht_pullup_",
     "ds18b20_pullup_", "l298n_", "l293d_module_", "a4988_vref_",
-    "buzzer_series_", "a4988_microstep_",
+    "buzzer_series_", "a4988_microstep_", "drv8825_microstep_",
 )
 
 
@@ -77,27 +77,45 @@ def _literal_t_calls() -> set[str]:
 
 
 def _choices_keys() -> set[str]:
-    """Toute cle i18n referencee comme 2e element d'un tuple d'une liste
-    `_CHOICES` (les 4 classes _LedSeriesValueDialog, _Ds18b20PullupDialog,
-    _BuzzerSeriesValueDialog, _A4988MicrosteppingDialog construisent leurs
-    radios ainsi -- cf docstring du module)."""
+    """Toute cle i18n referencee comme DONNEE plutot que comme litteral
+    d'appel `_t(...)` :
+
+    - 2e element d'un tuple d'une liste `_CHOICES` (les classes
+      _LedSeriesValueDialog, _Ds18b20PullupDialog, _BuzzerSeriesValueDialog
+      construisent leurs radios ainsi) ;
+    - depuis #87, _MicrosteppingDialog est PARAMETRIQUE par driver : ses
+      cles vivent dans `_CHOICES_BY_DRIVER` (dict -> listes de tuples) et
+      dans `_TITLE_KEY` / `_TABLE_KEY` (dict -> cle en valeur), appelees
+      via `_t(self._TITLE_KEY[drv], ...)` -- invisibles au collecteur de
+      litteraux."""
     tree = ast.parse(_SRC.read_text(encoding="utf-8"))
     keys = set()
-    for node in ast.walk(tree):
-        is_choices_assign = (
-            isinstance(node, ast.Assign)
-            and any(isinstance(t, ast.Name) and t.id == "_CHOICES"
-                    for t in node.targets)
-            and isinstance(node.value, ast.List)
-        )
-        if not is_choices_assign:
-            continue
-        for elt in node.value.elts:
+
+    def _tuples_of(list_node) -> None:
+        for elt in list_node.elts:
             if not (isinstance(elt, ast.Tuple) and len(elt.elts) == 2):
                 continue
             key_node = elt.elts[1]
-            if isinstance(key_node, ast.Constant) and isinstance(key_node.value, str):
+            if isinstance(key_node, ast.Constant) \
+                    and isinstance(key_node.value, str):
                 keys.add(key_node.value)
+
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Assign):
+            continue
+        names = {t.id for t in node.targets if isinstance(t, ast.Name)}
+        if "_CHOICES" in names and isinstance(node.value, ast.List):
+            _tuples_of(node.value)
+        elif "_CHOICES_BY_DRIVER" in names \
+                and isinstance(node.value, ast.Dict):
+            for v in node.value.values:
+                if isinstance(v, ast.List):
+                    _tuples_of(v)
+        elif names & {"_TITLE_KEY", "_TABLE_KEY"} \
+                and isinstance(node.value, ast.Dict):
+            for v in node.value.values:
+                if isinstance(v, ast.Constant) and isinstance(v.value, str):
+                    keys.add(v.value)
     return keys
 
 

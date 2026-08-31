@@ -315,13 +315,13 @@ class OllamaBackend(AIBackend):
         return self._repair_from_response(code, self._call(prompt))
 
     def repair_region(self, region: str, errors: str, language: str,
-                      board_name: str) -> str:
+                      board_name: str, api_context: str = "") -> str:
         # LIGHTWEIGHT prompt: only the lines flagged by the compiler. On a
         # local SLM, fixing 5 targeted lines succeeds where rewriting the whole
         # file fails (cf. base.repair_region for the generic default).
         prompt = (
             f"{self._build_repair_region_system(board_name)}\n\n"
-            f"{self._build_repair_region_user(region, errors)}"
+            f"{self._build_repair_region_user(region, errors, api_context)}"
         )
         return self._clean(self._call(prompt))
 

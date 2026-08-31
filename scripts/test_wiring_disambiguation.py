@@ -744,23 +744,50 @@ def test_pir_presence_multiword_only():
     assert not _has_keyword("en présence de l'utilisateur, allume la LED", _PIR_KEYWORDS)
 
 
-# ─── 7. Commentaires bloc /* ... */ en ligne (Task 6) ───────────────────
+# ─── 7. Commentaires : ne sont PLUS une source (regle du 2026-08-31) ────
+# ⚠️ **CES DEUX TESTS ONT ETE INVERSES.** La Task 6 de la spec 2026-06-14
+# faisait lire les commentaires comme source de typage, et ils le
+# verrouillaient. La regle utilisateur du 2026-08-31 (enoncee en QA AB1 du
+# #82) l'emporte : « le wiring est etabli depuis le code, pas les
+# commentaires, sinon ca n'a pas de sens ». Le meme mecanisme faisait
+# re-silencier la modale moteur sur une prose « (e.g., L298N ENA) » de gemma
+# et creait des composants depuis du code COMMENTE (#86 (c)).
+# `strip_comments` depouille a l'entree d'`extract_netlist` ; le typage par
+# IDENTIFIANT (`int thermistance = ...`), lui, reste entier -- un identifiant
+# EST du code.
 
-def test_code_excerpt_block_comment():
-    """Un commentaire bloc /* ... */ en ligne est lu comme source."""
+def test_code_excerpt_no_longer_sees_comments():
+    """La garantie vit a l'entree du pipeline : une fois depouille, l'extrait
+    par broche ne contient plus la prose."""
+    from ui.wiring.markers import strip_comments
     code = "void loop(){ int t = analogRead(A2); /* thermistance */ }\n"
-    p2n = _pin_to_identifiers(code)
-    exc = _code_excerpt_for_pin(code, "A2", p2n)
-    assert "thermistance" in exc.lower(), f"got {exc!r}"
+    nettoye = strip_comments(code)
+    p2n = _pin_to_identifiers(nettoye)
+    exc = _code_excerpt_for_pin(nettoye, "A2", p2n)
+    assert "thermistance" not in exc.lower(), f"got {exc!r}"
 
 
-def test_e2e_thermistor_from_block_comment():
-    """End-to-end : /* thermistance */ sur une lecture analogique -> mutation
-    pot -> thermistor (sans prompt)."""
+def test_e2e_a_comment_no_longer_mutates_the_component():
+    """End-to-end : /* thermistance */ ne transforme PLUS le potentiometre.
+    Le defaut honnete reste, AVEC son marqueur `presumed_analog` -- une
+    lecture analogique nue est une devinette, et elle se dit."""
     code = "void loop(){ int t = analogRead(A2); /* thermistance */ }\n"
     nl = analyze_netlist(code, "uno_r3")
-    assert _find_by_type(nl, "thermistor") is not None, "expected thermistor from block comment"
-    assert _find_by_type(nl, "potentiometer") is None
+    assert _find_by_type(nl, "thermistor") is None, \
+        [(c.ref, c.type) for c in nl.components]
+    pot = _find_by_type(nl, "potentiometer")
+    assert pot is not None, [(c.ref, c.type) for c in nl.components]
+    assert pot.attributes.get("presumed_analog"), pot.attributes
+
+
+def test_an_identifier_still_types_the_component():
+    """Contre-epreuve : le meme mot en IDENTIFIANT garde tout son pouvoir --
+    un identifiant est du code."""
+    code = ("void loop(){ int thermistance = analogRead(A2); "
+            "(void)thermistance; }\n")
+    nl = analyze_netlist(code, "uno_r3")
+    assert _find_by_type(nl, "thermistor") is not None, \
+        [(c.ref, c.type) for c in nl.components]
 
 
 def test_hx711_detected_from_its_official_example():
@@ -1384,8 +1411,9 @@ TESTS = [
     test_e2e_generic_input_stays_button,
     test_pir_presence_multiword_only,
     # Commentaires bloc /* ... */ en ligne (Task 6)
-    test_code_excerpt_block_comment,
-    test_e2e_thermistor_from_block_comment,
+    test_code_excerpt_no_longer_sees_comments,
+    test_e2e_a_comment_no_longer_mutates_the_component,
+    test_an_identifier_still_types_the_component,
 ]
 
 

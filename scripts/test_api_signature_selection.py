@@ -270,6 +270,43 @@ def test_render_lib_block_passes_the_example_through():
     assert "readTemperature" in liste, sorted(liste)
 
 
+# ── Le choix de la SURCHARGE emise (QA AB2 ter du #82, 2026-08-31) ──────
+
+def test_the_emitted_overload_follows_the_example_then_simplicity():
+    """« Premiere declaree gagne » trahissait un modele obeissant : la lib
+    L298N declare `forwardFor(delay, callback)` avant `forwardFor(delay)`,
+    donc le bloc n'annoncait que la variante a callback -- et le reparateur,
+    somme de suivre « ces signatures exactes », ecrivait un callback invente
+    au lieu du correctif d'une ligne (mesure sur la vraie chaine : 0/4 -> 4/4
+    une fois la variante simple annoncee).
+
+    Et « la plus simple gagne » TOUT COURT etait pire par endroits : pour un
+    CONSTRUCTEUR la plus simple est souvent la degeneree
+    (`Adafruit_NeoPixel(void)`, `Encoder()`), et le L298N passait au
+    constructeur 2 broches que le cablage ignore deliberement (#83). La regle
+    juste est celle du formateur depuis #40 (c) : l'EXEMPLE est la verite
+    terrain -- la surcharge dont l'arite colle a l'appel de l'exemple gagne
+    (valeurs par defaut respectees), la plus simple quand il se tait.
+    """
+    from ui.rag import corpus_entry, _format_api_signatures
+
+    def bloc(eid):
+        e = corpus_entry(eid)
+        return _format_api_signatures(e.get("api_signatures") or {},
+                                      e.get("example_code") or "")
+
+    l298n = bloc("l298n")
+    # L'exemple instancie a 3 arguments : le constructeur emis les garde.
+    assert "L298N(uint8_t pinEnable, uint8_t pinIN1, uint8_t pinIN2)"         in l298n, l298n
+    # L'exemple n'appelle pas forwardFor : la variante SIMPLE gagne.
+    assert "void forwardFor(unsigned long delay)" in l298n, l298n
+    assert "CallBackFunction" not in l298n.split("forwardFor")[1]         .splitlines()[0], l298n
+
+    # Les constructeurs degeneres ne gagnent jamais contre l'exemple.
+    assert "Adafruit_NeoPixel(void)" not in bloc("adafruit-neopixel")
+    assert "Encoder(uint8_t pin1, uint8_t pin2)" in bloc("encoder")
+
+
 TESTS = [
     test_no_block_contradicts_its_own_example,
     test_bme280_finally_reaches_its_real_class,
@@ -284,6 +321,7 @@ TESTS = [
     test_but_an_internal_the_example_CALLS_is_kept,
     test_the_block_keeps_its_imperative_header,
     test_render_lib_block_passes_the_example_through,
+    test_the_emitted_overload_follows_the_example_then_simplicity,
 ]
 
 if __name__ == "__main__":

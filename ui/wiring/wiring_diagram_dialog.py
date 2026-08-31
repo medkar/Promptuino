@@ -477,6 +477,12 @@ _DIALOG_LABELS: dict[str, dict[str, str]] = {
         "es": "Conflicto de cableado",
         "it": "Conflitto di cablaggio",
     },
+    "info_title_several": {
+        "fr": "{n} points d'attention",
+        "en": "{n} important notes",
+        "es": "{n} puntos de atención",
+        "it": "{n} punti di attenzione",
+    },
     "info_title_generic": {
         "fr": "Point d'attention",
         "en": "Important note",
@@ -604,19 +610,23 @@ _DIALOG_LABELS: dict[str, dict[str, str]] = {
     "btn_detailed": {
         "fr": "Détaillé", "en": "Detailed", "es": "Detallado", "it": "Dettagliato",
     },
+    # Renomme le 2026-08-29 : le bouton n'ouvre plus les seuls CHOIX
+    # d'ambiguite mais TOUS les composants du schema (cf.
+    # `ambiguity_dialog.collect_all_editable`). « Modifier les choix »
+    # promettait moins que ce qu'il fait.
     "btn_regenerate": {
-        "fr": "Modifier les choix",
-        "en": "Edit choices",
-        "es": "Editar elecciones",
-        "it": "Modifica scelte",
+        "fr": "Modifier les composants",
+        "en": "Edit components",
+        "es": "Editar componentes",
+        "it": "Modifica componenti",
     },
     # Shown as a tooltip when "Edit choices" is disabled: a greyed button with
     # no explanation leaves the user hunting for what they did wrong.
     "btn_regenerate_none": {
-        "fr": "Aucun composant à préciser dans ce schéma",
-        "en": "No component left to clarify in this diagram",
-        "es": "Ningún componente por precisar en este esquema",
-        "it": "Nessun componente da precisare in questo schema",
+        "fr": "Aucun composant modifiable dans ce schéma",
+        "en": "No editable component in this diagram",
+        "es": "Ningún componente modificable en este esquema",
+        "it": "Nessun componente modificabile in questo schema",
     },
     "btn_copy": {
         "fr": "Copier", "en": "Copy",
@@ -2344,7 +2354,7 @@ _DIALOG_LABELS: dict[str, dict[str, str]] = {
         "it": "<b>Scegli:</b>",
     },
 
-    # _A4988MicrosteppingDialog
+    # _MicrosteppingDialog (A4988 / DRV8825)
     "a4988_microstep_choice_full": {
         "fr": "Pas complet — mouvement direct, le plus de force",
         "en": "Full step — direct movement, most torque",
@@ -2390,7 +2400,7 @@ _DIALOG_LABELS: dict[str, dict[str, str]] = {
     "a4988_microstep_explainer": {
         "fr": "Un moteur pas-à-pas avance par <b>petits crans fixes</b> "
               "(200 crans pour faire un tour complet sur un NEMA17 "
-              "standard). Le A4988 peut <b>découper chaque cran en plus "
+              "standard). Le driver peut <b>découper chaque cran en plus "
               "petits sous-mouvements</b> : c'est le microstepping."
               "<br><br>"
               "<b>Avantage</b> : le moteur tourne plus en douceur, et "
@@ -2406,7 +2416,7 @@ _DIALOG_LABELS: dict[str, dict[str, str]] = {
               "mode.",
         "en": "A stepper motor moves in <b>small fixed increments</b> "
               "(200 steps for one full turn on a standard NEMA17). The "
-              "A4988 can <b>break each step down into smaller "
+              "driver can <b>break each step down into smaller "
               "sub-movements</b>: that's microstepping."
               "<br><br>"
               "<b>Advantage</b>: the motor turns more smoothly, and "
@@ -2421,7 +2431,7 @@ _DIALOG_LABELS: dict[str, dict[str, str]] = {
               "for you. The Arduino code has no way to change the mode.",
         "es": "Un motor paso a paso avanza en <b>pequeños incrementos "
               "fijos</b> (200 pasos para dar una vuelta completa en un "
-              "NEMA17 estándar). El A4988 puede <b>dividir cada paso en "
+              "NEMA17 estándar). El driver puede <b>dividir cada paso en "
               "submovimientos más pequeños</b>: eso es el microstepping."
               "<br><br>"
               "<b>Ventaja</b>: el motor gira con más suavidad y hace "
@@ -2437,7 +2447,7 @@ _DIALOG_LABELS: dict[str, dict[str, str]] = {
               "modo.",
         "it": "Un motore passo-passo avanza a <b>piccoli scatti "
               "fissi</b> (200 scatti per un giro completo su un NEMA17 "
-              "standard). L'A4988 può <b>suddividere ogni scatto in "
+              "standard). Il driver può <b>suddividere ogni scatto in "
               "sotto-movimenti più piccoli</b>: questo è il "
               "microstepping."
               "<br><br>"
@@ -2506,6 +2516,72 @@ _DIALOG_LABELS: dict[str, dict[str, str]] = {
         "en": "<b>Choose the mode:</b>",
         "es": "<b>Elige el modo:</b>",
         "it": "<b>Scegli la modalità:</b>",
+    },
+    # ─── DRV8825 (TODO #87) : titre, choix 1/32 et table PROPRES ─────────
+    # La table du DRV8825 n'est PAS celle de l'A4988 (1/16 = (0,0,1) et un
+    # mode 1/32 en plus, lu sur la doc Pololu) — cf. implicit_actions.
+    "drv8825_microstep_title": {
+        "fr": "Microstepping du driver DRV8825 ({ref})",
+        "en": "DRV8825 driver microstepping ({ref})",
+        "es": "Microstepping del driver DRV8825 ({ref})",
+        "it": "Microstepping del driver DRV8825 ({ref})",
+    },
+    # Sur le DRV8825, le superlatif « fluidité maximale » appartient au 1/32,
+    # pas au 1/16 — d'où une clé 1/16 DÉDIÉE (le libellé A4988, partagé,
+    # affirmerait deux « maximale » dans la même liste).
+    "drv8825_microstep_choice_sixteenth": {
+        "fr": "1/16 pas — très fluide, force réduite",
+        "en": "1/16 step — very smooth, reduced torque",
+        "es": "1/16 de paso — muy fluido, fuerza reducida",
+        "it": "1/16 di passo — molto fluido, forza ridotta",
+    },
+    "drv8825_microstep_choice_thirtysecond": {
+        "fr": "1/32 pas — fluidité maximale, force la plus faible",
+        "en": "1/32 step — maximum smoothness, lowest torque",
+        "es": "1/32 de paso — fluidez máxima, fuerza mínima",
+        "it": "1/32 di passo — massima fluidità, forza minima",
+    },
+    "drv8825_microstep_table_body": {
+        "fr": "<table cellpadding='4' style='border-collapse:collapse;'>"
+              "<tr style='background:#222;'>"
+              "<th>Mode</th><th>Pas / tour</th></tr>"
+              "<tr><td><b>Pas complet</b></td><td>200</td></tr>"
+              "<tr><td><b>1/2</b></td><td>400</td></tr>"
+              "<tr><td><b>1/4</b></td><td>800</td></tr>"
+              "<tr><td><b>1/8</b></td><td>1 600</td></tr>"
+              "<tr><td><b>1/16</b></td><td>3 200</td></tr>"
+              "<tr><td><b>1/32</b></td><td>6 400</td></tr>"
+              "</table>",
+        "en": "<table cellpadding='4' style='border-collapse:collapse;'>"
+              "<tr style='background:#222;'>"
+              "<th>Mode</th><th>Steps / turn</th></tr>"
+              "<tr><td><b>Full step</b></td><td>200</td></tr>"
+              "<tr><td><b>1/2</b></td><td>400</td></tr>"
+              "<tr><td><b>1/4</b></td><td>800</td></tr>"
+              "<tr><td><b>1/8</b></td><td>1,600</td></tr>"
+              "<tr><td><b>1/16</b></td><td>3,200</td></tr>"
+              "<tr><td><b>1/32</b></td><td>6,400</td></tr>"
+              "</table>",
+        "es": "<table cellpadding='4' style='border-collapse:collapse;'>"
+              "<tr style='background:#222;'>"
+              "<th>Modo</th><th>Pasos / vuelta</th></tr>"
+              "<tr><td><b>Paso completo</b></td><td>200</td></tr>"
+              "<tr><td><b>1/2</b></td><td>400</td></tr>"
+              "<tr><td><b>1/4</b></td><td>800</td></tr>"
+              "<tr><td><b>1/8</b></td><td>1 600</td></tr>"
+              "<tr><td><b>1/16</b></td><td>3 200</td></tr>"
+              "<tr><td><b>1/32</b></td><td>6 400</td></tr>"
+              "</table>",
+        "it": "<table cellpadding='4' style='border-collapse:collapse;'>"
+              "<tr style='background:#222;'>"
+              "<th>Modalità</th><th>Passi / giro</th></tr>"
+              "<tr><td><b>Passo intero</b></td><td>200</td></tr>"
+              "<tr><td><b>1/2</b></td><td>400</td></tr>"
+              "<tr><td><b>1/4</b></td><td>800</td></tr>"
+              "<tr><td><b>1/8</b></td><td>1 600</td></tr>"
+              "<tr><td><b>1/16</b></td><td>3 200</td></tr>"
+              "<tr><td><b>1/32</b></td><td>6 400</td></tr>"
+              "</table>",
     },
 }
 
@@ -2589,6 +2665,43 @@ def _tooltip_html(title: str, body: str) -> str:
 
     lines = textwrap.wrap(body or "", _TOOLTIP_WRAP_CHARS) or [""]
     return f"<b>{esc(title)}</b><br>" + "<br>".join(esc(l) for l in lines)
+
+
+# Ecart entre le HAUT du corps et le bas du nom du composant, en unites
+# d'asset. MESURE sur les 34 assets qui portent un `component-name` : 29 ont
+# leur nom a exactement 10 unites du haut du corps, en 8 px. Les 5 autres le
+# placent ailleurs (sous le corps, ou au-dessus) -- la bande du haut y est
+# donc libre, et poser les pastilles ici ne recouvre rien non plus.
+#
+# ⚠️ Pourquoi une constante et pas une mesure : seul `component-body` est
+# suffixe par l'`instance_id` au rendu (cf. `svg_component_loader`), donc
+# `boundsOnElement` ne sait pas interroger le nom d'une instance precise.
+_NAME_BAND_H = 14.0
+
+# Ecart vertical entre deux pastilles empilees.
+_BADGE_GAP = 2.0
+
+
+def _tooltip_html_items(title: str, items: list) -> str:
+    """Infobulle a PLUSIEURS points, numerotes, un par bloc.
+
+    ⚠️ Ne pas passer par `_tooltip_html` en collant les points bout a bout :
+    il replie le texte ENTIER, donc le point 2 se retrouve au milieu de la
+    derniere ligne du point 1 -- deux phrases collees se lisent comme une
+    seule, exactement ce que la numerotation vient corriger. Chaque point est
+    donc replie POUR LUI, et un saut de ligne les separe.
+    """
+    import textwrap
+
+    def esc(x: str) -> str:
+        return (x.replace("&", "&amp;").replace("<", "&lt;")
+                 .replace(">", "&gt;"))
+
+    blocs = []
+    for i, txt in enumerate(items, start=1):
+        lignes = textwrap.wrap(f"{i}. {txt}", _TOOLTIP_WRAP_CHARS) or [""]
+        blocs.append("<br>".join(esc(x) for x in lignes))
+    return f"<b>{esc(title)}</b><br>" + "<br>".join(blocs)
 
 
 def gear_menu_editable(target, base_editable: bool) -> bool:
@@ -2956,6 +3069,27 @@ class SchemaView(QGraphicsView):
                 bool(getattr(placed, "mirrored", False)),
             )
 
+        # ⚠️ **UNE seule colonne par composant, centree, sous le nom** (demande
+        # utilisateur, 2026-08-31 puis precisee le meme jour : l'engrenage
+        # devait la rejoindre). Les trois icones etaient posees par trois
+        # boucles independantes, chacune avec sa propre idee de l'endroit --
+        # engrenage en haut a gauche, attention en haut au centre, aide sous
+        # l'engrenage. Resultat : deux d'entre elles recouvraient le nom du
+        # composant, et elles ne formaient rien de lisible ensemble.
+        #
+        # `_slot` distribue les rangs DANS L'ORDRE OU LES BOUCLES TOURNENT
+        # (engrenage, puis attention, puis aide) et ne compte que ce qui est
+        # REELLEMENT pose : un composant sans avertissement n'a pas de trou au
+        # milieu de sa colonne.
+        rang_par_ref: dict[str, int] = {}
+
+        def _slot(ref: str, br) -> tuple[float, float]:
+            n = rang_par_ref.get(ref, 0)
+            rang_par_ref[ref] = n + 1
+            return (br.center().x() - _ICON_PIX_SIZE / 2,
+                    br.top() + _NAME_BAND_H + n * (_ICON_PIX_SIZE
+                                                   + _BADGE_GAP))
+
         if self._gear_action_refs:
             gear_pix = self._build_gear_pixmap()
             tip = _t("menu_gear_tooltip", lang_manager.lang)
@@ -2969,12 +3103,10 @@ class SchemaView(QGraphicsView):
                 gear = _GearActionItem(
                     ref, self, gear_pix, active=True, tooltip=tip,
                 )
-                # Top-LEFT INSIDE the visible body (the amber info stays
-                # top-center if present).
-                gear.setPos(
-                    br.left() + 2,
-                    br.top() + 2,
-                )
+                # Premier de la colonne : c'est l'icone la plus stable (tout
+                # composant corrigible en porte une), donc celle qui donne son
+                # ancrage a la pile.
+                gear.setPos(*_slot(ref, br))
                 self._gscene.addItem(gear)
                 self._gear_icon_items[ref] = gear
                 gear.setVisible(True)   # gear permanent (cf. _refresh_edit_icon)
@@ -2994,16 +3126,17 @@ class SchemaView(QGraphicsView):
                 if br is None:
                     continue
                 info = _AttentionInfoItem(ref, self, info_pix, tooltip=tip)
-                # Top-CENTER INSIDE the visible body (between the top-left
-                # gear and the right edge). For L298N (body ~150 px wide),
-                # the 2 icons of 22 px fit easily. Positions use the LOGICAL
-                # size (the pixmap itself is supersampled, cf. _ICON_SS).
-                info.setPos(
-                    br.center().x() - _ICON_PIX_SIZE / 2,
-                    br.top() + 2,
-                )
+                # Deuxieme de la colonne (ou premiere si le composant n'a pas
+                # d'engrenage). Positions en taille LOGIQUE -- le pixmap est
+                # sur-echantillonne, cf. `_ICON_SS`.
+                info.setPos(*_slot(ref, br))
                 self._gscene.addItem(info)
                 self._info_icon_items[ref] = info
+                # Les items naissent INVISIBLES (cf. leur `__init__`) et ne se
+                # montraient qu'au premier survol. Depuis qu'ils sont
+                # permanents, il faut le dire ici -- comme l'engrenage le fait
+                # deja juste au-dessus.
+                info.setVisible(True)
 
         if self._help_tooltips:
             help_pix = self._build_help_pixmap()
@@ -3017,14 +3150,14 @@ class SchemaView(QGraphicsView):
                 if br is None:
                     continue
                 help_item = _HelpInfoItem(ref, self, help_pix, tooltip=tip)
-                # Just BELOW the top-left gear (both are 22 px LOGICAL discs,
-                # supersampled): the gear sits at top+2, the "i" at top+2+22+2.
-                help_item.setPos(
-                    br.left() + 2,
-                    br.top() + 2 + _ICON_PIX_SIZE + 2,
-                )
+                # Dernier de la colonne. ⚠️ Le "i" n'existe aujourd'hui que
+                # sur les LED (rappel anode/cathode, cf.
+                # `_compute_help_tooltips`) : son absence ailleurs n'est pas
+                # un defaut de placement, il n'y a rien a dire.
+                help_item.setPos(*_slot(ref, br))
                 self._gscene.addItem(help_item)
                 self._help_icon_items[ref] = help_item
+                help_item.setVisible(True)
 
         return True
 
@@ -3114,20 +3247,26 @@ class SchemaView(QGraphicsView):
         QTimer.singleShot(80, lambda r=ref: self._refresh_edit_icon(r))
 
     def _refresh_edit_icon(self, ref: str) -> None:
-        """Le gear (engrenage) d'un composant editable est TOUJOURS visible
-        (decouvrabilite de la correction). L'info et le help restent lies au
-        hover/selection."""
-        hovered_or_selected = (self._edit_hover_counts.get(ref, 0) > 0
-                               or self._selected_ref == ref)
-        gear = self._gear_icon_items.get(ref)
-        if gear is not None:
-            gear.setVisible(True)
-        info = self._info_icon_items.get(ref)
-        if info is not None:
-            info.setVisible(hovered_or_selected)
-        help_item = self._help_icon_items.get(ref)
-        if help_item is not None:
-            help_item.setVisible(hovered_or_selected)
+        """Engrenage ET pastilles sont TOUJOURS visibles.
+
+        ⚠️ **Les pastilles etaient liees au survol** (demande utilisateur,
+        2026-08-31 : « je voudrais que toutes les pastilles restent visibles,
+        pas seulement quand j'ai la souris sur le composant »). C'etait le
+        meme raisonnement que pour l'engrenage avant qu'il ne devienne
+        permanent -- la decouvrabilite --, et il vaut ENCORE PLUS ici : un
+        avertissement qu'il faut survoler pour savoir qu'il existe ne
+        previent personne. Le schema doit dire ou l'app a devine SANS qu'on
+        le lui demande.
+
+        La methode reste appelee sur hover (le compteur sert toujours au
+        differe de 80 ms des icones cliquables) ; elle ne s'en sert
+        simplement plus pour decider de la visibilite.
+        """
+        for table in (self._gear_icon_items, self._info_icon_items,
+                      self._help_icon_items):
+            item = (table or {}).get(ref)
+            if item is not None:
+                item.setVisible(True)
 
     def on_component_clicked(self, ref: str) -> None:
         """Called by _ClickableComponentItem on left click."""
@@ -3839,8 +3978,22 @@ class WiringDiagramDialog(QDialog):
             return set()
         confrontation_refs = set(_confrontation_addressees(
             self._netlist.warnings, self._CONFRONTATION_CODES))
+        # ⚠️ **Tout warning affiche dans les instructions marque le ou les
+        # composants qu'il NOMME** (demande utilisateur, 2026-08-31). Avant,
+        # la pastille etait pilotee par une liste d'attributs et de types
+        # tenue A LA MAIN : chaque nouveau filet d'honnetete devait penser a
+        # s'y ajouter, et celui du TMC2209 UART -- pose la veille -- ne
+        # l'avait pas fait. Le panneau de droite disait << STEP et DIR ne
+        # sont pas cables >>, la boite ne disait rien.
+        #
+        # La liste ci-dessous RESTE : `_INFO_TYPES` et les attributs de filet
+        # posent une pastille meme SANS warning (nuance pedagogique du L298N,
+        # par exemple). Ce qui s'ajoute est l'autre sens -- un warning ne peut
+        # plus exister sans se voir.
+        avec_warning = self._warning_marked_refs()
         return {c.ref for c in self._netlist.components
-                if c.type in self._INFO_TYPES
+                if c.ref in avec_warning
+                or c.type in self._INFO_TYPES
                 or c.attributes.get("unrecognized")
                 or c.attributes.get("unwired_pins")
                 # Les deux autres filets d'honnêteté du détecteur. Sans eux,
@@ -3863,6 +4016,49 @@ class WiringDiagramDialog(QDialog):
                 # pastille en gagnait une, portant la phrase de la fiche.
                 or c.ref in confrontation_refs}
 
+    # ⛔ La resistance serie ou de tirage n'a PAS de pastille a elle. C'est un
+    # passif implicite de son composant parent -- elle n'a deja ni engrenage ni
+    # menu (`_compute_gear_refs`), et `led_series_resistor` la nomme en
+    # SECONDE ref precisement parce que le message parle de la LED. Lui poser
+    # une pastille doublerait chaque avertissement de LED a l'ecran.
+    _NO_BADGE_TYPES = ("resistor",)
+
+    def _warnings_by_ref(self) -> dict:
+        """{ref : [warnings qui le nomment]}, dans l'ordre d'affichage.
+
+        Les codes de CONFRONTATION n'y entrent que par leur ref
+        DESTINATAIRE (cf. `_confrontation_addressees`) : leur message est
+        redige du point de vue de la fiche, et l'adverse n'a pas a porter une
+        phrase qui ne lui parle pas. Ils passent DEVANT, meme regle qu'avant.
+        """
+        if self._netlist is None:
+            return {}
+        sans_pastille = {c.ref for c in self._netlist.components
+                         if c.type in self._NO_BADGE_TYPES}
+        warnings = list(getattr(self._netlist, "warnings", []) or [])
+        par_ref: dict[str, list] = {}
+
+        def _ajouter(ref: str, w) -> None:
+            if not ref or ref in sans_pastille:
+                return
+            lot = par_ref.setdefault(ref, [])
+            if w not in lot:
+                lot.append(w)
+
+        for ref, w in _confrontation_addressees(
+                warnings, self._CONFRONTATION_CODES).items():
+            _ajouter(ref, w)
+        for w in warnings:
+            if getattr(w, "code", None) in self._CONFRONTATION_CODES:
+                continue
+            for ref in (getattr(w, "refs", None) or []):
+                _ajouter(ref, w)
+        return par_ref
+
+    def _warning_marked_refs(self) -> set:
+        """Refs nommees par au moins un warning affiche."""
+        return set(self._warnings_by_ref())
+
     def _compute_info_tooltips(self, info_refs: set) -> dict[str, str]:
         """{ref: texte d'infobulle} pour la puce d'attention.
 
@@ -3880,15 +4076,40 @@ class WiringDiagramDialog(QDialog):
                                 _t("info_attention_tooltip", lang))
         by_ref: dict[str, str] = {}
 
-        def _put(ref: str, w) -> None:
-            txt = _render_warning_message(w, lang)
-            if txt:
-                # Les gabarits de warning portent du gras markdown ; une
-                # infobulle Qt l'afficherait tel quel.
+        def _texte(w) -> str:
+            # Les gabarits de warning portent du gras markdown ; une
+            # infobulle Qt l'afficherait tel quel.
+            return _render_warning_message(w, lang).replace("**", "")
+
+        for ref, lot in self._warnings_by_ref().items():
+            textes = [(w, _texte(w)) for w in lot]
+            textes = [(w, t) for w, t in textes if t]
+            if not textes:
+                continue
+            if len(textes) == 1:
+                w, txt = textes[0]
                 by_ref[ref] = _tooltip_html(
                     _t(_INFO_TITLE_BY_CODE.get(w.code,
                                                "info_title_generic"), lang),
-                    txt.replace("**", ""))
+                    txt)
+                continue
+            # PLUSIEURS points sur le meme composant : on les NUMEROTE
+            # (demande utilisateur, 2026-08-31). Sans numero, deux phrases
+            # collees se lisent comme une seule, et le survol perdait
+            # justement l'information qu'il y en avait deux. Le titre devient
+            # un compte -- un seul des titres par code serait un choix
+            # arbitraire, et mentirait sur ce que la pastille porte.
+            by_ref[ref] = _tooltip_html_items(
+                _t("info_title_several", lang).format(n=len(textes)),
+                [t for _w, t in textes])
+
+        def _put(ref: str, w) -> None:
+            txt = _texte(w)
+            if txt:
+                by_ref[ref] = _tooltip_html(
+                    _t(_INFO_TITLE_BY_CODE.get(w.code,
+                                               "info_title_generic"), lang),
+                    txt)
 
         # PASSE 1 — les codes de CONFRONTATION passent devant (revue finale du
         # TODO #45). La règle « premier warning par ref » de la passe 2 est
@@ -3916,10 +4137,15 @@ class WiringDiagramDialog(QDialog):
         # plus critique POUR L'INFOBULLE entre confrontation et réassurance
         # (il continue de porter l'ordre des lignes du panneau
         # d'instructions, et de départager deux confrontations entre elles).
+        # ⚠️ Les deux passes ci-dessous sont desormais un REPLI : l'agregation
+        # ci-dessus a deja servi toute ref nommee par un warning. Elles ne
+        # peuvent plus rien changer pour celles-la (`ref in by_ref` les
+        # protege), et restent pour les refs qui n'ont AUCUN warning.
         for ref, w in _confrontation_addressees(
                 getattr(self._netlist, "warnings", []),
                 self._CONFRONTATION_CODES).items():
-            _put(ref, w)
+            if ref not in by_ref:
+                _put(ref, w)
 
         # PASSE 2 — le reste, premier warning par ref comme avant. Les codes
         # de confrontation en sont EXCLUS : leur seul destinataire légitime
@@ -4036,37 +4262,35 @@ class WiringDiagramDialog(QDialog):
         from PyQt6.QtWidgets import QMessageBox
         from .instructions import _render_warning_message
         lang = lang_manager.lang
-        # MEME PRIORITE QU'A L'INFOBULLE (`_compute_info_tooltips`) : les
-        # codes de confrontation passent devant la regle « premier warning
-        # par ref », qui depend de l'ordre d'emission de TOUTE la netlist et
-        # pas seulement du notre. Sans ca, survol et clic se CONTREDISENT sur
-        # le meme composant -- mesure de la revue finale du #45 sur deux
-        # fiches declarees : le survol dit la contradiction, le clic
-        # ressortait « Pin  utilisee par plusieurs composants : U1, U1... »,
-        # le `pin_double_use` calcule sur les nets VIDES des placeholders,
-        # avant que la declaration ne s'applique.
-        priority = _confrontation_addressees(
-            getattr(self._netlist, "warnings", []),
-            self._CONFRONTATION_CODES).get(ref)
-        codes = self._CONFRONTATION_CODES
-        ordered = [w for w in getattr(self._netlist, "warnings", [])
-                   if getattr(w, "code", None) not in codes]
-        if priority is not None:
-            ordered.insert(0, priority)
-        for w in ordered:
-            if ref not in (getattr(w, "refs", None) or []):
-                continue
-            txt = _render_warning_message(w, lang)
-            if not txt:
-                continue
-            QMessageBox.information(
-                self,
-                _t(_INFO_TITLE_BY_CODE.get(w.code, "info_title_generic"), lang),
-                # Les gabarits portent du gras markdown, qu'une QMessageBox
-                # afficherait tel quel (même raison que dans l'infobulle).
-                txt.replace("**", ""),
-            )
+        # ⚠️ **UNE SEULE SOURCE avec l'infobulle**, et c'est la lecon de deux
+        # divergences payees. La premiere (#45) : le survol disait la
+        # contradiction, le clic ressortait un `pin_double_use` perime -- les
+        # deux avaient leur propre regle de priorite. La seconde, relevee en
+        # QA le 2026-08-31 : depuis que le survol AGREGE tous les points, le
+        # clic n'en montrait toujours qu'UN. Le survol annoncait « 2 points
+        # d'attention », le clic en cachait la moitie.
+        #
+        # Les deux lisent donc `_warnings_by_ref`, qui porte l'ordre ET la
+        # priorite des codes de confrontation. Recopier la regle une
+        # troisieme fois la ferait diverger une troisieme fois.
+        lot = self._warnings_by_ref().get(ref) or []
+        textes = [t for t in (_render_warning_message(w, lang).replace("**",
+                                                                      "")
+                              for w in lot) if t]
+        if not textes:
             return
+        if len(textes) == 1:
+            titre = _t(_INFO_TITLE_BY_CODE.get(lot[0].code,
+                                               "info_title_generic"), lang)
+            corps = textes[0]
+        else:
+            titre = _t("info_title_several", lang).format(n=len(textes))
+            # Une ligne vide entre les points : la QMessageBox ne replie pas
+            # comme l'infobulle, deux paragraphes colles s'y liraient encore
+            # moins bien.
+            corps = "\n\n".join(f"{i}. {t}"
+                                 for i, t in enumerate(textes, start=1))
+        QMessageBox.information(self, titre, corps)
 
     def _on_gear_clicked(self, ref: str) -> None:
         """Gear click: opens a dropdown menu listing the component's
@@ -4173,9 +4397,10 @@ class WiringDiagramDialog(QDialog):
             dlg = _Ds18b20PullupDialog(
                 self, ref=ref, current_value=str(act.value or "4.7k"),
             )
-        elif act.id == "a4988_microstepping":
-            dlg = _A4988MicrosteppingDialog(
+        elif act.id == "stepper_microstepping":
+            dlg = _MicrosteppingDialog(
                 self, ref=ref, current_value=str(act.value or "full"),
+                driver_type=target.type,
             )
         else:
             return
@@ -5412,10 +5637,11 @@ class _BuzzerSeriesValueDialog(QDialog):
 
 
 # ─── A4988: microstepping (5-mode selector) ───────────────────────────
-class _A4988MicrosteppingDialog(QDialog):
-    """Level 3 modal: choice of the A4988 driver's microstepping mode.
+class _MicrosteppingDialog(QDialog):
+    """Level 3 modal: choice of the stepper driver's microstepping mode
+    (A4988 or DRV8825 — the truth table follows the driver, TODO #87).
 
-    The microstepping is defined by the A4988's MS1, MS2, MS3 pins: each
+    The microstepping is defined by the driver's MS1, MS2, MS3 pins: each
     wired to GND or 5V (logic VDD). It is the equivalent of the physical
     jumpers on the Pololu/clone breakout — the modal GENERATES the
     corresponding wiring on the diagram (3 MS wires -> GND/5V) according
@@ -5424,19 +5650,43 @@ class _A4988MicrosteppingDialog(QDialog):
     The mode IS NOT driven by the Arduino code: the AccelStepper lib only
     touches STEP and DIR. To change the mode you must modify the wiring
     (= come back to this modal, not reflash).
-    """
-    _CHOICES = [
-        ("full", "a4988_microstep_choice_full"),
-        ("1/2",  "a4988_microstep_choice_half"),
-        ("1/4",  "a4988_microstep_choice_quarter"),
-        ("1/8",  "a4988_microstep_choice_eighth"),
-        ("1/16", "a4988_microstep_choice_sixteenth"),
-    ]
 
-    def __init__(self, parent, *, ref: str, current_value: str):
+    ⚠️ The two drivers do NOT share a table: MS1=MS2=MS3=HIGH is 1/16 on an
+    A4988 and 1/32 on a DRV8825 (Pololu, verbatim) — same wiring, different
+    travelled distance, and no compilation will ever flag it. Showing the
+    right choices per driver is the whole point of this parametrization.
+    """
+    _CHOICES_BY_DRIVER = {
+        "a4988": [
+            ("full", "a4988_microstep_choice_full"),
+            ("1/2",  "a4988_microstep_choice_half"),
+            ("1/4",  "a4988_microstep_choice_quarter"),
+            ("1/8",  "a4988_microstep_choice_eighth"),
+            ("1/16", "a4988_microstep_choice_sixteenth"),
+        ],
+        "drv8825": [
+            ("full", "a4988_microstep_choice_full"),
+            ("1/2",  "a4988_microstep_choice_half"),
+            ("1/4",  "a4988_microstep_choice_quarter"),
+            ("1/8",  "a4988_microstep_choice_eighth"),
+            ("1/16", "drv8825_microstep_choice_sixteenth"),
+            ("1/32", "drv8825_microstep_choice_thirtysecond"),
+        ],
+    }
+    _TITLE_KEY = {"a4988": "a4988_microstep_title",
+                  "drv8825": "drv8825_microstep_title"}
+    _TABLE_KEY = {"a4988": "a4988_microstep_table_body",
+                  "drv8825": "drv8825_microstep_table_body"}
+
+    def __init__(self, parent, *, ref: str, current_value: str,
+                 driver_type: str = "a4988"):
         super().__init__(parent)
         lang = lang_manager.lang
-        self.setWindowTitle(_t("a4988_microstep_title", lang).format(ref=ref))
+        drv = driver_type if driver_type in self._CHOICES_BY_DRIVER \
+            else "a4988"
+        self._CHOICES = self._CHOICES_BY_DRIVER[drv]
+        self.setWindowTitle(
+            _t(self._TITLE_KEY[drv], lang).format(ref=ref))
         self.setModal(True)
         self.setMinimumSize(620, 560)
         self.chosen_value: str = current_value
@@ -5452,7 +5702,7 @@ class _A4988MicrosteppingDialog(QDialog):
 
         root.addSpacing(8)
         root.addWidget(QLabel(_t("a4988_microstep_table_title", lang)))
-        truth = QLabel(_t("a4988_microstep_table_body", lang))
+        truth = QLabel(_t(self._TABLE_KEY[drv], lang))
         truth.setTextFormat(Qt.TextFormat.RichText)
         root.addWidget(truth)
 

@@ -157,9 +157,19 @@ def test_the_ambiguity_sheet_no_longer_targets_a_bare_scrollarea():
     feuille = dlg.styleSheet()
     assert "QScrollArea#ambiguityScroll" in feuille, \
         "la regle n'est plus restreinte au panneau de cette modale"
+    # L'invariant est « TOUTE regle QScrollArea est restreinte par un
+    # objectName », pas « il en existe une nommee ambiguityScroll ». La
+    # premiere redaction codait ce nom en dur et refusait donc un SECOND
+    # panneau correctement restreint (le rail des decisions, TODO #73) tout
+    # en laissant passer... rien de plus : elle attrapait deja le type nu.
+    # Elargie ici a sa vraie forme, elle couvre les deux panneaux et tous
+    # ceux qui viendront.
     for ligne in feuille.splitlines():
         nu = ligne.strip()
-        if nu.startswith("QScrollArea") and "#ambiguityScroll" not in nu:
+        if not nu.startswith("QScrollArea"):
+            continue
+        selecteur = nu.split("{")[0].strip()
+        if "#" not in selecteur:
             raise AssertionError(
                 f"regle sur le type nu QScrollArea, elle s'echappera : {nu!r}")
 

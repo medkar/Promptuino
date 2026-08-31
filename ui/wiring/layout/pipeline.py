@@ -83,7 +83,9 @@ def _netlist_v1_to_dicts(netlist: _V1Netlist) -> list[dict]:
 
 def analyze_netlist(code: str, board_id: str,
                         prompt: str = "", context: str = "",
-                        prompts_by_fn: dict | None = None) -> _V1Netlist:
+                        prompts_by_fn: dict | None = None,
+                        suppressed_headers: frozenset[str] = frozenset()
+                        ) -> _V1Netlist:
     """Step 1: parse code (+ prompt + context + prompts_by_fn) -> Netlist
     v1 (with ambiguous components marked `_confidence: low` in their
     attributes).
@@ -94,7 +96,8 @@ def analyze_netlist(code: str, board_id: str,
     """
     return _v1_pipeline.generate_wiring(code, board_id,
                                          prompt=prompt, context=context,
-                                         prompts_by_fn=prompts_by_fn)
+                                         prompts_by_fn=prompts_by_fn,
+                                         suppressed_headers=suppressed_headers)
 
 
 def _build_scene_wires_svg_md(netlist, board_id, theme, mode, lang):

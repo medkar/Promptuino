@@ -15,7 +15,7 @@ ne se voit qu'en construisant reellement le dialogue.
 3 classes creusees en profondeur (choisies pour la richesse de leur texte,
 cf consigne de la tache) :
   - _LedSeriesValueDialog     : _CHOICES-driven (6 radios), formule loi d'Ohm
-  - _A4988MicrosteppingDialog : _CHOICES-driven (5 radios) + table HTML
+  - _MicrosteppingDialog : _CHOICES-driven (5 radios) + table HTML
   - _L298nJumperInfoDialog    : la plus grosse des 10 -- 2 colonnes, photo
     fallback, ET 4 branches de texte selon PWM detecte (ENA/ENB/les
     deux/aucun) -- seule classe dont le texte affiche depend d'une entree
@@ -97,15 +97,15 @@ def test_led_series_dialog_choices_differ_fr_it():
 
 
 # ---------------------------------------------------------------------------
-# _A4988MicrosteppingDialog
+# _MicrosteppingDialog
 # ---------------------------------------------------------------------------
 
 def test_a4988_microstep_dialog_title_and_table_differ_fr_it():
     from PyQt6.QtWidgets import QLabel
     lang_manager.set_language("fr")
-    dlg_fr = wdd._A4988MicrosteppingDialog(None, ref="U1", current_value="1/4")
+    dlg_fr = wdd._MicrosteppingDialog(None, ref="U1", current_value="1/4")
     lang_manager.set_language("it")
-    dlg_it = wdd._A4988MicrosteppingDialog(None, ref="U1", current_value="1/4")
+    dlg_it = wdd._MicrosteppingDialog(None, ref="U1", current_value="1/4")
 
     assert dlg_fr.windowTitle() != dlg_it.windowTitle()
     assert "U1" in dlg_fr.windowTitle() and "U1" in dlg_it.windowTitle()
@@ -123,9 +123,9 @@ def test_a4988_microstep_dialog_title_and_table_differ_fr_it():
 def test_a4988_microstep_dialog_choices_differ_fr_it():
     from PyQt6.QtWidgets import QRadioButton
     lang_manager.set_language("fr")
-    dlg_fr = wdd._A4988MicrosteppingDialog(None, ref="U1", current_value="1/4")
+    dlg_fr = wdd._MicrosteppingDialog(None, ref="U1", current_value="1/4")
     lang_manager.set_language("it")
-    dlg_it = wdd._A4988MicrosteppingDialog(None, ref="U1", current_value="1/4")
+    dlg_it = wdd._MicrosteppingDialog(None, ref="U1", current_value="1/4")
 
     radios_fr = {r.text() for r in dlg_fr.findChildren(QRadioButton)}
     radios_it = {r.text() for r in dlg_it.findChildren(QRadioButton)}
@@ -244,7 +244,7 @@ def _all_ten_factories():
             None, ref="U3"),
         "_BuzzerSeriesValueDialog": lambda: wdd._BuzzerSeriesValueDialog(
             None, ref="BZ1", current_value="100"),
-        "_A4988MicrosteppingDialog": lambda: wdd._A4988MicrosteppingDialog(
+        "_MicrosteppingDialog": lambda: wdd._MicrosteppingDialog(
             None, ref="U4", current_value="1/4"),
     }
 

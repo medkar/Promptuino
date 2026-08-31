@@ -29,7 +29,12 @@ class _StubRegionBackend:
         self.calls = []
         self.errors_seen = []
 
-    def repair_region(self, region, errors, language, board_name):
+    def repair_region(self, region, errors, language, board_name,
+                      api_context=""):
+        # `api_context` (2026-08-31) : les fenetres recoivent l'API des libs
+        # du fichier -- sans ce parametre, l'appel reel tombait dans le
+        # `except Exception: continue` de l'appelant et le stub ne voyait
+        # RIEN, ce qui faisait rougir ces tests sur une TypeError muette.
         self.calls.append(region)
         self.errors_seen.append(errors)
         return self.mapping.get(region, region)

@@ -2221,10 +2221,8 @@
   {
     "id": "sparkfun-tb6612",
     "name": "SparkFun TB6612FNG",
-    "arduino_lib_name": "SparkFun TB6612FNG Motor Driver Library",
-    "headers": [
-      "SparkFun_TB6612.h"
-    ],
+    "arduino_lib_name": null,
+    "headers": [],
     "author": "SparkFun",
     "github": "https://github.com/sparkfun/SparkFun_TB6612FNG_Arduino_Library",
     "category": "Motor Driver Module",
@@ -2255,17 +2253,9 @@
       "robot suiveur",
       "robot equilibrio"
     ],
-    "example_code": "#include <SparkFun_TB6612.h>\n\n#define AIN1 2\n#define BIN1 7\n#define AIN2 4\n#define BIN2 8\n#define PWMA 5\n#define PWMB 6\n#define STBY 9\n\nconst int offsetA = 1;\nconst int offsetB = 1;\n\nMotor motor1 = Motor(AIN1, AIN2, PWMA, offsetA, STBY);\nMotor motor2 = Motor(BIN1, BIN2, PWMB, offsetB, STBY);\n\nvoid setup() {}\n\nvoid loop() {\n  motor1.drive(255, 1000);   // forward 1s\n  motor2.drive(255, 1000);\n  motor1.drive(-255, 1000);  // reverse 1s\n  motor2.drive(-255, 1000);\n  motor1.brake();\n  motor2.brake();\n  delay(1000);\n}",
-    "example_code_alt": "// Use the convenience helpers to drive both motors together.\n#include <SparkFun_TB6612.h>\nMotor motor1 = Motor(2, 4, 5, 1, 9);\nMotor motor2 = Motor(7, 8, 6, 1, 9);\n\nvoid setup() {}\nvoid loop() {\n  forward(motor1, motor2, 200);\n  delay(1000);\n  back(motor1, motor2, 200);\n  delay(1000);\n  brake(motor1, motor2);\n  delay(1000);\n}",
-    "api_signatures": {
-      "Motor": [
-        "Motor(int In1pin, int In2pin, int PWMpin, int offset, int STBYpin)",
-        "void drive(int speed)",
-        "void drive(int speed, int duration)",
-        "void brake()",
-        "void standby()"
-      ]
-    }
+    "example_code": "// TB6612FNG : aucune bibliotheque a installer, on pilote les broches.\n#define AIN1 2\n#define AIN2 4\n#define PWMA 5\n#define BIN1 7\n#define BIN2 8\n#define PWMB 6\n#define STBY 9\n\nvoid setup() {\n  pinMode(AIN1, OUTPUT); pinMode(AIN2, OUTPUT); pinMode(PWMA, OUTPUT);\n  pinMode(BIN1, OUTPUT); pinMode(BIN2, OUTPUT); pinMode(PWMB, OUTPUT);\n  pinMode(STBY, OUTPUT);\n  digitalWrite(STBY, HIGH);   // sortir du mode veille\n}\n\nvoid avancer(int vitesse) {\n  digitalWrite(AIN1, HIGH); digitalWrite(AIN2, LOW);\n  analogWrite(PWMA, vitesse);\n  digitalWrite(BIN1, HIGH); digitalWrite(BIN2, LOW);\n  analogWrite(PWMB, vitesse);\n}\n\nvoid arreter() {\n  analogWrite(PWMA, 0);\n  analogWrite(PWMB, 0);\n}\n\nvoid loop() {\n  avancer(200);\n  delay(1000);\n  arreter();\n  delay(1000);\n}\n",
+    "example_code_alt": "// Un seul moteur, avec marche arriere.\n#define AIN1 2\n#define AIN2 4\n#define PWMA 5\n#define STBY 9\n\nvoid setup() {\n  pinMode(AIN1, OUTPUT); pinMode(AIN2, OUTPUT);\n  pinMode(PWMA, OUTPUT); pinMode(STBY, OUTPUT);\n  digitalWrite(STBY, HIGH);\n}\n\nvoid loop() {\n  digitalWrite(AIN1, HIGH); digitalWrite(AIN2, LOW);\n  analogWrite(PWMA, 200);\n  delay(1000);\n  digitalWrite(AIN1, LOW); digitalWrite(AIN2, HIGH);\n  analogWrite(PWMA, 200);\n  delay(1000);\n  analogWrite(PWMA, 0);\n  delay(1000);\n}\n",
+    "api_signatures": {}
   },
   {
     "id": "l298n",
@@ -2853,7 +2843,7 @@
   {
     "id": "adafruit-ina3221",
     "name": "Adafruit INA3221",
-    "arduino_lib_name": "Adafruit INA3221",
+    "arduino_lib_name": "Adafruit INA3221 Library",
     "headers": [
       "Adafruit_INA3221.h"
     ],
@@ -3248,7 +3238,7 @@
     "github": "https://github.com/adafruit/MAX6675-library"
   },
   {
-    "id": "mcp9808", "name": "MCP9808 high-accuracy temperature sensor (I2C)", "arduino_lib_name": "Adafruit MCP9808",
+    "id": "mcp9808", "name": "MCP9808 high-accuracy temperature sensor (I2C)", "arduino_lib_name": "Adafruit MCP9808 Library",
     "author": "Adafruit", "boards": ["arduino", "esp32", "esp8266", "stm32"],
     "category": "Sensors", "headers": ["Adafruit_MCP9808.h"],
     "keywords": ["mcp9808", "capteur de temperature precis", "temperature haute precision", "precision temperature sensor", "sensor de temperatura preciso", "sensore di temperatura preciso"],
@@ -3475,7 +3465,7 @@
     "api_signatures": {}
   },
   {
-    "id": "grove-i2c-motor-driver", "name": "Grove - I2C Motor Driver (L298)", "arduino_lib_name": "Grove I2C Motor Driver",
+    "id": "grove-i2c-motor-driver", "name": "Grove - I2C Motor Driver (L298)", "arduino_lib_name": "Grove I2C Motor Driver v1.3",
     "author": "Seeed Studio", "boards": ["arduino", "esp32", "esp8266", "stm32"],
     "category": "Motor Driver Module", "headers": ["Grove_I2C_Motor_Driver.h"],
     "keywords": ["grove i2c motor driver", "grove motor", "seeed motor driver", "i2c motor driver", "i2c motor", "moteur i2c", "moteur en i2c", "driver moteur i2c", "moteur dc i2c", "motor i2c", "motore i2c", "L298 i2c", "grove base shield motor", "0x0F"],

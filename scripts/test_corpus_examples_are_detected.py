@@ -107,6 +107,20 @@ UNDETECTED_EXAMPLES: dict[str, str] = {
     "dc_motor":                "code seul : LED. Resolu des que le prompt nomme "
                                "le driver — ambiguite voulue, pas une lacune",
     "l293d":                   "idem dc_motor",
+    # ⚠️ `sparkfun-tb6612` A REJOINT CETTE LISTE le 2026-08-29, et ce n'est
+    # pas une regression du detecteur : c'est son exemple qui a change. Il
+    # utilisait `#include <SparkFun_TB6612.h>`, donc une signature -- mais
+    # cette bibliotheque N'EXISTE PAS au Library Manager (aucune des 9 894
+    # entrees de l'index ne fournit cet en-tete), si bien que toute
+    # generation qui la retenait echouait a la compilation. L'exemple est
+    # passe aux broches nues, qui est la VRAIE facon de piloter un TB6612 --
+    # et la facon dont l'app le cable deja. Le code seul redevient donc
+    # indecidable, exactement comme `dc_motor` et `l293d` juste au-dessus :
+    # c'est le PROMPT qui nomme le driver, et la modale de cablage qui
+    # tranche.
+    "sparkfun-tb6612":         "code seul : LED. Depuis 2026-08-29 l'exemple "
+                               "n'a plus de bibliotheque (elle n'existe pas au "
+                               "registre) — meme ambiguite VOULUE que dc_motor",
     "drv8833":                 "mode « in-in » : deux broches PWM, aucune broche "
                                "de direction — le groupement ne s'applique pas. "
                                "C'est le TODO #9, deja ouvert pour lui-meme",
@@ -275,9 +289,25 @@ def test_the_debt_stays_bounded():
     PAS ici. Leur exemple ecrit `#define MQ137_PIN A0`, le detecteur lit ce
     numero, et ils sont reconnus par le code seul. La difference tient a ce
     que le code montre, jamais a l'origine du lot.
+
+    11 -> 12 le 2026-08-29, pour `sparkfun-tb6612`, et la justification ne
+    porte PAS sur le detecteur : c'est l'EXEMPLE qui a change.
+
+    Son code utilisait `#include <SparkFun_TB6612.h>`, donc une signature
+    unique -- mais cette bibliotheque n'existe pas au Library Manager (verifie
+    : aucune des 9 894 entrees de l'index ne la fournit), si bien que toute
+    generation qui la retenait echouait a la compilation sur `Missing
+    library`. L'exemple est passe aux BROCHES NUES, qui est la vraie facon de
+    piloter un TB6612FNG et celle que le schema de l'app cable deja.
+
+    Le code seul redevient donc indecidable -- exactement comme `dc_motor` et
+    `l293d` : PWM + broches de direction, sans rien qui nomme la puce. C'est
+    l'ambiguite VOULUE que la modale de cablage tranche, pas un trou. La dette
+    monte d'une unite et l'app cesse de promettre une bibliotheque
+    inutilisable : le troc est bon.
     """
     total = sum(1 for _ in _wireable_entries())
-    assert len(UNDETECTED_EXAMPLES) <= 11, len(UNDETECTED_EXAMPLES)
+    assert len(UNDETECTED_EXAMPLES) <= 12, len(UNDETECTED_EXAMPLES)
     assert total >= 82, f"le corpus a maigri ? {total}"
 
 

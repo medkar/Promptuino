@@ -164,9 +164,12 @@ _FAKE_LIB = {
 
 @contextlib.contextmanager
 def _retrieval_returns(libs):
-    """Remplace `rag.retrieve_libs` le temps d'un appel."""
+    """Remplace `rag.retrieve_libs` le temps d'un appel. Le stub accepte les
+    memes parametres nommes que la vraie fonction (**kw : banned_ids de #85,
+    et les suivants) — sinon l'appel echoue en silence dans le try/except de
+    `_build_lib_context` et le test mesure un contexte vide, pas le defaut."""
     original = rag.retrieve_libs
-    rag.retrieve_libs = lambda prompt, k=3, threshold=None: list(libs)
+    rag.retrieve_libs = lambda prompt, k=3, threshold=None, **kw: list(libs)
     try:
         yield
     finally:

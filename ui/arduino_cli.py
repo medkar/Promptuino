@@ -532,6 +532,19 @@ def line_anchored_repair(code: str, error_text: str, backend,
     error_lines = _parse_error_lines(error_text)
     if not error_lines:
         return None
+    # ⚠️ Le bloc d'API se calcule ICI, sur le code COMPLET : la fenetre
+    # envoyee au modele ne contient jamais les `#include`, donc le reparateur
+    # cible — le PREMIER de la chaine, celui qui traite les erreurs a ligne
+    # connue comme une mauvaise arite (`motor2.forward(2000)`) — reparait a
+    # l'aveugle (QA AB2 bis du #82, 2026-08-31 : « restored » pendant que
+    # l'injection du fallback fichier-entier attendait un tour qui ne venait
+    # pas). Calcule UNE fois, servi a chaque fenetre. Garde : une erreur du
+    # RAG degrade vers l'ancien prompt, jamais vers un crash du filet.
+    try:
+        from .rag import api_context_for_code
+        api_ctx = api_context_for_code(code)
+    except Exception:
+        api_ctx = ""
     code_lines = code.split("\n")
     windows = _merge_windows(error_lines, len(code_lines))[:_MAX_REPAIR_WINDOWS]
     if not windows:
@@ -551,7 +564,8 @@ def line_anchored_repair(code: str, error_text: str, backend,
             l for l in err_lines
             if any(s <= n <= e for n in _parse_error_lines(l))) or all_errs
         try:
-            corrected = backend.repair_region(region, win_errs, language, board_name)
+            corrected = backend.repair_region(region, win_errs, language,
+                                              board_name, api_context=api_ctx)
         except Exception:
             continue
         corrected = (corrected or "").rstrip("\n")

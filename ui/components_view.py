@@ -387,7 +387,22 @@ class ComponentsView(QWidget):
         self._search_timer.setInterval(SEARCH_DEBOUNCE_MS)
         self._search_timer.timeout.connect(self._render)
 
-        self.refresh()
+        # ⛔ PAS de `refresh()` ici, et ce n'est pas un oubli.
+        #
+        # Cette grille construit UNE CARD PAR COMPOSANT du registre : mesuré
+        # le 2026-08-29, 1943 objets Qt sur les 2841 de la fenêtre principale
+        # — 68 % de l'arbre — pour un onglet que l'utilisateur n'a peut-être
+        # jamais ouvert. Et le prix ne se payait pas qu'au démarrage : tout
+        # changement de thème fait re-polir l'arbre ENTIER par Qt, y compris
+        # ces widgets invisibles. Mesuré : une bascule de thème coûtait
+        # ~1,7 s, dont ~1 s pour le seul `app.setStyleSheet` — un appel dont
+        # le coût suit le nombre de widgets et PAS le contenu de la feuille
+        # (une feuille vide coûtait pareil).
+        #
+        # Rien n'est perdu : `main_window._switch_tab` appelle déjà
+        # `refresh()` à l'activation de l'onglet, et `showEvent` ci-dessous
+        # rattrape tout chemin qui l'atteindrait autrement.
+        self._rendered = False
 
     # ── Construction ─────────────────────────────────────────────
     def _build(self):
@@ -459,6 +474,17 @@ class ComponentsView(QWidget):
         root.addWidget(self._scroll, stretch=1)
 
     # ── Public API ───────────────────────────────────────────────
+    def showEvent(self, event):
+        """Premier affichage = premier rendu.
+
+        Filet volontairement large : `_switch_tab` appelle deja `refresh()` a
+        l'activation, mais se reposer sur ce seul chemin ferait dependre
+        l'affichage d'un appelant. `_rendered` garantit qu'un seul des deux
+        rend, jamais les deux."""
+        super().showEvent(event)
+        if not self._rendered:
+            self.refresh()
+
     def refresh(self):
         """Rebuild the index (declared + corpus + wiring) and re-render.
 
@@ -470,6 +496,7 @@ class ComponentsView(QWidget):
         every language change since this view is connected to
         `lang_manager.changed` via `apply_lang`."""
         self._components = build_index(lang_manager.lang)
+        self._rendered = True
         self._render()
 
     # ── Slots / interaction ──────────────────────────────────────

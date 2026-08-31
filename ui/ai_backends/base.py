@@ -400,14 +400,25 @@ class AIBackend(ABC):
         pass
 
     def repair_region(self, region: str, errors: str, language: str,
-                      board_name: str) -> str:
+                      board_name: str, api_context: str = "") -> str:
         """Fix a SMALL region (a few lines around a compiler
         error) and return ONLY those corrected lines.
 
         Generic default: delegates to `repair_code`, treating the region as
         a mini-file. The local backends (Ollama) override with a
         lightweight prompt — on an SLM, fixing 5 flagged lines is trivial where
-        rewriting the whole file fails."""
+        rewriting the whole file fails.
+
+        ``api_context`` (QA AB2 bis du #82, 2026-08-31) : les blocs d'API des
+        libs que le FICHIER inclut, calcules par l'appelant
+        (`line_anchored_repair`) sur le code COMPLET. La fenetre, elle, ne
+        contient jamais les `#include` : ce reparateur — le PREMIER de la
+        chaine, celui qui traite les erreurs a ligne connue comme une
+        mauvaise arite — reparait a l'aveugle, et c'est lui qui echouait sur
+        `motor2.forward(2000)` pendant que l'injection du fallback (B)
+        attendait un tour qui ne venait pas."""
+        if api_context:
+            errors = f"{errors}\n\n{api_context}"
         code, _ = self.repair_code(region, errors, language, board_name)
         return code
 
@@ -423,9 +434,22 @@ class AIBackend(ABC):
             f"explanation, no extra line before or after."
         )
 
-    def _build_repair_region_user(self, region: str, errors: str) -> str:
+    def _build_repair_region_user(self, region: str, errors: str,
+                                  api_context: str = "") -> str:
+        # Le bloc d'API vient de l'appelant (cf. `repair_region`) : la
+        # fenetre n'a pas les `#include`, elle ne peut pas le calculer
+        # elle-meme. L'exception est la meme que pour les deux autres etages :
+        # sans elle, « fix exactly what the compiler flags » et le biais du
+        # modele suffisent a re-deviner une signature.
+        bloc = (
+            f"{api_context}\n"
+            f"If the fix involves a library call, the signatures above win — "
+            f"replacing a rejected call with the correct listed method IS "
+            f"the fix.\n\n"
+        ) if api_context else ""
         return (
             f"Compiler error(s):\n{errors}\n\n"
+            f"{bloc}"
             f"Code lines to fix:\n{region}\n\n"
             f"Return ONLY these lines, corrected."
         )
@@ -451,12 +475,35 @@ class AIBackend(ABC):
             f"rewrite or restructure working code; do NOT invent new functions, "
             f"variables, libraries or APIs that are not already present in the "
             f"code. Keep the program identical except for the failing part.\n"
+            # Sans cette phrase, la consigne ci-dessus (« pas d'API absente du
+            # code ») CONTREDIT le bloc d'API injecte par
+            # `_build_fix_user_message` : la bonne reparation de
+            # `forward(2000)` est d'appeler `forwardFor(2000)` -- une methode
+            # de la lib qui n'est PAS dans le code. Meme classe de conflit de
+            # consignes que le bloc MOTOR vs la lib injectee (QA AB2),
+            # harmonisee d'emblee plutot que decouverte au banc suivant.
+            f"Exception: if an authoritative API block is provided below, ITS "
+            f"signatures win — replacing a rejected call with the correct "
+            f"method listed there IS the minimal fix.\n"
             f"Reply with the full source code ONLY — no markdown fences, no explanations."
         )
 
     def _build_fix_user_message(self, code: str, error: str) -> str:
+        # Meme injection que `_build_repair_code_system`, et pour la meme
+        # raison (QA AB2 bis du #82) : `fix_code` est le PREMIER essai de
+        # reparation -- le laisser aveugle a l'API pendant que le second la
+        # recoit reviendrait a griller l'essai le moins couteux. Partage par
+        # les trois backends (ollama / openai_compat / claude_code), qui
+        # composent tous leur message utilisateur ici.
+        try:
+            from ..rag import api_context_for_code
+            api_ctx = api_context_for_code(code)
+        except Exception:
+            api_ctx = ""
+        bloc_api = f"{api_ctx}\n\n" if api_ctx else ""
         return (
             f"Compilation error:\n{error}\n\n"
+            f"{bloc_api}"
             f"Complete code to fix (return it entirely, with only the error corrected):\n{code}"
         )
 
@@ -595,7 +642,28 @@ class AIBackend(ABC):
                 f"and break the logic.\n"
                 f"A diagnosis of the error may be appended to the errors — use it "
                 f"to target the fix.\n"
+                f"If an authoritative API block is provided below, ITS "
+                f"signatures win — replacing a rejected call with the correct "
+                f"method listed there IS the smallest fix.\n"
             )
+            # ⚠️ Le reparateur recevait l'erreur et le code, mais AUCUNE
+            # connaissance de l'API des libs incluses (QA AB2 bis du #82,
+            # 2026-08-31). Sur `motor2.forward(2000)` -- une methode reelle
+            # de la lib L298N, appelee avec un argument qu'elle ne prend
+            # pas -- il devait DEVINER la signature, et un modele 2B devine
+            # mal : la reparation echouait sur un correctif d'une ligne.
+            # `api_context_for_code` lui donne la meme verite que la
+            # generation a recue (blocs d'API du corpus pour les `#include`
+            # du code). Import tardif et garde : une erreur de chargement du
+            # RAG degrade vers l'ancien prompt, jamais vers un crash de la
+            # reparation -- qui est le DERNIER filet avant « restored ».
+            try:
+                from ..rag import api_context_for_code
+                api_ctx = api_context_for_code(code)
+            except Exception:
+                api_ctx = ""
+            if api_ctx:
+                intro += f"\n{api_ctx}\n"
         else:
             intro = (
                 f"You are REVIEWING {board_name} code for a student learning "

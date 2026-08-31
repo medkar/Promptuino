@@ -25,7 +25,9 @@ from .netlist import Netlist
 def generate_wiring(code: str, board_id: str,
                     project_path: Path | str | None = None,
                     prompt: str = "", context: str = "",
-                    prompts_by_fn: dict | None = None) -> Netlist:
+                    prompts_by_fn: dict | None = None,
+                    suppressed_headers: frozenset[str] = frozenset()
+                    ) -> Netlist:
     """Build an enriched netlist from the Arduino code.
 
     Args:
@@ -44,7 +46,8 @@ def generate_wiring(code: str, board_id: str,
     """
     netlist = markers.extract_netlist(code, board_id,
                                        prompt=prompt, context=context,
-                                       prompts_by_fn=prompts_by_fn)
+                                       prompts_by_fn=prompts_by_fn,
+                                       suppressed_headers=suppressed_headers)
     inference.apply_rules(netlist)
     inference.detect_conflicts(netlist)
 

@@ -73,6 +73,12 @@ def _apply_motor_drivers_and_battery(netlist: Netlist) -> None:
                 "ref": c.ref,
                 "control_pin": c.attributes.get("_control_pin", ""),
                 "aux_dir_pins": list(c.attributes.get("_aux_dir_pins") or []),
+                # D'ou vient-il ? Un moteur NOMME par le code n'apparait dans
+                # aucune modale -- il n'y a rien a lui demander. Le conseil
+                # << ouvre Modifier les composants et decoche >> serait donc
+                # une porte morte, et les instructions choisissent leur texte
+                # la-dessus.
+                "from_code": bool(c.attributes.get("signature_detected")),
             })
         else:
             keep.append(c)
@@ -241,9 +247,14 @@ def _apply_motor_drivers_and_battery(netlist: Netlist) -> None:
     # nets with the driver's coil pins. The driver's VMOT is already on
     # BAT_5V (cf markers.py), VDD on Arduino 5V. battery_external added
     # below if needed.
-    for drv in [c for c in list(netlist.components) if c.type == "a4988"]:
+    for drv in [c for c in list(netlist.components)
+                if c.type in _STEPPER_COIL_PINS]:
         if _has_nema17_for(netlist, drv.ref):
             continue   # idempotent
+        # ⚠️ Le NEMA17 garde SES noms de bornes (1A/1B/2A/2B) ; c'est le
+        # DRIVER qui varie -- le STSPIN220 nomme ses sorties OUTA1..OUTB2 et
+        # le TMC2209 OUT1A..OUT2B. On relie donc par POSITION, pas par nom.
+        coils_drv = _STEPPER_COIL_PINS[drv.type]
         ref = netlist.next_ref("M")
         nema = Component(
             ref=ref, type="nema17", fn_id=drv.fn_id, inferred=True,
@@ -253,14 +264,14 @@ def _apply_motor_drivers_and_battery(netlist: Netlist) -> None:
         )
         netlist.add_component(nema)
         # Allocate 4 internal nets: 1 per coil terminal.
-        for coil_name in ("1A", "1B", "2A", "2B"):
+        for coil_nema, coil_drv in zip(("1A", "1B", "2A", "2B"), coils_drv):
             net = _next_internal_net(netlist)
-            np = nema.pin(coil_name)
+            np = nema.pin(coil_nema)
             if np is not None:
                 np.net = net
-            dp = drv.pin(coil_name)
+            dp = drv.pin(coil_drv)
             if dp is None:
-                drv.pins.append(Pin(coil_name, net))
+                drv.pins.append(Pin(coil_drv, net))
             else:
                 dp.net = net
         needs_battery = True
@@ -552,6 +563,18 @@ def _has_stepper_for(netlist: Netlist, driver_ref: str) -> bool:
     return False
 
 
+# Bornes de bobines, PAR DRIVER pas-a-pas. Le NEMA17 garde toujours les
+# siennes (1A/1B/2A/2B) ; ce sont les serigraphies des drivers qui different,
+# d'ou l'appariement par POSITION dans la boucle ci-dessus. Relevees au
+# catalogue (`component_catalog.pin_labels`), jamais reecrites a la main.
+_STEPPER_COIL_PINS: dict[str, tuple[str, str, str, str]] = {
+    "a4988":     ("1A", "1B", "2A", "2B"),
+    "drv8825":   ("1A", "1B", "2A", "2B"),
+    "stspin220": ("OUTA1", "OUTA2", "OUTB1", "OUTB2"),
+    "tmc2209":   ("OUT1A", "OUT1B", "OUT2A", "OUT2B"),
+}
+
+
 def _has_nema17_for(netlist: Netlist, driver_ref: str) -> bool:
     """True if a nema17 is already paired with this driver."""
     for c in netlist.components:
@@ -743,6 +766,19 @@ def _detect_pin_double_use(netlist: Netlist) -> None:
 
 # ── Helpers ───────────────────────────────────────────────────────────────
 _POWER_NETS = {"5V", "3V3", "GND", "VIN"}
+# Le rail POSITIF d'une pile externe est une alimentation, pas un signal.
+# `BAT_5V` (et `BAT_5V_2`, `_3`... quand deux tensions cohabitent, cf.
+# `_split_batteries`) n'etait dans aucune des deux listes : deux composants
+# alimentes par la MEME pile -- le cas normal, c'est a ca que sert un rail --
+# se denoncaient donc mutuellement en severite ERREUR : « Pin BAT_5V utilisee
+# par plusieurs composants : U1, BAT1. »
+#
+# ⚠️ Ca s'affichait DEJA dans le panneau d'instructions ; c'est de l'avoir
+# pose sur les boites (2026-08-31) qui l'a rendu impossible a ignorer -- meme
+# histoire que le net VIDE ci-dessous, decouvert le meme jour et par le meme
+# moyen. Un avertissement qui ne dit rien de vrai apprend a ignorer les
+# avertissements.
+_BATTERY_RAIL_PREFIX = "BAT_"
 
 
 def _is_power_or_ground(net: str) -> bool:
@@ -750,7 +786,22 @@ def _is_power_or_ground(net: str) -> bool:
 
 
 def _is_signal_net(net: str) -> bool:
-    if net in _POWER_NETS:
+    # ⛔ Le net VIDE veut dire << pas connectee >>, pas << broche de signal >>.
+    # Il rendait True, et c'est ce qui faisait dire au schema, en severite
+    # ERREUR : « Pin ␣ utilisee par plusieurs composants : U1, U1, U1, U1, U2,
+    # U2, U2, U2. » -- un nom de broche vide, des composants repetes, et aucun
+    # conflit reel. Deux placeholders d'`#include` inconnus, dont TOUTES les
+    # broches sont a net vide, se denoncaient mutuellement.
+    #
+    # Le garde-fou voisin (`len(set(refs)) > 1`) ne couvrait que le cas d'UN
+    # seul composant ; a deux, il laisse passer. Corrige ici plutot qu'au
+    # point d'appel : le predicat est FAUX, et il n'a qu'un appelant, donc la
+    # portee est totale et nulle a la fois. Trouve le 2026-08-31 en branchant
+    # les pastilles sur les warnings -- ce charabia s'affichait deja dans le
+    # panneau d'instructions, il allait simplement devenir plus visible.
+    if not net:
+        return False
+    if net in _POWER_NETS or net.startswith(_BATTERY_RAIL_PREFIX):
         return False
     if net.startswith("NET_"):
         return False

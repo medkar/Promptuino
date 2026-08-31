@@ -31,7 +31,16 @@ _COPYRIGHT = "© 2026 Mehdi KARIM"
 # `Promptuino` et non `PromptuinoUI` : le second est le depot de TRAVAIL, prive,
 # qui porte en plus le TODO, les specs et les mesures. Ne pas le nommer ici.
 _SOURCE_URL = "https://github.com/medkar/Promptuino"
-_PATREON_URL = "https://patreon.com/Promptuino"
+# ⚠️ VIDE TANT QUE LA PAGE N'EST PAS PUBLIEE (TODO #76). Remesure le
+# 2026-08-31 avant la v0.1.2 : `https://patreon.com/Promptuino` repond bien
+# 200, mais un visiteur DECONNECTE atterrit sur
+# `www.patreon.com/profile/creators?u=215041363` -- un profil createur, pas une
+# page de soutien. Un « Soutenir le projet » cliquable qui ne mene nulle part
+# est exactement le mode d'echec que ce projet s'interdit ailleurs : presenter
+# comme acquis ce qui ne l'est pas. La ligne DISPARAIT donc de la fenetre tant
+# que cette constante est vide ; la renseigner la fait revenir, sans autre
+# changement.
+_PATREON_URL = ""
 
 # Open-source software & assets actually bundled in / used by the app.
 # (name, license, vendor) — proper nouns + license identifiers: NOT translated.
@@ -155,6 +164,9 @@ class AboutDialog(QDialog):
         pat_row.addWidget(self._lbl_support, alignment=Qt.AlignmentFlag.AlignVCenter)
         pat_row.addStretch()
         root.addLayout(pat_row)
+        # Pas d'URL de soutien = pas de ligne (cf. `_PATREON_URL` ci-dessus).
+        for w in (self._lbl_pat_icon, self._lbl_support):
+            w.setVisible(bool(_PATREON_URL))
 
         # Separator
         self._sep = QFrame()
