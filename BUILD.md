@@ -5,14 +5,27 @@ pose PromptuinoUI dans `Program Files` (ou `%LOCALAPPDATA%\Programs` en
 non-admin), crée les raccourcis menu démarrer + bureau, et permet la
 désinstallation propre depuis Paramètres → Apps.
 
-**L'installeur final fait ~450 Mo** (modèle RAG ONNX 449 Mo embarqué inclus).
-Zéro édition de fichier à faire avant build, zéro téléchargement au 1er
-lancement, zéro dépendance réseau côté testeur.
+**L'installeur final fait ~59 Mio** — mesuré sur les artefacts produits par la
+CI, pas estimé.
 
-Le module `ui/onnx_setup.py` reste présent comme fallback : si le modèle
-disparaît ou est corrompu, un dialog propose de le re-télécharger (à
-configurer avec une URL valide à ce moment-là). En usage normal, il n'est
-jamais déclenché.
+⛔ **Ce document a longtemps annoncé « ~450 Mo, modèle embarqué », et ce n'est
+plus vrai.** Ça l'a été : le modèle d'embeddings ONNX (~449 Mo) était
+réellement dans le paquet. Il en est sorti le **2026-08-28** (TODO #74) et les
+chiffres de ce fichier n'avaient pas suivi — le document décrivait donc un
+installeur qui n'existe plus. Corrigé le 2026-08-31 en relevant les tailles
+réelles.
+
+**Le modèle est téléchargé PENDANT l'installation**, pas embarqué. La section
+`[Run]` de `build\installer.iss` rappelle l'application elle-même en
+`--download-model`, pour que l'URL épinglée et l'empreinte SHA-256 ne vivent
+qu'à un seul endroit (`ui/onnx_setup.py`) — une seconde implémentation côté
+installeur serait un second endroit à tenir à jour.
+
+⚠️ Inno ne vérifie **pas** le code de sortie d'une entrée `[Run]` : un réseau
+filtré ne fait donc pas échouer l'installation, et l'application repropose le
+téléchargement à son premier lancement. Ce chemin-là n'est plus un secours
+exceptionnel — c'est le chemin **normal** dès que l'installation n'a pas pu
+télécharger.
 
 ## Prérequis sur la machine de build
 
@@ -34,11 +47,11 @@ Depuis la racine du repo, en PowerShell :
 Le script enchaîne :
 1. Vérification prérequis (arduino-cli, Inno Setup, PyInstaller)
 2. Nettoyage `dist\` et `build\promptuinoui\`
-3. `pyinstaller build\promptuinoui.spec --noconfirm` → `dist\PromptuinoUI\` (~218 Mo)
-4. Inno Setup compile → `build\output\PromptuinoUI-Setup.exe` (~60 Mo)
+3. `pyinstaller build\promptuinoui.spec --noconfirm` → `dist\PromptuinoUI\`
+   (~218 Mo, **sans** le modèle)
+4. Inno Setup compile → `build\output\PromptuinoUI-Setup.exe` (~59 Mio)
 
-Durée totale : ~3-5 minutes (la compression LZMA2 du modèle 449 Mo prend
-la majorité du temps).
+Durée totale : ~3-5 minutes.
 
 ## Build étape par étape (debug)
 
@@ -65,11 +78,16 @@ pyinstaller build\promptuinoui.spec --noconfirm
 - arduino-cli.exe (37 Mo) — bundlé dans `_internal\`
 - `assets\wiring\*` (SVG des cartes, breadboards, composants — 812 Ko)
 - `assets\rag\corpus.json` + `assets\rag\embeddings.npy` (corpus + embeddings — ~16 Mo)
-- `assets\rag\model\*` incluant `model.onnx` (~449 Mo)
+- `assets\rag\model\*` **sauf `model.onnx`** (tokenizer et configuration, ~5 Mo)
 - Tout `ui\` + `main.py` (compilés en `.pyc`)
 
 ## Ce qui N'EST PAS embarqué
 
+- **`model.onnx` (~449 Mo)** — l'exclusion est **explicite** dans
+  `build\promptuinoui.spec`, jamais implicite : s'en remettre au fait que le
+  fichier est gitignoré ferait diverger un build local (qui l'a sous la main)
+  d'un build CI (qui ne l'a pas), **sans que rien ne le dise**. Il est
+  téléchargé à l'installation, cf. l'en-tête de ce document.
 - `torch`, `transformers`, `sklearn`, `optimum`, `huggingface_hub`, `datasets`,
   `safetensors`, `accelerate`, `onnx` (le builder) — deps dev uniquement
 - `.claude/`, `.planning/`, `CLAUDE.md`, `TODO.md` — artefacts dev
@@ -82,15 +100,19 @@ Sur Windows 10/11, **double-clic sur `PromptuinoUI-Setup.exe`** :
 1. Sélection langue (FR/EN)
 2. Choix du répertoire d'install (défaut : `C:\Program Files\PromptuinoUI`)
 3. Option raccourci bureau
-4. Install (~30-60s, le modèle 449 Mo se décompresse)
+4. Install (quelques secondes), **puis téléchargement du modèle d'embeddings
+   (~448 Mio)** — c'est l'étape longue, et c'est la seule qui demande du réseau
 5. Lancement auto de l'app si coché
-6. L'app démarre directement — aucune action réseau requise
+6. Si le téléchargement a échoué (réseau filtré d'établissement, annulation),
+   l'application démarre **quand même** et le repropose ; d'ici là la recherche
+   de bibliothèques est désactivée, et l'application le dit plutôt que de faire
+   semblant
 
 **Pas besoin d'avoir Python installé** sur la machine du destinataire.
 
 ## Partage du fichier
 
-`build\output\PromptuinoUI-Setup.exe` (~450 Mo) peut être :
+`build\output\PromptuinoUI-Setup.exe` (~59 Mio) peut être :
 - Uploadé sur Google Drive / OneDrive / WeTransfer
 - Mis en release GitHub (gratuit, public, max 2 Go par asset)
 - Hébergé sur un serveur perso / S3
@@ -106,7 +128,7 @@ Sur Windows 10/11, **double-clic sur `PromptuinoUI-Setup.exe`** :
 
 | Erreur au runtime de l'app | Cause | Fix |
 |---|---|---|
-| Dialog "Téléchargement du modèle" apparaît au lancement | Modèle absent du bundle (PyInstaller a échoué silencieusement) | Vérifier `dist\PromptuinoUI\_internal\assets\rag\model\model.onnx` existe |
+| Dialog "Téléchargement du modèle" apparaît au lancement | **Attendu** si le téléchargement de l'installation n'a pas abouti (réseau filtré, annulation) — le modèle n'est PAS dans le bundle | Accepter le téléchargement, ou déposer `model.onnx` à la main (`PROMPTUINO_ONNX_URL` accepte aussi une URL locale) |
 | `arduino-cli introuvable` au runtime | binaire pas dans le bundle | Vérifier `dist\PromptuinoUI\_internal\arduino-cli.exe` |
 | App crash silencieux au lancement | dépendance Python manquante | Rebuild en passant `console=True` dans le spec pour voir stderr |
 
