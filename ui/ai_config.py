@@ -203,12 +203,14 @@ class AIConfig(QObject):
         self._keyring_set(f"{provider_id}_api_key", value)
 
     def model_for(self, provider_id: str) -> str:
-        override = self._data.get("models", {}).get(provider_id)
-        if override:
-            return override
-        from .ai_backends.providers import get_provider
-        preset = get_provider(provider_id)
-        return preset.default_model if preset else ""
+        """Le modèle CHOISI pour ce fournisseur, ou "" si aucun.
+
+        Plus de repli sur un défaut du préréglage : les modèles bougent, et un
+        défaut écrit une fois se recopie dans la config de tous ceux qui
+        ouvrent l'écran. C'est ainsi que `gemini-2.5-flash`, retiré par Google,
+        a continué d'être demandé (spec 2026-09-03).
+        """
+        return self._data.get("models", {}).get(provider_id) or ""
 
     def set_model(self, provider_id: str, model: str):
         models = dict(self._data.get("models", {}))

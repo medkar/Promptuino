@@ -62,15 +62,15 @@ class _FakeDialog(wdd.WiringDiagramDialog):
 
 
 def _click(netlist, ref: str) -> list:
+    """⚠️ On detourne `_info_box`, le point de passage de l'application, et
+    NON plus `QMessageBox.information` (TODO #111) : cette commodite statique
+    a disparu du dialogue -- elle ne laissait aucun endroit ou rendre le texte
+    selectionnable. Detourner la couture de l'app plutot qu'une fonction de Qt
+    est de toute facon plus juste : c'est elle qui decide du titre et du
+    corps."""
     dlg = _FakeDialog(netlist)
-    from PyQt6.QtWidgets import QMessageBox
-    original = QMessageBox.information
-    QMessageBox.information = staticmethod(
-        lambda parent, title, text, *a, **k: dlg.shown.append((title, text)))
-    try:
-        wdd.WiringDiagramDialog._show_warning_info(dlg, ref)
-    finally:
-        QMessageBox.information = original
+    dlg._info_box = lambda titre, corps: dlg.shown.append((titre, corps))
+    wdd.WiringDiagramDialog._show_warning_info(dlg, ref)
     return dlg.shown
 
 

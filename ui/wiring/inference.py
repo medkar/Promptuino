@@ -699,8 +699,18 @@ def _apply_ds18b20_pullups(netlist: Netlist) -> None:
 
 
 # ── Rule 4: series resistor for buzzers ──────────────────────────────────
+# TODO #94 (2026-09-07) : le haut-parleur passe par la MEME regle, et ce n'est
+# pas de l'elegance. Un buzzer passif tolere d'etre attaque nu ; un
+# haut-parleur 8 Ω branche directement sur une broche tirerait environ 600 mA
+# quand une broche Arduino en fournit 20 (40 en absolu). La resistance serie
+# de 100 Ω est ici une CONDITION de fonctionnement, pas un ornement -- c'est
+# aussi ce que montre le tutoriel `tone()` officiel.
+_SERIES_RESISTOR_TYPES = ("buzzer", "speaker")
+
+
 def _apply_buzzer_series_resistors(netlist: Netlist) -> None:
-    buzzers = [c for c in list(netlist.components) if c.type == "buzzer"]
+    buzzers = [c for c in list(netlist.components)
+               if c.type in _SERIES_RESISTOR_TYPES]
     for buz in buzzers:
         plus_pin = buz.pin("+")
         if plus_pin is None or _is_power_or_ground(plus_pin.net):
@@ -722,9 +732,15 @@ def _apply_buzzer_series_resistors(netlist: Netlist) -> None:
             code="buzzer_series_resistor",
             severity=SEVERITY_WARNING,
             message=f"Resistance serie {BUZZER_SERIES_VALUE}Ω ajoutee pour "
-                    f"le buzzer {buz.ref}.",
+                    f"{buz.ref}.",
             refs=[buz.ref, ref],
+            # `component_type` : l'id brut, traduit a l'affichage par
+            # `_WARNING_PARAMS_TO_LABEL`. Sans lui le message disait « pour le
+            # BUZZER LS1 » devant un haut-parleur (QA AK2.1, 2026-09-07) --
+            # la regle a ete etendue au haut-parleur sans que son message
+            # suive.
             params={"buzzer_ref": buz.ref, "resistor_ref": ref,
+                    "component_type": buz.type,
                     "value": BUZZER_SERIES_VALUE},
         )
 

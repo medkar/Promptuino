@@ -269,8 +269,15 @@ def filter_components(components: list[ComponentInfo], query: str = "",
                       kind: str = "all") -> list[ComponentInfo]:
     """Filter by free text and by kind. Kinds are DERIVED from the two
     three-state axes, they carry no logic of their own: `declared` =
-    editable, `with_library` = a library is known, `drawable` = the pinout
-    is known.
+    editable, `with_library` = a library is known, `without_library` = the
+    component needs NONE.
+
+    ⚠️ `without_library` is `none`, never `unknown`. The two look alike on a
+    card — neither prints a library name — but they say opposite things: an
+    LDR needs no library at all, while a component whose library is `unknown`
+    needs one the app has yet to find. Folding them together would answer
+    "which components work with no install?" with a list where half of them
+    do not.
 
     The text search folds accents on BOTH sides. Measured 2026-08-18 before
     the fix: « température » returned 6 components, « temperature » returned
@@ -285,8 +292,8 @@ def filter_components(components: list[ComponentInfo], query: str = "",
         out = [c for c in out if c.editable]
     elif kind == "with_library":
         out = [c for c in out if c.library == "known"]
-    elif kind == "drawable":
-        out = [c for c in out if c.wiring == "known"]
+    elif kind == "without_library":
+        out = [c for c in out if c.library == "none"]
     q = _fold(query).strip()
     if q:
         out = [c for c in out

@@ -2,6 +2,7 @@
 import json
 import os
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 import threading
@@ -10,6 +11,7 @@ import urllib.error
 import urllib.request
 
 from .base import AIBackend
+from ..subprocess_flags import NO_CONSOLE
 
 # Adjustable SLM/LLM boundary (billions of parameters). Movable in
 # one line. Starting point: Gemma 2B / Mistral 7B = SLM; Llama 3 8B = LLM.
@@ -113,8 +115,19 @@ def is_installed() -> bool:
     ⚠️ Cette fonction n'est consultee que lorsque le SERVEUR ne repond pas :
     un Ollama qui tourne est detecte par HTTP, sans PATH ni fichier.
     """
-    if shutil.which("ollama"):
-        return True
+    return executable_path() is not None
+
+
+def executable_path() -> str | None:
+    """Chemin de l'executable `ollama`, ou None s'il est introuvable.
+
+    Extrait d'`is_installed` quand `start_server` a eu besoin non plus de
+    savoir SI Ollama est la, mais OU : lancer par le nom nu s'en remettrait au
+    PATH du processus courant, celui-la meme dont la docstring ci-dessus
+    explique qu'on ne peut pas s'y fier."""
+    trouve = shutil.which("ollama")
+    if trouve:
+        return trouve
     if sys.platform == "win32":
         bases = [os.environ.get("LOCALAPPDATA", ""), os.environ.get("ProgramFiles", ""),
                  os.environ.get("ProgramW6432", "")]
@@ -127,7 +140,71 @@ def is_installed() -> bool:
     else:
         chemins = [Path("/usr/local/bin/ollama"), Path("/usr/bin/ollama"),
                    Path.home() / ".local" / "bin" / "ollama"]
-    return any(p.is_file() for p in chemins)
+    for c in chemins:
+        if c.is_file():
+            return str(c)
+    return None
+
+
+def is_process_running() -> bool:
+    """Un processus Ollama tourne-t-il, meme si le serveur ne repond pas ?
+
+    ⛔ **Ce cas a ete MESURE sur un vrai poste** (TODO #117, 2026-09-14) : le
+    tray `ollama app.exe` tournait (PID 28508) pendant que 127.0.0.1:11434
+    refusait la connexion. L'application disait alors << ouvrez l'application
+    Ollama >> -- un conseil deja applique, donc un cul-de-sac.
+
+    ⚠️ Appelee UNIQUEMENT quand le serveur ne repond pas (comme
+    `is_installed`), jamais sur le chemin normal : elle lance un
+    sous-processus.
+
+    Ne leve jamais : ne pas savoir vaut mieux que planter l'ecran d'etat, et
+    un False fait simplement retomber sur le message d'avant.
+    """
+    try:
+        if sys.platform == "win32":
+            r = subprocess.run(["tasklist", "/FO", "CSV", "/NH"],
+                               capture_output=True, text=True, timeout=5,
+                               errors="replace", creationflags=NO_CONSOLE)
+            return "ollama" in r.stdout.lower()
+        r = subprocess.run(["pgrep", "-f", "ollama"],
+                           capture_output=True, text=True, timeout=5,
+                           errors="replace", creationflags=NO_CONSOLE)
+        return r.returncode == 0 and bool(r.stdout.strip())
+    except Exception:
+        return False
+
+
+def start_server() -> bool:
+    """Demarre le serveur Ollama et rend True si le lancement a ete tente.
+
+    ⚠️ **True ne veut pas dire << le serveur repond >>** : le processus met une
+    a deux secondes a ecouter (mesure le 2026-09-14 : pret au 2e essai).
+    L'appelant doit re-verifier par HTTP, pas croire ce retour.
+
+    ⛔ **Relancer le tray n'aurait rien fait** dans le cas mesure : il tournait
+    deja. C'est `ollama serve` qui reveille le serveur.
+
+    Le processus est DETACHE : il doit survivre a Promptuino, sans quoi
+    fermer l'application couperait le serveur qu'elle vient de demarrer.
+    """
+    exe = executable_path()
+    if not exe:
+        return False
+    try:
+        drapeaux = NO_CONSOLE
+        if sys.platform == "win32":
+            drapeaux |= getattr(subprocess, "DETACHED_PROCESS", 0)
+        subprocess.Popen(
+            [exe, "serve"],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            stdin=subprocess.DEVNULL,
+            creationflags=drapeaux,
+            start_new_session=(sys.platform != "win32"),
+        )
+        return True
+    except Exception:
+        return False
 
 
 def is_server_running() -> bool:

@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import (
 
 from .theme import ColorScheme, theme_manager
 from .i18n import lang_manager, Strings
-from .board_manager import BOARDS, BoardState, board_manager
+from .board_manager import BOARDS, BoardState, board_manager, model_label
 from .ai_config import ai_config
 from .ai_status import KINDS_OK, KINDS_WARN, ai_status
 
@@ -22,6 +22,12 @@ class StatusBar(QWidget):
         super().__init__(parent)
         self.setFixedHeight(_H)
         self._build()
+        # TODO #95 (2e lot) : la barre nomme le modèle IA et la carte — deux
+        # choses qu'on colle dans un signalement ou une recherche. Aucun de
+        # ses labels n'est une cible de clic (elle n'a aucun `mousePressEvent`),
+        # donc rendre son texte sélectionnable ne prend le clic de personne.
+        from .selectable_text import make_selectable
+        make_selectable(self)
         self._refresh()
         self.apply_theme(theme_manager.current)
         self.apply_lang(lang_manager.current)
@@ -100,7 +106,11 @@ class StatusBar(QWidget):
 
         if state in (BoardState.CONNECTED, BoardState.MANUAL) and env and model:
             env_label = BOARDS.get(env, {}).get("label", env)
-            self._lbl_board_val.setText(f"{env_label} — {model}")
+            # `model` est un IDENTIFIANT (il part dans les projets) ; ce qui
+            # s'affiche est son libellé (TODO du 2026-09-08 : « Uno » nu
+            # est ambigu à côté des deux « Uno R4 »).
+            self._lbl_board_val.setText(
+                f"{env_label} — {model_label(env, model)}")
         else:
             self._lbl_board_val.setText("—")
 

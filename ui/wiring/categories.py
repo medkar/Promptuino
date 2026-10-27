@@ -141,9 +141,15 @@ CATEGORY_OF_TYPE: dict[str, str] = {
     # LED proprietaire 2 fils, comme le NeoPixel) : aucune forme de swap peer
     # dans les categories existantes -- meme traitement que tm1637/hx711 ci-dessus.
     "adxl335": NO_SWAP_PEER, "dotstar": NO_SWAP_PEER,
-    # A/C/E/K : deux composants optiques distincts dans un boitier, meme
-    # raisonnement que adxl335/dotstar ci-dessus.
-    "ir_reflective_sensor": NO_SWAP_PEER,
+    # ⚠️ `ir_reflective_sensor` etait ici en NO_SWAP_PEER, au motif que
+    # « A/C/E/K = deux composants optiques distincts dans un boitier ».
+    # C'etait vrai de la PUCE NUE que decrivait la fiche importee -- pas du
+    # MODULE que le debutant achete, qui a trois fils VCC/OUT/GND et se lit
+    # a l'`analogRead` comme n'importe quel capteur analogique. Le catalogue
+    # decrit desormais le module (TODO #98, 2026-09-08), donc la categorie
+    # suit : il retrouve des pairs d'echange, et l'engrenage cesse de
+    # s'ouvrir sur une liste vide.
+    "ir_reflective_sensor": ANALOG_IN,
 
     # ── Lot #4 (2026-08-19). stspin220/tmc2209 n'avaient pas d'entree
     # catalogue a cette epoque. Depuis, TODO #58 (2026-08-20) leur en a
@@ -167,6 +173,23 @@ CATEGORY_OF_TYPE: dict[str, str] = {
     "sharp_memory_display": SPI, "gc9a01": SPI,
     "winc1500": SPI, "eink_display": SPI,
     "stspin220": NON_REPLACEABLE, "tmc2209": NON_REPLACEABLE,
+
+    # ── TODO #98 (2026-09-08). Obligatoires des que le type a une entree
+    # catalogue -- les deux modules sont resistifs, lus a l'`analogRead`.
+    "flame_sensor": ANALOG_IN, "rain_sensor": ANALOG_IN,
+    # 2026-09-09 : le Sharp GP2Y0A est le seul telemetre ANALOGIQUE de
+    # la famille distance -- une sortie de tension, lue a l'analogRead.
+    "gp2y0a21": ANALOG_IN,
+    "gp2y0a41": ANALOG_IN,
+    "gp2y0a02": ANALOG_IN,
+    "gp2y0a51": ANALOG_IN,
+    "gp2y0a60": ANALOG_IN,
+    "gp2y0a710": ANALOG_IN,
+    # ⚠️ Le capteur a effet Hall n'est PAS ici : sa categorie vit dans le
+    # catalogue de remplacement cure, ou elle passe de `analog_in` a
+    # `digital_in` avec ce ticket -- une seule verite, plutot qu'une
+    # inscription ici qui ferait taire la table curee par le jeu du
+    # `merge_into`.
 }
 
 

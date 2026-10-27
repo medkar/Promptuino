@@ -66,7 +66,12 @@ def available_actions(component: "Component",
         out.append(_dht_pullup_action(component, netlist))
     elif t == "ds18b20":
         out.append(_ds18b20_pullup_action(component, netlist))
-    elif t == "buzzer":
+    elif t in ("buzzer", "speaker"):
+        # Meme resistance serie que le buzzer depuis le #94, donc meme action
+        # a l'engrenage. Troisieme endroit ou la regle devait etre suivie et
+        # ne l'etait pas (QA AK2.1, 2026-09-07) : le CALCUL (`inference`), le
+        # PLACEMENT (`layout`) et l'ACTION (ici) vivent dans trois fichiers
+        # differents, et rien ne les tenait ensemble.
         out.append(_buzzer_series_action(component, netlist))
     elif t in _MICROSTEP_BY_TYPE:
         out.append(_microstepping_action(component))

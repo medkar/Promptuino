@@ -17,12 +17,13 @@ Selecting a radio (or picking a provider while Cloud is selected) sets
 `get_backend_instance()`, caches it, and emits `backend_activated`.
 """
 from PyQt6.QtCore import Qt, QThread, QTimer, pyqtSignal
-from PyQt6.QtGui import QPalette, QColor
+from PyQt6.QtGui import QPalette, QColor, QDesktopServices
+from PyQt6.QtCore import QUrl
 from PyQt6.QtWidgets import (
     QApplication,
     QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QPushButton, QRadioButton, QButtonGroup,
-    QLineEdit, QComboBox, QScrollArea, QCompleter, QSlider,
+    QLineEdit, QComboBox, QScrollArea, QCompleter, QSlider, QSizePolicy,
 )
 
 from .theme import (
@@ -34,6 +35,7 @@ from .ai_config import ai_config, OLLAMA_NUM_CTX_STEPS
 from .ai_backends import (
     BACKEND_DEFS, ClaudeCodeBackend,
     is_installed, is_server_running, is_model_available, list_local_models,
+    is_process_running, start_server,
     get_backend_instance, PROVIDERS,
 )
 
@@ -79,6 +81,36 @@ class _ModelsWorker(QThread):
             # Defensive: list_models_detailed never raises, but a build error might.
             models, kind = [], "bad_response"
         self.finished_models.emit(self._provider_id, list(models or []), kind)
+
+
+class _ProbeWorker(QThread):
+    """Vérifie qu'un modèle CHOISI répond réellement, HORS du fil d'interface.
+
+    Le listing d'un fournisseur ne dit pas ce qui est accessible (mesuré le
+    2026-09-03 : `gemini-2.5-flash` figure dans celui de Google, annoncé
+    `generateContent`, et renvoie 404 à l'usage). La seule façon de savoir
+    est d'essayer — un appel réel et minimal, ici, jamais sur le fil UI.
+    Même motif que `_ModelsWorker` ci-dessus.
+    """
+
+    finished_probe = pyqtSignal(str, str, bool, str)  # (provider_id, model, ok, message)
+
+    def __init__(self, provider_id: str, model: str, parent=None):
+        super().__init__(parent)
+        self._provider_id = provider_id
+        self._model = model
+
+    def run(self):
+        try:
+            backend = get_backend_instance(self._provider_id)
+            if backend is not None and hasattr(backend, "probe_model"):
+                ok, message = backend.probe_model()
+            else:
+                ok, message = False, ""
+        except Exception as e:
+            # Defensif : probe_model ne leve jamais, mais get_backend_instance pourrait.
+            ok, message = False, f"{type(e).__name__}: {e}"
+        self.finished_probe.emit(self._provider_id, self._model, ok, message)
 
 
 # ── Shared field styles ─────────────────────────────────────────────────────
@@ -148,6 +180,23 @@ class _CloudSection(QWidget):
         # Kept alive so the QThread is not GC'd mid-run; a new fetch lets the
         # old one finish and ignores its (stale) result via provider-id match.
         self._models_worker: _ModelsWorker | None = None
+        # Idem pour la sonde (_ProbeWorker) : reference gardee vivante,
+        # nouvelle sonde laisse l'ancienne finir.
+        self._probe_worker: _ProbeWorker | None = None
+        # (fournisseur, modele) deja verifies dans CETTE session -- la sonde
+        # coute un appel reseau reel, on ne la relance jamais pour le meme
+        # couple (spec 2026-09-03, B).
+        self._probed_pairs: set[tuple[str, str]] = set()
+        # Verdicts de sonde, UN PAR COUPLE (fournisseur, modele). Un seul
+        # << dernier verdict >> ne suffisait pas : revenir sur un modele deja
+        # sonde laissait affiche le message du PRECEDENT, la deduplication
+        # empechant toute nouvelle sonde (QA AI1, 2026-09-04).
+        self._probe_verdicts: dict[tuple[str, str], tuple[bool, str]] = {}
+        # Animation du << Verification... >> : la sonde dure jusqu'a 30 s
+        # (mesure sur gemini-flash-latest), un texte fige laisse croire que
+        # l'app est bloquee.
+        self._probe_timer: QTimer | None = None
+        self._probe_dots = 0
         # Guard: stop the worker on app exit so Qt never destroys a running
         # QThread (mirrors the pattern in library_view.py).
         app = QApplication.instance()
@@ -238,26 +287,51 @@ class _CloudSection(QWidget):
             _completer.setCompletionMode(QCompleter.CompletionMode.PopupCompletion)
             _completer.setFilterMode(Qt.MatchFlag.MatchContains)
             _completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
+        # Le modèle se persiste À LA SÉLECTION, sans bouton. Avant, il ne
+        # l'était qu'au clic sur « Enregistrer » — un bouton situé dans la
+        # ligne de la CLÉ D'API : on changeait de modèle et on repartait en
+        # croyant l'avoir changé, l'app continuant d'utiliser l'ancien
+        # (spec 2026-09-03, défaut D).
+        self._model_combo.activated.connect(self._on_model_chosen)
+        _model_edit = self._model_combo.lineEdit()
+        if _model_edit is not None:
+            # `editingFinished` = Entrée ou perte du focus. PAS
+            # `textEdited`, qui écrirait un id incomplet à chaque caractère.
+            _model_edit.editingFinished.connect(self._on_model_chosen)
         model_row.addWidget(self._model_combo, stretch=1)
         cl.addLayout(model_row)
         cl.addSpacing(10)
 
         # Loading status for the async model fetch (hidden when idle).
         self._lbl_models_status = QLabel()
+        # Sans ceci, le message du fournisseur est COUPE a la largeur du
+        # label : l'utilisateur ne lisait que le texte generique et pas
+        # les mots de Google, qui viennent apres (QA AI1, 2026-09-04).
+        self._lbl_models_status.setWordWrap(True)
+        # `setWordWrap` seul ne suffit pas : la hauteur du label reste
+        # celle calculee au premier agencement, et un message plus long
+        # arrive plus tard est ECRETE. Il faut lui dire qu'il peut
+        # grandir, et redemander un agencement a chaque texte pose
+        # (cf. `_set_model_status`).
+        self._lbl_models_status.setSizePolicy(
+            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum)
         self._lbl_models_status.setText("")
         cl.addWidget(self._lbl_models_status)
+        # L'air se met AU-DESSUS du disclaimer, pas en dessous : il appartient
+        # visuellement au lien << Obtenir une cle >> qui le suit, pas au
+        # message d'erreur qui le precede (retour utilisateur, QA AI1).
+        cl.addSpacing(10)
 
         # Disclaimer (always visible): some models have a free API tier.
         self._lbl_disclaimer = QLabel()
         self._lbl_disclaimer.setWordWrap(True)
         cl.addWidget(self._lbl_disclaimer)
-        cl.addSpacing(8)
 
         # Base URL field (custom only) — kept in its own widget so it can be
         # shown/hidden as a whole row.
         self._base_row = QWidget()
         base_row = QHBoxLayout(self._base_row)
-        base_row.setContentsMargins(0, 0, 0, 0)
+        base_row.setContentsMargins(0, 8, 0, 0)
         base_row.setSpacing(8)
         self._lbl_base = QLabel()
         self._lbl_base.setFixedWidth(70)
@@ -266,7 +340,6 @@ class _CloudSection(QWidget):
         self._base_input.setFixedHeight(34)
         base_row.addWidget(self._base_input, stretch=1)
         cl.addWidget(self._base_row)
-        cl.addSpacing(6)
 
         # "Get a key" link (rich text) + save confirmation status
         self._lbl_link = QLabel()
@@ -318,10 +391,30 @@ class _CloudSection(QWidget):
 
     def _maybe_fetch_models(self):
         """Trigger an async fetch ONLY if a key already exists for the current
-        provider. Used on load and on provider change — never blocks."""
+        provider. Used on load and on provider change — never blocks.
+
+        Sonde AUSSI le modèle déjà enregistré. Sans ça, l'application
+        démarrait avec une pastille VERTE sur un modèle mort : elle
+        constatait qu'une clé et un modèle existent, et n'avait jamais rien
+        vérifié (retour utilisateur, 2026-09-04). L'appel part dans un
+        worker, comme le chargement de la liste juste au-dessus — la
+        déduplication le limite à une fois par couple et par session.
+        """
         pid = self.selected_provider_id()
         if pid and ai_config.api_key(pid):
             self._start_models_fetch(pid)
+            modele = self._model_text()
+            if modele:
+                self._start_model_probe(pid, modele)
+
+    def probe_verdict_for(self, provider_id: str, model: str):
+        """Le verdict mémorisé pour ce couple, ou `None` si jamais sondé.
+
+        Lu par `IAView._publier_etat` : la pastille ne doit pas conclure
+        d'elle-même à partir de la seule présence d'une clé.
+        """
+        verdict = self._probe_verdicts.get((provider_id, model))
+        return None if verdict is None else verdict[0]
 
     def _start_models_fetch(self, provider_id: str):
         """Spawn a `_ModelsWorker` for `provider_id`. A previous in-flight
@@ -344,12 +437,125 @@ class _CloudSection(QWidget):
             self._models_worker = None
 
     def _stop_worker(self):
-        """Stop the in-flight models fetch on app exit (avoid destroying a
-        running QThread). Mirrors the pattern in library_view.py."""
-        w = self._models_worker
-        if w is not None and w.isRunning():
-            w.requestInterruption()
-            w.wait(2000)
+        """Stop the in-flight models fetch AND probe on app exit (avoid
+        destroying a running QThread). Mirrors the pattern in library_view.py."""
+        for w in (self._models_worker, self._probe_worker):
+            if w is not None and w.isRunning():
+                w.requestInterruption()
+                w.wait(2000)
+
+    # ── Async model probe ───────────────────────────────────────────
+
+    def _start_model_probe(self, provider_id: str, model: str):
+        """Lance la sonde pour (provider_id, model), sauf si ce couple a
+        déjà été vérifié dans cette session (la sonde coûte un appel réseau
+        réel — spec 2026-09-03, B). Un précédent en vol est laissé finir ;
+        son résultat sera ignoré par `_on_model_probed` s'il est devenu
+        obsolète (fournisseur ou texte du modèle changés entretemps)."""
+        if not provider_id or not model:
+            return
+        key = (provider_id, model)
+        if key in self._probed_pairs:
+            # Deja sonde : on ne rappelle pas le reseau, mais on REAFFICHE son
+            # verdict -- au LABEL comme a la PASTILLE. Ne rafraichir que le
+            # label laissait la pastille verte devant un message d'erreur
+            # rouge, jusqu'a ce qu'un autre evenement la recalcule (retour
+            # utilisateur, QA AI4ter).
+            self._refresh_model_status()
+            verdict = self._probe_verdicts.get(key)
+            if verdict is not None:
+                self._publish_probe_state(provider_id, verdict[0])
+            return
+        self._probed_pairs.add(key)
+        # La pastille ne sait plus rien tant que la sonde tourne : la laisser
+        # VERTE pendant les 30 s d'un modele lent, c'est affirmer un acces
+        # qu'on est justement en train de verifier. `None` = grise, la valeur
+        # que `ai_status` reserve a << on ne sait pas encore >>.
+        self._publish_probe_state(provider_id, None)
+        self._start_checking_animation()
+
+        worker = _ProbeWorker(provider_id, model, self)
+        worker.finished_probe.connect(self._on_model_probed)
+        worker.finished.connect(lambda w=worker: self._clear_probe_worker(w))
+        worker.finished.connect(worker.deleteLater)
+        self._probe_worker = worker
+        worker.start()
+
+    def _start_checking_animation(self):
+        """« Vérification du modèle » avec des points qui s'ajoutent, en vert.
+
+        La sonde dure jusqu'à **30 s** (mesuré sur `gemini-flash-latest`).
+        Un texte figé pendant une demi-minute se lit comme une application
+        bloquée : l'animation dit que quelque chose se passe encore.
+        """
+        self._stop_checking_animation()
+        self._probe_dots = 0
+        self._paint_checking()
+        timer = QTimer(self)
+        timer.setInterval(400)
+        timer.timeout.connect(self._paint_checking)
+        timer.start()
+        self._probe_timer = timer
+
+    def _paint_checking(self):
+        s = lang_manager.current
+        self._probe_dots = (self._probe_dots + 1) % 4
+        points = "." * self._probe_dots
+        self._set_model_status(f"{s.ia_model_checking}{points}",
+                               theme_manager.current.signal_ok)
+
+    def _stop_checking_animation(self):
+        if self._probe_timer is not None:
+            self._probe_timer.stop()
+            self._probe_timer.deleteLater()
+            self._probe_timer = None
+
+    def _publish_probe_state(self, provider_id: str, ok: "bool | None"):
+        """Un modèle injoignable doit ROUGIR la pastille de la barre d'état.
+
+        Elle ne savait jusqu'ici que dire « une clé existe » — elle restait
+        donc verte pour un modèle qui ne répond pas (QA AI1, 2026-09-04).
+        `ai_status` traite tout état inconnu comme une erreur, donc un état
+        dédié suffit à obtenir du rouge sans toucher à ses tables.
+
+        Ne publie que si CE fournisseur est bien le backend actif : sonder un
+        modèle qu'on n'a pas activé ne dit rien de ce qui va générer.
+        """
+        from .ai_status import ai_status
+        if ai_config.backend_id != provider_id:
+            return
+        if ok is None:
+            ai_status.set_state(None)          # grise : verification en cours
+        else:
+            ai_status.set_state("cloud_key_ok" if ok
+                                else "cloud_model_unreachable")
+
+    def _clear_probe_worker(self, worker: "_ProbeWorker"):
+        if self._probe_worker is worker:
+            self._probe_worker = None
+
+    def _on_model_probed(self, provider_id: str, model: str, ok: bool, message: str):
+        """Affiche le résultat de la sonde -- seulement s'il concerne encore
+        ce qui est affiché (fournisseur ET texte du modèle inchangés depuis
+        le déclenchement). Sinon, silence : l'utilisateur regarde déjà
+        autre chose."""
+        if provider_id != self.selected_provider_id() or \
+                model != self._model_text():
+            # Résultat obsolète : on ne l'affiche pas, mais on le RETIENT
+            # (il reste vrai pour son couple), et on ne laisse surtout pas
+            # « Vérification du modèle… » en place.
+            self._probe_verdicts[(provider_id, model)] = (ok, message)
+            self._stop_checking_animation()
+            self._refresh_model_status()
+            return
+        # Retenu plutôt qu'écrit : `_refresh_model_status` le réaffichera
+        # tant que le couple concerné est celui affiché, et le laissera
+        # tomber sinon. (`.replace` et non `.format` y est utilisé : le
+        # message vient du fournisseur et peut porter des accolades.)
+        self._probe_verdicts[(provider_id, model)] = (ok, message)
+        self._stop_checking_animation()
+        self._refresh_model_status()
+        self._publish_probe_state(provider_id, ok)
 
     def _on_models_fetched(self, provider_id: str, models: list, error_kind: str):
         """Repopulate the combo with fetched ids, preserving the user's current
@@ -393,7 +599,9 @@ class _CloudSection(QWidget):
         else:
             self._model_combo.setCurrentText(current)
         self._model_combo.blockSignals(False)
-        self._lbl_models_status.setText("")
+        # Pas `setText("")` : sans modèle choisi, l'avertissement doit rester.
+        # Il ne vivait sinon que le temps du chargement de la liste.
+        self._refresh_model_status()
 
     # ── Field (re)loading ─────────────────────────────────────────
 
@@ -423,6 +631,81 @@ class _CloudSection(QWidget):
         self._base_row.setVisible(is_custom)
 
         self._refresh_link()
+        self._refresh_model_field_state()
+        self._refresh_model_status()
+
+    def _refresh_model_field_state(self):
+        """Grise le champ modèle tant qu'aucune clé n'est enregistrée.
+
+        Sans clé, la liste ne peut pas être chargée et aucune vérification
+        n'est possible : proposer un champ actif invite à saisir un modèle
+        qui ne sera jamais éprouvé. Le geste utile est en amont — coller sa
+        clé (retour utilisateur, QA AI3).
+        """
+        pid = self.selected_provider_id()
+        a_une_cle = bool(ai_config.api_key(pid))
+        self._model_combo.setEnabled(a_une_cle)
+        # L'invite aussi doit dire le geste POSSIBLE : << choisissez un
+        # modele dans la liste >> ne l'est pas tant que la liste ne peut pas
+        # etre chargee (retour utilisateur, QA AI3bis).
+        edit = self._model_combo.lineEdit()
+        if edit is not None:
+            s = lang_manager.current
+            edit.setPlaceholderText(s.ia_model_placeholder if a_une_cle
+                                    else s.ia_model_placeholder_no_key)
+
+    def _set_model_status(self, texte: str, couleur: str = ""):
+        """Écrit le statut du modèle, éventuellement coloré, et laisse le
+        label reprendre la hauteur qu'il lui faut.
+
+        Sans `updateGeometry`, un message plus long que le précédent reste
+        écrêté à la hauteur déjà calculée — c'est ce qui coupait le message
+        de Google en plein milieu (retour utilisateur, QA AI1).
+        """
+        if couleur:
+            texte = f'<span style="color:{couleur};">{texte}</span>'
+        self._lbl_models_status.setText(texte)
+        self._lbl_models_status.updateGeometry()
+
+    def _refresh_model_status(self):
+        """Recalcule le statut du modèle À PARTIR DE L'ÉTAT, jamais en
+        laissant en place ce qui y était.
+
+        Un seul label porte trois choses : « aucun modèle choisi », le verdict
+        de la sonde, et les messages transitoires du chargement de la liste.
+        La première version n'effaçait le statut que s'il était son PROPRE
+        message — si bien qu'un « Ce modèle a répondu » survivait à un
+        changement de fournisseur, et qu'un « n'a pas répondu » accusait un
+        modèle qu'on n'avait jamais vérifié (revue finale 2026-09-03). C'est
+        exactement le défaut que ce chantier existe pour supprimer, sur
+        l'écran qu'il vient de construire.
+
+        Le verdict n'est donc plus écrit dans le label : il est RETENU, avec
+        le couple auquel il s'applique, et réaffiché seulement tant que ce
+        couple est encore celui affiché.
+        """
+        s = lang_manager.current
+        model = self._model_text()
+        if not model:
+            # << Aucun modele choisi >> est un CONSTAT : il reste vrai avec
+            # ou sans cle. C'est la CONSIGNE qui change de cible -- sans cle,
+            # << selectionne-en un dans la liste >> est impossible a suivre,
+            # le geste utile etant d'enregistrer sa cle (retour utilisateur,
+            # QA AI3bis). Se taire aurait supprime une information vraie.
+            a_une_cle = bool(ai_config.api_key(self.selected_provider_id()))
+            self._set_model_status(s.ia_model_none_chosen if a_une_cle
+                                   else s.ia_model_none_no_key)
+            return
+        verdict = self._probe_verdicts.get((self.selected_provider_id(), model))
+        if verdict is not None:
+            ok, message = verdict
+            c = theme_manager.current
+            self._set_model_status(
+                s.ia_model_ok if ok
+                else s.ia_model_ko.replace("{detail}", message),
+                c.signal_ok if ok else c.signal_error)
+            return
+        self._set_model_status("")
 
     def _refresh_link(self):
         """Show the 'get a key' link when the selected preset has a key_url."""
@@ -451,6 +734,43 @@ class _CloudSection(QWidget):
         if self.radio.isChecked():
             self.activated.emit()
 
+    def _on_model_chosen(self, *_args):
+        """Persiste le modèle courant pour le fournisseur sélectionné.
+
+        Branché sur `activated` (choix dans la liste) et sur
+        `editingFinished` du champ de saisie (validation au clavier — Entrée
+        ou perte du focus). `_set_model_text` (comme `_reload_fields` et
+        `_on_models_fetched`) bloque les signaux, donc un remplissage
+        programmatique (changement de fournisseur, arrivée de la liste
+        asynchrone) ne passe jamais ici : seul un geste de l'utilisateur
+        écrit dans la config.
+        """
+        pid = self.selected_provider_id()
+        is_custom = (pid == "custom")
+        model = self._model_text()
+        if is_custom:
+            ai_config.custom_model = model
+        else:
+            ai_config.set_model(pid, model)
+        self._confirm_saved()
+        # Verification APRES la persistance (spec 2026-09-03, B) : le
+        # listing du fournisseur ne dit pas ce qui est accessible, seul un
+        # appel reel le dit.
+        self._start_model_probe(pid, model)
+
+    def _confirm_saved(self):
+        """Affiche le ✓ de confirmation d'enregistrement.
+
+        Factorisé depuis `_on_save` : la clé (bouton dédié) et le modèle
+        (persisté à la sélection) partagent la même confirmation visible.
+        """
+        s = lang_manager.current
+        self._lbl_status.setText(
+            f'<span style="color:{theme_manager.current.signal_ok};">'
+            f'✓ {s.ia_saved}</span>'
+        )
+        QTimer.singleShot(3000, lambda: self._lbl_status.setText(""))
+
     def _on_save(self):
         """Persist BOTH the API key and the model for the selected provider."""
         pid = self.selected_provider_id()
@@ -465,11 +785,16 @@ class _CloudSection(QWidget):
         else:
             ai_config.set_model(pid, model)
 
-        s = lang_manager.current
-        self._lbl_status.setText(
-            f'<span style="color:{theme_manager.current.signal_ok};">✓ {s.ia_key_saved}</span>'
-        )
-        QTimer.singleShot(3000, lambda: self._lbl_status.setText(""))
+        # La clé (ou l'URL de base) vient de changer : les verdicts de sonde
+        # déjà rendus pour CE fournisseur portaient sur d'autres identifiants
+        # et ne valent plus rien. Sans cet oubli volontaire, une sonde tombée
+        # en « clé invalide » interdisait de re-vérifier le même modèle après
+        # correction de la clé — il aurait fallu redémarrer l'app.
+        self._probed_pairs = {(p, m) for (p, m) in self._probed_pairs
+                              if p != pid}
+
+        self._refresh_model_field_state()
+        self._confirm_saved()
 
         # Now that the key is saved, (re)fetch the model list for this provider.
         if key:
@@ -752,10 +1077,21 @@ class _BackendSection(QWidget):
                 # demarrage de l'app -- c'est-a-dire juste apres que
                 # l'utilisateur ait suivi notre lien. `is_installed`
                 # regarde aussi les emplacements par defaut.
+                # TODO #117 : il y a une TROISIEME situation, mesuree sur
+                # un vrai poste le 2026-09-14 -- le tray `ollama app.exe`
+                # tournait pendant que 127.0.0.1:11434 refusait la connexion.
+                # Dire alors << ouvrez l'application Ollama >> conseille une
+                # chose DEJA FAITE : c'est le meme cul-de-sac que le #79 a
+                # ferme un cran plus haut. `is_process_running` ne coute son
+                # sous-processus que sur ce chemin-la, serveur muet.
                 installe = is_installed()
-                self._availability_state = (
-                    "ollama_server_down" if installe
-                    else "ollama_not_installed", None)
+                if not installe:
+                    etat = "ollama_not_installed"
+                elif is_process_running():
+                    etat = "ollama_server_asleep"
+                else:
+                    etat = "ollama_server_down"
+                self._availability_state = (etat, None)
             elif not is_model_available(model):
                 self._availability_state = ("ollama_model_missing", model)
             else:
@@ -786,6 +1122,13 @@ class _BackendSection(QWidget):
                    f'&#9679; {s.ia_ollama_not_installed}</span>')
         elif kind == "ollama_server_down":
             txt = f'<span style="color:{theme_manager.current.signal_error};">&#9679; {s.ia_ollama_not_running}</span>'
+        elif kind == "ollama_server_asleep":
+            # ⚠️ Le message CONSTATE et ne diagnostique pas : la cause d'un
+            # processus sans serveur n'a pas ete mesuree (veille, mise a jour,
+            # service arrete...), et l'inventer serait presenter une
+            # supposition comme une certitude.
+            txt = (f'<span style="color:{theme_manager.current.signal_error};">'
+                   f'&#9679; {s.ia_ollama_server_asleep}</span>')
         elif kind == "ollama_model_missing":
             txt = (
                 f'<span style="color:{theme_manager.current.signal_warn};">&#9679; '
@@ -802,9 +1145,36 @@ class _BackendSection(QWidget):
 
         self._lbl_availability.setText(txt)
         self._lbl_availability.setTextFormat(Qt.TextFormat.RichText)
-        # Le message << pas installe >> porte un lien vers ollama.com :
-        # sans ceci, il serait souligne mais inerte.
-        self._lbl_availability.setOpenExternalLinks(True)
+        # ⚠️ `setOpenExternalLinks(False)` + `linkActivated`, et PAS `True`
+        # comme avant (TODO #117). Avec `True`, Qt ouvre lui-meme TOUT lien et
+        # n'emet PAS `linkActivated` : le lien interne
+        # « demarrer le serveur » serait passe au systeme comme une URL, donc
+        # inerte. Le repartiteur ci-dessous rend son comportement au lien
+        # ollama.com, qui continue de s'ouvrir dans le navigateur.
+        self._lbl_availability.setOpenExternalLinks(False)
+        try:
+            self._lbl_availability.linkActivated.disconnect()
+        except TypeError:
+            pass            # aucune connexion encore posee
+        self._lbl_availability.linkActivated.connect(self._on_availability_link)
+
+    _LIEN_DEMARRER_OLLAMA = "promptuino:start-ollama"
+
+    def _on_availability_link(self, href: str) -> None:
+        """Repartiteur des liens du message d'etat : action INTERNE, ou URL."""
+        if href != self._LIEN_DEMARRER_OLLAMA:
+            QDesktopServices.openUrl(QUrl(href))
+            return
+        # Le lancement est une TENTATIVE : le serveur met une a deux secondes
+        # a ecouter (mesure du 2026-09-14, pret au 2e essai). On le dit
+        # pendant l'attente, puis on RE-VERIFIE par HTTP -- croire le retour
+        # de `start_server` afficherait un vert que personne n'a constate.
+        s = lang_manager.current
+        self._lbl_availability.setText(
+            f'<span style="color:{theme_manager.current.text_secondary};">'
+            f'&#9679; {s.ia_ollama_starting}</span>')
+        start_server()
+        QTimer.singleShot(2500, self.refresh_availability)
 
     # ── Theme ──────────────────────────────────────────────────
 
@@ -867,6 +1237,14 @@ class IAView(QWidget):
         self._cloud: _CloudSection | None = None
         self._active_backend = None
         self._build()
+        # TODO #95 (2e lot) : c'est L'ÉCRAN où la copie manquait le plus. Le
+        # #92 a rendu visible le message brut du fournisseur (« This model is
+        # no longer available… Please update your code to use … ») — un texte
+        # fait pour être collé dans une recherche, et qu'on ne pouvait pas
+        # sélectionner. Ses éléments cliquables sont des radios, listes,
+        # boutons et curseurs : AUCUNE `QLabel` n'y est une cible de clic.
+        from .selectable_text import make_selectable
+        make_selectable(self)
         self._load_state()
         # Publie l'etat du backend ACTIF des la construction (TODO #80) : la
         # vue etant construite au demarrage, la pastille de la barre d'etat a
@@ -992,14 +1370,36 @@ class IAView(QWidget):
         if section is not None and section._availability_state is not None:
             ai_status.set_state(section._availability_state[0])
             return
+        # ⚠️ La clé ne suffit PLUS. `is_available()` exige clé + URL + MODÈLE,
+        # et depuis la suppression du modèle par défaut (spec 2026-09-03) une
+        # clé peut très bien exister sans modèle : la pastille serait verte —
+        # avec halo, le signal le plus fort de l'app — pour une génération qui
+        # échouera sur « Aucun modèle IA disponible ». Mieux vaut du rouge en
+        # trop que du vert menteur (revue finale 2026-09-03).
         if bid == "custom":
-            ok = bool(ai_config.custom_base_url)
+            configure = bool(ai_config.custom_base_url and ai_config.custom_model)
+            modele = ai_config.custom_model
         elif any(p.id == bid for p in PROVIDERS):
-            ok = bool(ai_config.api_key(bid))
+            modele = ai_config.model_for(bid)
+            configure = bool(ai_config.api_key(bid) and modele)
         else:
             ai_status.set_state(None)      # on ne sait pas -> pastille grise
             return
-        ai_status.set_state("cloud_key_ok" if ok else "cloud_key_missing")
+        if not configure:
+            ai_status.set_state("cloud_key_missing")
+            return
+        # Configuré ne veut pas dire ACCESSIBLE. Tant que la sonde n'a pas
+        # répondu pour CE modèle, on ne sait pas — et `None` (gris) est
+        # exactement la valeur que ce module réserve à « pas encore
+        # d'information ». Vert sur la seule présence d'une clé, c'était le
+        # vert menteur : l'app démarrait au vert sur un modèle retiré
+        # (retour utilisateur, 2026-09-04).
+        verdict = self._cloud.probe_verdict_for(bid, modele)
+        if verdict is None:
+            ai_status.set_state(None)
+            return
+        ai_status.set_state("cloud_key_ok" if verdict
+                            else "cloud_model_unreachable")
 
     def _activate_cloud(self):
         """Activate the cloud provider currently selected in the combo."""

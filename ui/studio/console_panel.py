@@ -49,16 +49,42 @@ class ConsolePanel(QWidget):
         self.log.help_with_error_requested.connect(self.help_with_error_requested)
         self.log.action_clicked.connect(self.action_clicked)
 
-        if serial_bar_in_log:
-            # Barre FIXE en bas du journal, HORS défilement : 2 rangées
-            # (contrôles Connecter|auto-scroll|baud, puis ligne d'envoi).
-            bar = QWidget()
-            v = QVBoxLayout(bar)
-            v.setContentsMargins(0, 0, 0, 0)
-            v.setSpacing(6)
-            v.addWidget(self.serial.get_ctrl_widget())
-            v.addWidget(self.serial.get_send_widget())
-            self.log.set_bottom_bar(bar)
+        self._serial_bar = None
+        self.set_serial_bar_in_log(serial_bar_in_log)
+
+    def set_serial_bar_in_log(self, in_log: bool) -> None:
+        """Place les contrôles série DANS le journal, ou les en retire.
+
+        TODO #99 (2026-09-08). C'est le « changement d'habit » qui permet à UNE
+        SEULE console de servir les trois modes. Avant, l'habit était figé à la
+        construction (`serial_bar_in_log`), donc le mode Débutant — qui place
+        ses contrôles dans sa ligne de titre plutôt que sous le journal —
+        exigeait une SECONDE `ConsolePanel`. Deux consoles, c'est deux
+        journaux et deux ports : passer en Débutant coupait la liaison série
+        en cours et changeait de transcription.
+
+        `in_log=False` ne détruit rien : le widget de contrôles reste vivant et
+        l'appelant est libre de le monter où il veut. C'est ce qui permet
+        l'aller-retour entre modes sans jamais fermer le port.
+        """
+        if in_log:
+            if self._serial_bar is None:
+                bar = QWidget()
+                v = QVBoxLayout(bar)
+                v.setContentsMargins(0, 0, 0, 0)
+                v.setSpacing(6)
+                v.addWidget(self.serial.get_ctrl_widget())
+                v.addWidget(self.serial.get_send_widget())
+                self._serial_bar = bar
+            else:
+                # Les contrôles ont pu être reparentés ailleurs entre-temps :
+                # on les réclame, sinon la barre se remonte vide.
+                lay = self._serial_bar.layout()
+                lay.addWidget(self.serial.get_ctrl_widget())
+                lay.addWidget(self.serial.get_send_widget())
+            self.log.set_bottom_bar(self._serial_bar)
+        else:
+            self.log.set_bottom_bar(None)
 
     def _on_connection_changed(self, connected: bool):
         """Ouverture du port -> en-tête coloré « Sortie console : » pour

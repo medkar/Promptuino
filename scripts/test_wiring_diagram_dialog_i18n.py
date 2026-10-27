@@ -116,6 +116,23 @@ def _choices_keys() -> set[str]:
             for v in node.value.values:
                 if isinstance(v, ast.Constant) and isinstance(v.value, str):
                     keys.add(v.value)
+        elif "_TEXTES" in names:
+            # Depuis le #94 (2026-09-07), `_BuzzerSeriesValueDialog` sert DEUX
+            # composants : le buzzer et le haut-parleur, dont l'explication
+            # differe d'un ordre de grandeur (20-30 mA contre ~600 mA sur un
+            # 8 Ω). Ses cles vivent donc dans une table
+            # `{type: (titre, explication, (choix...))}`. Toutes les chaines y
+            # sont des cles i18n, quelle que soit leur profondeur.
+            # ⚠️ Les VALEURS seulement : les cles du dictionnaire sont des
+            # types de composant (« buzzer », « speaker »), pas des cles i18n.
+            # Les ramasser faisait rougir `test_every_t_call_key_has_an_entry`,
+            # qui les cherchait dans `_DIALOG_LABELS`.
+            if isinstance(node.value, ast.Dict):
+                for valeur in node.value.values:
+                    for sous in ast.walk(valeur):
+                        if isinstance(sous, ast.Constant) \
+                                and isinstance(sous.value, str):
+                            keys.add(sous.value)
     return keys
 
 

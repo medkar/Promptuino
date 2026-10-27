@@ -263,36 +263,76 @@ class SerialMonitorWidget(QWidget):
 
     def set_baud_visible(self, visible: bool):
         """Hides the baud selector (+ its label). Used in beginner mode
-        where Connect is kept but not the baud choice."""
+        where Connect is kept but not the baud choice.
+
+        ⚠️ Redispose la ligne : sans ca, l'espaceur qui PRECEDE le libelle
+        restait meme le libelle masque, et « Defilement auto » n'atteignait
+        pas tout a fait le bord droit du journal (signale en QA AM3 avec une
+        capture, 2026-09-08 -- 6 px residuels).
+        """
         self._lbl_baud.setVisible(visible)
         self._baud_combo.setVisible(visible)
+        self._relayout_ctrl()
 
     def set_compact(self, compact: bool):
-        """Narrow control strip (advanced Studio right column): baud label
-        hidden (combo + tooltip) and controls DISTRIBUTED evenly across the
-        width — Connect on the left, « Défilement auto » in the center, baud on
-        the right (two equal stretches)."""
+        """Narrow control strip (advanced Studio right column): controls
+        DISTRIBUTED evenly across the width — Connect on the left,
+        « Defilement auto » in the center, baud on the right (two equal
+        stretches). `compact=False` restore la disposition d'origine.
+
+        ⚠️ Cette methode NE TOUCHE PLUS a la visibilite du libelle « Baud ».
+        Elle le forcait visible en son sein, ce qui annulait un
+        `set_baud_visible(False)` appele avant elle : le mot restait seul en
+        mode Debutant. La visibilite appartient a `set_baud_visible`, la
+        disposition a celle-ci -- et l'ordre des deux appels n'a plus
+        d'importance (QA AM3, 2026-09-08).
+        """
         self._compact = compact
         self._baud_combo.setFixedWidth(78 if compact else 100)
-        self._lbl_baud.setVisible(True)              # « Baud » label kept
-        ctrl = self.get_ctrl_widget().layout()
-        if compact:
-            # Empty the layout (the widgets remain, referenced by self._*) then
-            # reorder with stretches for an even distribution. Margins
-            # and spacing reduced to fit everything on one line.
-            while ctrl.count():
-                ctrl.takeAt(0)
-            ctrl.setContentsMargins(0, 0, 0, 0)
-            ctrl.setSpacing(4)
-            ctrl.addWidget(self._btn_connect)        # left
-            ctrl.addStretch(1)
-            ctrl.addWidget(self._lbl_autoscroll)     # center
-            ctrl.addWidget(self._chk_autoscroll)
-            ctrl.addStretch(1)
-            ctrl.addWidget(self._lbl_baud)           # right: Baud + combo
-            ctrl.addWidget(self._baud_combo)
+        self._relayout_ctrl()
         self.apply_theme(theme_manager.current)
         self.apply_lang(lang_manager.current)
+
+    def _relayout_ctrl(self) -> None:
+        """(Re)construit la ligne de controles depuis l'ETAT COURANT.
+
+        Un seul endroit qui dispose, appele par `set_compact` comme par
+        `set_baud_visible`. C'est ce qui supprime le piege d'ordre : chacune
+        change SON axe (disposition / visibilite) et laisse celle-ci relire
+        les deux.
+
+        ⚠️ Le groupe « Baud » reste TOUJOURS dans la disposition, meme masque
+        -- un widget cache occupe zero largeur. Ce qui est conditionnel, c'est
+        l'ESPACEUR qui le precede : lui n'est pas un widget et ne se masque
+        pas, donc il laissait 6 px a droite de la case a cocher.
+        """
+        ctrl = self._ctrl_w.layout()
+        while ctrl.count():
+            ctrl.takeAt(0)
+        baud_visible = not self._lbl_baud.isHidden()
+        ctrl.setContentsMargins(0, 0, 0, 0)
+        if self._compact:
+            ctrl.setSpacing(4)
+            ctrl.addWidget(self._btn_connect)          # gauche
+            ctrl.addStretch(1)
+            ctrl.addWidget(self._lbl_autoscroll)       # centre
+            ctrl.addWidget(self._chk_autoscroll)
+            if baud_visible:
+                ctrl.addStretch(1)
+            ctrl.addWidget(self._lbl_baud)             # droite
+            ctrl.addWidget(self._baud_combo)
+        else:
+            ctrl.setSpacing(8)
+            ctrl.addWidget(self._lbl_title)
+            ctrl.addStretch()
+            ctrl.addWidget(self._btn_connect)
+            ctrl.addSpacing(6)
+            ctrl.addWidget(self._lbl_autoscroll)
+            ctrl.addWidget(self._chk_autoscroll)
+            if baud_visible:
+                ctrl.addSpacing(6)
+            ctrl.addWidget(self._lbl_baud)
+            ctrl.addWidget(self._baud_combo)
 
     def is_autoscroll(self) -> bool:
         """Current state of the « auto-scroll » checkbox."""
@@ -461,7 +501,16 @@ class SerialMonitorWidget(QWidget):
         self._lbl_autoscroll.setStyleSheet(f"font-size: {lp}pt; color: {c.text_secondary};")
         # "auto-scroll" checkbox: centralized agreed style (wireframe
         # white/gray indicator -> GREEN on hover AND checked, with a white check).
-        self._chk_autoscroll.setStyleSheet(radio_checkbox_qss(c))
+        # ⚠️ `spacing: 0` : cette case n'a PAS de texte -- son libellé
+        # « Défilement auto » est un QLabel voisin. Or Qt réserve quand même
+        # l'espacement indicateur↔libellé (`PM_CheckBoxLabelSpacing`, mesuré à
+        # 8 px ici), si bien que le carré visible s'arrête 8 px avant le bord
+        # du widget. En mode Débutant, où la case est le dernier élément de la
+        # ligne, ces 8 px l'empêchaient de longer le bord droit du journal --
+        # signalé trois fois en QA AM3 (2026-09-08), et invisible à la mesure
+        # tant qu'on comparait les GÉOMÉTRIES de widgets au lieu du carré.
+        self._chk_autoscroll.setStyleSheet(
+            radio_checkbox_qss(c, spacing_px=0))
 
         # Serial display = output area -> code_bg background (spec §3); send field
         # = input -> input_bg. border border, radius 6.

@@ -270,7 +270,45 @@ def test_all_ten_dialogs_build_and_title_differs_fr_it():
     assert not failures, failures
 
 
+def test_the_series_resistor_dialog_speaks_about_the_right_component():
+    """La modale de reglage ne doit pas expliquer un BUZZER a un haut-parleur.
+
+    Signale en QA AK2.1 (2026-09-07) : « dans l'explication de la resistance
+    pour le haut-parleur, ca parle de buzzer passif ». Ce n'etait pas qu'un
+    mot -- la physique differe d'un ordre de grandeur. Un buzzer passif tire
+    20-30 mA ; un haut-parleur de 8 Ω branche nu en tirerait ~600 mA, trente
+    fois la limite de 20 mA par broche. Le texte du buzzer presente « sans
+    resistance » comme un choix acceptable ; sur un haut-parleur c'est une
+    surintensite immediate.
+
+    `_BuzzerSeriesValueDialog` sert les DEUX composants depuis le #94 : elle
+    choisit ses textes sur `comp_type`.
+    """
+    from ui.wiring.wiring_diagram_dialog import _BuzzerSeriesValueDialog
+
+    haut_parleur = _BuzzerSeriesValueDialog(
+        None, ref="LS1", current_value="100", comp_type="speaker")
+    buzzer = _BuzzerSeriesValueDialog(
+        None, ref="BZ1", current_value="100", comp_type="buzzer")
+
+    assert "haut-parleur" in haut_parleur.windowTitle().lower(), (
+        haut_parleur.windowTitle())
+    assert "buzzer" not in haut_parleur.windowTitle().lower(), (
+        haut_parleur.windowTitle())
+    assert "buzzer" in buzzer.windowTitle().lower(), buzzer.windowTitle()
+
+    # Les intitules de choix disent le bon ordre de grandeur.
+    textes = " ".join(r.text() for r in haut_parleur._radios.values())
+    assert "600" in textes, (
+        f"le haut-parleur doit annoncer son courant reel : {textes}")
+    assert "20-30" not in textes, (
+        f"c'est le courant d'un BUZZER, pas d'un haut-parleur : {textes}")
+    # Et le buzzer garde le sien, inchange.
+    assert "20-30" in " ".join(r.text() for r in buzzer._radios.values())
+
+
 TESTS = [
+    test_the_series_resistor_dialog_speaks_about_the_right_component,
     test_led_series_dialog_title_and_body_differ_fr_it,
     test_led_series_dialog_choices_differ_fr_it,
     test_a4988_microstep_dialog_title_and_table_differ_fr_it,

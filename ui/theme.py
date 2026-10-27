@@ -323,13 +323,22 @@ def destructive_button_qss(c: ColorScheme, *, selector: str = "QPushButton",
 
 def radio_checkbox_qss(c: ColorScheme, *, font_pt: int = 10,
                        font_weight: int | None = None,
-                       indicator_px: int = 16) -> str:
+                       indicator_px: int = 16,
+                       spacing_px: int = 8) -> str:
     """Radios + checkboxes: outline indicator (white/gray) -> GREEN on hover and
     checked (solid green + white checkmark for checkboxes, green dot for radios).
 
     `font_weight` and `indicator_px` exist because four call sites appended the
     SAME two extra rules by hand (`font-weight: 700` on a big radio, a 14 px
     compact indicator). Passing them keeps the recipe in one place.
+
+    `spacing_px` est l'espace entre l'indicateur et le libelle. Il vaut 8 par
+    defaut -- la valeur historique, inchangee. On le met a 0 pour une case
+    SANS TEXTE, dont le libelle est un QLabel voisin : Qt reserve sinon cet
+    espace pour un texte vide, et la boite du widget depasse de 8 px le carre
+    dessine. C'est ce qui empechait « Defilement auto » de longer le bord
+    droit du journal en mode Debutant (QA AM3, 2026-09-08) -- un ecart
+    invisible tant qu'on mesurait la geometrie du widget au lieu du carre.
 
     ⚠️ `font_weight=None` (the default) emits NO declaration at all, rather
     than a nominal `400`. This helper feeds `app_qss`, so declaring a weight by
@@ -347,7 +356,7 @@ def radio_checkbox_qss(c: ColorScheme, *, font_pt: int = 10,
         QRadioButton, QCheckBox {{
             background-color: transparent;
             color: {c.text_primary};
-            spacing: 8px;
+            spacing: {spacing_px}px;
             font-size: {font_pt}pt;{poids}
         }}
         QRadioButton::indicator {{

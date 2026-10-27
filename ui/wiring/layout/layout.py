@@ -91,7 +91,12 @@ PAIRED_R_COL_RIGHT_BB2 = "f"
 # BB0 mirror    : main col 'c', R.B col 'e' → entry 'd'
 PULLUP_WIRE_ENTRY_BB1 = "g"
 PULLUP_WIRE_ENTRY_BB2 = "d"
-PAIRED_MAIN_TYPES = {"led", "button", "dht11", "dht22", "buzzer", "ds18b20"}
+# ⚠️ `speaker` y est depuis le 2026-09-07 (QA AK2.1) : il recoit la MEME
+# resistance serie que le buzzer depuis le #94, mais n'etait pas apparie --
+# sa resistance flottait donc a l'ecart au lieu de longer le composant, comme
+# le fait celle d'une LED. La regle et le PLACEMENT doivent bouger ensemble.
+PAIRED_MAIN_TYPES = {"led", "button", "dht11", "dht22", "buzzer", "ds18b20",
+                     "speaker"}
 POWER_NETS = {"5V", "3V3", "GND", "VIN"}
 
 # Component types placed OFF the BB — placed separately after the

@@ -17,6 +17,10 @@ from .base import AIBackend
 
 _TIMEOUT = 300          # seconds — generation can be long
 _LIST_TIMEOUT = 15      # seconds — GET /models should be quick
+# Sonde d'un modele : un aller-retour REEL, sur un modele qui peut REFLECHIR
+# avant de repondre. 15 s (le delai de la liste) expirait en plein
+# raisonnement et faisait passer un modele sain pour injoignable (QA AI1).
+_PROBE_TIMEOUT = 90
 _CHAT_MAX_TOKENS = 2048
 _GEN_MAX_TOKENS = 8192   # generous for full-program generation/repair
 
@@ -41,16 +45,64 @@ _ERR_FALLBACK = {
 }
 
 
-def _error_message(kind: str) -> str:
-    """i18n error message for `kind`, English fallback if i18n unavailable."""
+_DETAIL_MAX = 240
+
+
+def _provider_detail(body: str) -> str:
+    """Ce que le FOURNISSEUR a répondu, réduit à une phrase lisible.
+
+    C'est là que vit la seule information actionnable. Google y écrivait
+    « This model models/gemini-2.5-flash is no longer available to new users.
+    Please upgrade » — la cause ET la solution — que l'app remplaçait par
+    « Modèle ou URL introuvable ».
+
+    ⚠️ Le corps d'erreur de Gemini est une **liste** JSON (mesuré le
+    2026-09-03), celui d'OpenAI un objet. Les deux formes sont lues ; un corps
+    illisible retombe sur son texte brut, et un corps vide rend `""` —
+    l'appelant reprend alors exactement le comportement d'avant.
+    """
+    if not body:
+        return ""
+
+    def _court(texte) -> str:
+        # Une seule ligne : le message part dans un QLabel.
+        return " ".join(str(texte).split())[:_DETAIL_MAX]
+
+    try:
+        data = json.loads(body)
+    except Exception:
+        return _court(body)
+    if isinstance(data, list):
+        data = data[0] if data else {}
+    if isinstance(data, dict):
+        err = data.get("error")
+        msg = ""
+        if isinstance(err, dict):
+            msg = err.get("message") or ""
+        elif isinstance(err, str):
+            msg = err
+        if not msg:
+            msg = data.get("message") or ""
+        return _court(msg) if msg else ""
+    return _court(body)
+
+
+def _error_message(kind: str, detail: str = "") -> str:
+    """i18n error message for `kind`, English fallback if i18n unavailable.
+
+    ``detail`` — ce que le fournisseur a répondu — est AJOUTÉ derrière, jamais
+    substitué : le message générique est traduit, celui du fournisseur ne l'est
+    pas. Vide, on retrouve mot pour mot le comportement d'avant.
+    """
+    base = ""
     try:
         from ..i18n import lang_manager
-        val = getattr(lang_manager.current, f"ia_err_{kind}", "")
-        if val:
-            return val
+        base = getattr(lang_manager.current, f"ia_err_{kind}", "")
     except Exception:
-        pass
-    return _ERR_FALLBACK.get(kind, _ERR_FALLBACK["provider"])
+        base = ""
+    if not base:
+        base = _ERR_FALLBACK.get(kind, _ERR_FALLBACK["provider"])
+    return f"{base} — {detail}" if detail else base
 
 
 def _status_kind(status: int) -> str:
@@ -317,6 +369,53 @@ class OpenAICompatBackend(AIBackend):
         """Provider's chat model ids (empty on any error). See list_models_detailed."""
         return self.list_models_detailed()[0]
 
+    def probe_model(self) -> tuple[bool, str]:
+        """(a répondu ?, message). Appel RÉEL et minimal au modèle courant.
+
+        Le listing d'un fournisseur ne dit pas ce qui est ACCESSIBLE : mesuré
+        le 2026-09-03, `gemini-2.5-flash` figure dans celui de Google, annoncé
+        `generateContent`, et renvoie 404 dès qu'on l'utilise. Aucun de ses 12
+        champs ne le signale. La seule façon de savoir est d'essayer.
+
+        Ne prouve QUE ceci : ce modèle a répondu, à cet instant, avec cette
+        clé. Ni quota, ni disponibilité future.
+
+        ⚠️ **N'utilise PAS `_complete`, et c'est mesuré.** `_complete` exige la
+        forme d'une complétion (`choices[0].message.content`). Or à
+        `max_tokens=1` un modèle à raisonnement répond **200** avec
+        `"message": {"role": "assistant"}` — **aucune clé `content`** : le
+        token a été dépensé à réfléchir. La sonde échouait donc en « Réponse
+        illisible du fournisseur » sur un modèle parfaitement fonctionnel
+        (QA AI1, 2026-09-04). On teste l'ACCÈS : tout ce qui n'est pas une
+        erreur de transport est un succès, quelle que soit la forme du corps.
+
+        Le budget de sortie reste petit (on ne veut pas payer une génération)
+        mais le DÉLAI est généreux : réfléchir prend du temps, et
+        `_LIST_TIMEOUT` — taillé pour un GET de liste — expirait en plein
+        raisonnement.
+        """
+        payload = self._payload("", [{"role": "user", "content": "ping"}],
+                                temperature=None, max_tokens=1, stream=False)
+        url = f"{self._base_url}/chat/completions"
+        try:
+            self._transport.post_json(url, self._headers(), payload,
+                                      _PROBE_TIMEOUT)
+            return True, ""
+        except HttpError as e:
+            # Le message DU FOURNISSEUR seul : c'est lui qui dit quoi faire.
+            # Y ajouter le texte generique donnait << Ce modele n'a pas
+            # repondu -- Modele ou URL introuvable -- verifie le modele et
+            # l'URL de base. -- This model ... >>, trois fois la meme idee
+            # avant l'information utile, et l'utile passait a la ligne
+            # suivante (retour utilisateur, QA AI1). Repli sur le generique
+            # quand le fournisseur ne dit rien.
+            detail = _provider_detail(e.body)
+            return False, detail or _error_message(_status_kind(e.status))
+        except ConnectionError:
+            return False, _error_message("network")
+        except Exception as e:                      # jamais lever vers l'UI
+            return False, f"{type(e).__name__}: {e}"
+
     # ── Transport ────────────────────────────────────────────
     def _headers(self) -> dict:
         # Core headers set LAST so extra_headers can never clobber auth.
@@ -379,7 +478,9 @@ class OpenAICompatBackend(AIBackend):
             content = data["choices"][0]["message"]["content"]
             return content if content is not None else ""
         except HttpError as e:
-            raise RuntimeError(_error_message(_status_kind(e.status))) from e
+            raise RuntimeError(
+                _error_message(_status_kind(e.status),
+                               _provider_detail(e.body))) from e
         except ConnectionError as e:
             raise RuntimeError(_error_message("network")) from e
         except (KeyError, IndexError, TypeError, ValueError) as e:
@@ -466,7 +567,9 @@ class OpenAICompatBackend(AIBackend):
                 if isinstance(chunk, str) and chunk:
                     yield chunk
         except HttpError as e:
-            raise RuntimeError(_error_message(_status_kind(e.status))) from e
+            raise RuntimeError(
+                _error_message(_status_kind(e.status),
+                               _provider_detail(e.body))) from e
         except ConnectionError as e:
             raise RuntimeError(_error_message("network")) from e
         except (AttributeError, KeyError, IndexError, TypeError, ValueError) as e:

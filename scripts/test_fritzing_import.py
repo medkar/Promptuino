@@ -165,6 +165,89 @@ def test_a_long_single_word_label_is_prose_too():
     assert fi.prose_labels(("TRIG", "ECHO")) == []
 
 
+def test_placeholder_labels_flag_a_sheet_that_names_nothing():
+    """Second signal, appris le 2026-09-07 : Fritzing NUMEROTE parfois les pads.
+
+    « pin 0 »/« pin 1 » (thermistance) et « pin1 »/« pin2 » (micro) sont passes
+    tels quels au catalogue, ou ils n'ont rien nomme : le routage appariant par
+    egalite de nom, les deux composants sont sortis SANS AUCUN FIL. Une fiche
+    qui numerote ses pads ne porte pas l'information cherchee.
+    """
+    for numerotees in (("pin 0", "pin 1"), ("pin1", "pin2"),
+                       ("Pin 1", "Pin 2"), ("1", "2")):
+        assert fi.placeholder_labels(numerotees) == list(numerotees), numerotees
+    for vraies in (("VCC", "OUT", "GND"), ("+Vs", "Vout", "GND"),
+                   ("L1", "COM", "L2"), ("A", "K")):
+        assert fi.placeholder_labels(vraies) == [], vraies
+
+
+def test_the_draft_never_proposes_fritzing_names_as_the_match_key():
+    """L'erreur EXACTE du lot du 2026-08-19, celle qui a coute sept composants.
+
+    Le brouillon proposait `pin_labels=<noms Fritzing>`. Or `pin_labels` est la
+    cle d'appariement du routage : un nom de serigraphie qui n'est pas celui
+    que `markers` emet ne produit aucun fil et aucun message. La serigraphie va
+    dans `pin_display_labels`.
+    """
+    part = fi.FritzingPart(title="TMP36", pins=("+Vs", "Vout", "GND"),
+                           raw_pin_count=3)
+    texte = fi.draft(part)
+    assert 'pin_display_labels={1: "+Vs", 2: "Vout", 3: "GND"}' in texte, (
+        "la serigraphie doit etre proposee comme libelles d'AFFICHAGE")
+    assert 'pin_labels={1: "+Vs"' not in texte, (
+        "les noms Fritzing ne doivent JAMAIS etre proposes comme cle "
+        "d'appariement — c'est le defaut d'origine")
+    assert "EMET" in texte, (
+        "le brouillon doit dire d'ou vient `pin_labels` (ce que markers emet)")
+
+
+def test_the_draft_says_a_catalog_entry_is_not_a_detection():
+    """Une entree catalogue rend DESSINABLE, jamais RECONNAISSABLE.
+
+    Le lot precedent s'est arrete a l'etape 1 de la checklist ; mesure le
+    2026-09-07 : 15 prompts nommant un composant importe, 0 reconnu. Le
+    brouillon doit rappeler les etapes qui restent, sinon l'oubli se refait.
+    """
+    texte = fi.draft(fi.FritzingPart(title="Solenoid", pins=("A", "B"),
+                                     raw_pin_count=2))
+    for attendu in ("DESSINABLE", "_KEYWORDS", "_TYPE_LABEL",
+                    "test_wiring_disambiguation"):
+        assert attendu in texte, f"le brouillon ne rappelle pas {attendu!r}"
+
+
+def test_the_draft_never_recopies_labels_it_just_rejected():
+    """Un brouillon ne doit pas se contredire deux lignes plus bas.
+
+    Trouve en JOUANT la QA AK5 (2026-09-08), pas par un test : sur une fiche
+    aux pads numerotes le brouillon affichait « NE PAS les recopier », puis
+    proposait `pin_display_labels={1: "pin 0", 2: "pin 1"}` juste apres. Un
+    brouillon qui se contredit fait recopier la ligne plutot que lire
+    l'avertissement -- exactement le mecanisme qui a laisse passer le lot du
+    2026-08-19.
+
+    Une table d'affichage ne sert qu'a REPRODUIRE ce qui est ecrit sur
+    l'objet ; des numeros de pad ne sont ecrits nulle part.
+    """
+    # Tous les libelles sont des numeros -> aucune table proposee.
+    tout_numerote = fi.draft(fi.FritzingPart(
+        title="Thermistor", pins=("pin 0", "pin 1"), raw_pin_count=2))
+    assert "NE PAS les recopier" in tout_numerote
+    assert 'pin_display_labels={1: "pin 0"' not in tout_numerote, (
+        "le brouillon recopie les libelles qu'il vient de rejeter")
+    assert "pas de `pin_display_labels`" in tout_numerote
+
+    # Une vraie serigraphie -> table proposee, sans reserve.
+    serigraphie = fi.draft(fi.FritzingPart(
+        title="GY-BME280", pins=("VCC", "GND", "SCL", "SDA"), raw_pin_count=4))
+    assert 'pin_display_labels={1: "VCC", 2: "GND", 3: "SCL", 4: "SDA"}'         in serigraphie
+    assert "a REPRENDRE" not in serigraphie
+
+    # Mixte -> table proposee MAIS signalee, sinon on perd les vrais noms.
+    mixte = fi.draft(fi.FritzingPart(
+        title="Mixte", pins=("VCC", "pin 2", "GND"), raw_pin_count=3))
+    assert "a REPRENDRE" in mixte and "'pin 2'" in mixte, mixte
+
+
 TESTS = [
     test_the_metadata_is_read,
     test_the_two_header_rows_collapse_to_the_real_pinout,
@@ -178,6 +261,10 @@ TESTS = [
     test_the_parser_never_touches_the_network,
     test_prose_labels_flag_the_bare_chip_instead_of_the_module,
     test_a_long_single_word_label_is_prose_too,
+    test_placeholder_labels_flag_a_sheet_that_names_nothing,
+    test_the_draft_never_proposes_fritzing_names_as_the_match_key,
+    test_the_draft_says_a_catalog_entry_is_not_a_detection,
+    test_the_draft_never_recopies_labels_it_just_rejected,
 ]
 
 

@@ -238,22 +238,21 @@ def test_the_click_shows_AS_MANY_points_as_the_hover():
     lisent desormais la MEME source (`_warnings_by_ref`) ; recopier la regle
     une troisieme fois la ferait diverger une troisieme fois.
     """
-    from PyQt6.QtWidgets import QMessageBox
     netlist = _schema(CODE_INCONNU)
     ref = netlist.components[0].ref
     netlist.add_warning(code="undrawable_component", severity=SEVERITY_INFO,
                         message="second point", refs=[ref],
                         params={"ref": ref, "pin_count": 9})
+    # ⚠️ `_info_box` et non `QMessageBox.information` : la commodite statique
+    # a disparu du dialogue (TODO #111), faute de pouvoir y rendre le texte
+    # selectionnable. Detourner la couture de l'app est de toute facon plus
+    # juste : c'est elle qui decide du titre et du corps.
     sonde = _Sonde(netlist)
     vus = []
-    original = QMessageBox.information
-    QMessageBox.information = staticmethod(lambda *a, **k: vus.append(a))
-    try:
-        sonde._show_warning_info(ref)
-    finally:
-        QMessageBox.information = original
+    sonde._info_box = lambda titre, corps: vus.append((titre, corps))
+    sonde._show_warning_info(ref)
     assert vus, "le clic n'a rien ouvert"
-    titre, corps = vus[0][1], vus[0][2]
+    titre, corps = vus[0]
     assert "2" in titre, titre
     assert "1." in corps and "2." in corps, corps
     # Et le survol dit la MEME chose -- c'est la parite qui est verrouillee,
@@ -267,15 +266,13 @@ def test_a_single_point_opens_with_its_own_title_on_click():
     from PyQt6.QtWidgets import QMessageBox
     netlist = _schema(CODE_INCONNU)
     ref = netlist.components[0].ref
+    # ⚠️ `_info_box` et non `QMessageBox.information` (TODO #111).
     vus = []
-    original = QMessageBox.information
-    QMessageBox.information = staticmethod(lambda *a, **k: vus.append(a))
-    try:
-        _Sonde(netlist)._show_warning_info(ref)
-    finally:
-        QMessageBox.information = original
+    sonde = _Sonde(netlist)
+    sonde._info_box = lambda titre, corps: vus.append((titre, corps))
+    sonde._show_warning_info(ref)
     assert vus, "le clic n'a rien ouvert"
-    assert "point" not in vus[0][1].lower(), vus[0][1]
+    assert "point" not in vus[0][0].lower(), vus[0][0]
 
 
 # ── Ce qu'un avertissement ne doit PAS dire (trouve par l'affichage) ────

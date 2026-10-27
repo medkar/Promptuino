@@ -124,7 +124,7 @@ class _ElidedLabel(QLabel):
         if elided != super().text():
             super().setText(elided)
 
-_FILTER_KEYS = ("all", "declared", "with_library", "drawable")
+_FILTER_KEYS = ("all", "declared", "without_library", "with_library")
 
 
 def _filter_label(kind: str, s: Strings) -> str:
@@ -132,7 +132,7 @@ def _filter_label(kind: str, s: Strings) -> str:
         "all":          s.components_filter_all,
         "declared":     s.components_filter_declared,
         "with_library": s.components_filter_with_library,
-        "drawable":     s.components_filter_drawable,
+        "without_library": s.components_filter_without_library,
     }[kind]
 
 

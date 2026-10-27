@@ -1,9 +1,23 @@
-"""Multi-family ambiguity groups for clarification BEFORE generation.
+"""Multi-family ambiguity groups, EN AMONT de la génération.
 
-When a vague prompt matches a group (>=2 components that do the same thing,
-with different wiring/lib), we ask the user which chip via
-`LibClarificationDialog`, then force the chosen lib into the RAG context
-(cf. `rag.detect_lib_ambiguity`).
+⛔ **CE MODULE N'OUVRE PLUS AUCUNE FENÊTRE, et son en-tête l'a longtemps
+prétendu.** Il disait « we ask the user which chip via
+`LibClarificationDialog` » alors que cette modale a disparu le 2026-07-08
+(fichier effacé le 2026-07-29), et renvoyait à `rag.detect_lib_ambiguity`,
+supprimée le 2026-09-10 (TODO #102). Deux affirmations fausses dans la
+PREMIÈRE chose qu'on lit en ouvrant le fichier — c'est précisément ce qui
+m'a fait décrire un écran inexistant à l'utilisateur, le 2026-09-09.
+
+Ce qu'un groupe fait AUJOURD'HUI, et rien de plus :
+
+- `rag.detect_lib_ambiguities(prompt)` rend `(à_clarifier, auto_forcées)` ;
+- **`auto_forcées`** — la puce d'une famille que l'utilisateur a NOMMÉE — est
+  forcée **silencieusement** dans le contexte RAG. C'est le seul effet vivant.
+- **`à_clarifier`** est **ignoré** : le RAG choisit la lib la plus probable,
+  et la correction se fait *a posteriori* dans le schéma (engrenage → swap →
+  offre de régénération).
+- `corpus_id_of_type` fait le chemin inverse (type de câblage → document),
+  en repli de `studio_view._corpus_id`, qui passe d'abord par le registre.
 
 CURATED approach — explicit keywords → ordered candidates (+ most common first),
 mirroring the wiring disambiguation lexicons (`markers._*_KEYWORDS`). The RAG's
@@ -38,7 +52,26 @@ from dataclasses import dataclass
 @dataclass(frozen=True)
 class ClarifyCandidate:
     corpus_id: str
+    #: ⛔ `label` N'ATTEINT AUCUN ECRAN depuis le 2026-07-08. La modale de
+    #: clarification pre-generation a ete supprimee ce jour-la, et
+    #: `ui/lib_clarification_dialog.py` efface le 2026-07-29 : les familles
+    #: restees ambigues sont desormais laissees au RAG et corrigees a
+    #: posteriori dans le schema.
+    #:
+    #: ⚠️ IL RESTE POURTANT, ET DELIBEREMENT -- c'est la meilleure
+    #: documentation de ce que chaque candidat DESIGNE (« HC-SR04
+    #: (ultrason) » dit en trois mots ce qu'un `corpus_id` ne dit pas), et
+    #: `test_every_group_is_well_formed` l'exige non vide.
+    #:
+    #: ⛔ MAIS NE PAS LE REBRANCHER « puisqu'il est la ». C'est
+    #: precisement sa forme -- du francais redige pour un humain, dans un
+    #: champ nomme « libelle » -- qui m'a fait decrire a l'utilisateur, en
+    #: seance du 2026-09-09, une fenetre qui n'existe plus. Meme mise en
+    #: garde que pour `visual_ambiguity_catalog.build_options_for_type` :
+    #: dormant par decision, pas par oubli. TODO #102.
     label: str
+    #: Type de cablage vers lequel ce candidat se dessine. Lu par
+    #: `corpus_id_of_type` (le sens inverse), pas par une interface.
     svg_type: str | None = None
 
 
@@ -164,6 +197,16 @@ CLARIFY_GROUPS: tuple[ClarifyGroup, ...] = (
          "distancia", "distanza", "obstacle"),
         (_c("newping", "HC-SR04 (ultrason)", "hcsr04"),
          _c("vl53l0x", "VL53L0X (laser ToF)"),
+         # 2026-09-09 : le SEUL des quatre qui soit analogique. Sans lui, un
+         # « capteur de distance » vague ne pouvait pas se resoudre vers le
+         # Sharp -- et c'est celui d'un kit d'entree de gamme.
+         # ⚠️ UN SEUL candidat Sharp, alors qu'il existe TROIS types depuis le
+         # 2026-09-09 : les trois partagent LE MEME document corpus, donc trois
+         # lignes se dedoublonneraient par id et ne changeraient rien au seul
+         # effet vivant du groupe -- le forcage SILENCIEUX quand la puce est
+         # nommee. (Le `label` ci-dessous n'atteint aucun ecran depuis la
+         # suppression de la modale le 2026-07-08, cf. TODO #102.)
+         _c("sharpir", "Sharp GP2Y0A (infrarouge)", "gp2y0a21"),
          _c("apds9960", "APDS9960 (proximité courte)")),
     ),
     # ── Luminosity / light (sensor — NOT bare "lumière"/"light") ─────────

@@ -31,10 +31,18 @@ def test_per_provider_key_roundtrip(tmp_path):
 
 
 def test_model_override(tmp_path):
+    """Sans choix enregistre, `model_for` ne rend RIEN.
+
+    Il retombait sur le modele du prereglage. C'est ce repli qui a fait
+    demander `gemini-2.5-flash` longtemps apres son retrait par Google : le
+    defaut s'ecrivait dans la config de qui ouvrait l'ecran une fois, et la
+    config prime (spec 2026-09-03).
+    """
     c = _fresh(tmp_path)
-    assert c.model_for("openai") == "gpt-4o-mini"          # preset default
+    assert c.model_for("openai") == ""                     # plus de defaut
     c.set_model("openai", "gpt-4o")
     assert c.model_for("openai") == "gpt-4o"
+    assert c.model_for("mistral") == ""                    # les autres aussi
 
 
 def test_migration_anthropic_id(tmp_path):

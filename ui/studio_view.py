@@ -882,7 +882,8 @@ def _append_extra(existing: str, new_code: str) -> str:
     return base + '\n\n' + extra
 
 
-from .board_manager import board_manager, BOARDS, get_fqbn, BoardState
+from .board_manager import (board_manager, BOARDS, get_fqbn, BoardState,
+                            model_label)
 from . import arduino_cli
 
 
@@ -2044,6 +2045,10 @@ class StudioView(QWidget):
         # Composants que ni le corpus ni le registre ne connaissent, retenus
         # pour la question pré-remplie du bouton « demander de l'aide ».
         self._registry_unknown: list[str] = []
+        # Variante Sharp non couverte par la bibliotheque (spec 2026-09-09).
+        # Le MEME bouton « demander de l'aide » sert aux deux cas : c'est
+        # cet etat qui aiguille, pas un second bouton.
+        self._sharp_variant: str = ""
         # {lookup token: module alias} for tokens derived from a silkscreened
         # module reference ("hw-617" -> "tca9548a"). Read by
         # _apply_registry_results so the banner can name BOTH what the user
@@ -2077,7 +2082,7 @@ class StudioView(QWidget):
         self._registry_banner.action_requested.connect(
             self._on_change_lib_requested)
         self._registry_banner.action2_requested.connect(
-            self._open_chat_help_unknown_parts)
+            self._on_banner_help_requested)
         self._layout.insertWidget(1, self._registry_banner)
         # Miroir des diagnostics « [RAG] … » dans le journal : sur stdout
         # uniquement, ils étaient invisibles dans l'app packagée (désync
@@ -2159,13 +2164,25 @@ class StudioView(QWidget):
         # en-tête « Sortie console » à l'ouverture du port). Aliases : les
         # nombreux sites existants continuent de lire _beg_output_area /
         # _serial_monitor_beg (mêmes objets).
-        self._beg_console = ConsolePanel()
-        self._beg_output_area = self._beg_console.log
-        self._serial_monitor_beg = self._beg_console.serial
+        # ⚠️ UNE SEULE console pour les TROIS modes (TODO #99, 2026-09-08).
+        # Avant, le débutant avait la sienne : passer d'Intermédiaire à
+        # Débutant coupait la liaison série en cours (`_on_mode_changed`
+        # fermait « le port de l'autre mode ») et basculait sur une seconde
+        # transcription. Int ↔ Avancé, eux, n'ont jamais rien perdu — ils
+        # partagent le même widget reparenté. Le débutant rejoint ce
+        # mécanisme ; ce qui change d'un mode à l'autre est l'HABIT, pas
+        # l'objet (`ConsolePanel.set_serial_bar_in_log`).
+        #
+        # Les alias restent : la vingtaine de sites qui lisent
+        # `_beg_output_area` / `_serial_monitor_beg` continuent de marcher,
+        # ils désignent simplement les mêmes objets que leurs jumeaux.
+        self._console = ConsolePanel(serial_bar_in_log=True)
+        self._beg_console = self._adv_console = self._console
+        self._beg_output_area = self._output_area = self._console.log
+        self._serial_monitor_beg = self._serial_monitor = self._console.serial
         # In beginner: keep the Connect/Disconnect button in the console,
         # but not the baud selector (user request).
         self._serial_monitor_beg.set_connect_visible(True)
-        self._serial_monitor_beg.set_baud_visible(False)
 
         # Title row: « Journal » label + serial controls (autoscroll/baud).
         title_row = QHBoxLayout()
@@ -2174,13 +2191,24 @@ class StudioView(QWidget):
         self._lbl_serial_beg_title = _ElidingLabel()   # text = studio_output_label
         self._lbl_serial_beg_title.setAlignment(Qt.AlignmentFlag.AlignVCenter)
         title_row.addWidget(self._lbl_serial_beg_title)
-        title_row.addWidget(self._serial_monitor_beg.get_ctrl_widget(), stretch=1)
+        # Emplacement des contrôles série en Débutant : ils sont MONTÉS ici au
+        # changement de mode, et rendus au journal en Int/Avancé. Un slot vide
+        # plutôt que le widget lui-même — c'est le même objet qui voyage.
+        self._beg_serial_slot = QWidget()
+        _bss = QHBoxLayout(self._beg_serial_slot)
+        _bss.setContentsMargins(0, 0, 0, 0)
+        title_row.addWidget(self._beg_serial_slot, stretch=1)
         beg_vbox.addLayout(title_row)
 
-        self._beg_console.help_with_error_requested.connect(
+        self._console.help_with_error_requested.connect(
             self._on_error_help_requested
         )
-        beg_vbox.addWidget(self._beg_console, stretch=1)
+        # Même principe que `_int_console_slot` / `_adv_console_slot` : la
+        # console est reparentée ici quand le mode Débutant est actif.
+        self._beg_console_slot = QWidget()
+        _bcs = QVBoxLayout(self._beg_console_slot)
+        _bcs.setContentsMargins(0, 0, 0, 0)
+        beg_vbox.addWidget(self._beg_console_slot, stretch=1)
 
         # « instructions » widgets kept (referenced by apply_theme/lang)
         # but NOT placed: the instructions window is removed from beginner
@@ -2385,9 +2413,10 @@ class StudioView(QWidget):
         # avec la barre série FIXE en bas du journal (2 rangées : contrôles
         # Connecter|auto-scroll|baud puis ligne d'envoi — hors défilement).
         # Aliases : les sites existants gardent _output_area/_serial_monitor.
-        self._adv_console = ConsolePanel(serial_bar_in_log=True)
-        self._output_area = self._adv_console.log
-        self._serial_monitor = self._adv_console.serial
+        # ⚠️ La console est créée PLUS HAUT, avec le bloc débutant (TODO #99) :
+        # les trois modes partagent le même objet, donc le même journal et le
+        # même port série. Ici on ne fait plus que régler son habit pour la
+        # colonne étroite.
         # Narrow strip (380 px): reduced font to fit everything on ONE line.
         self._serial_monitor.set_compact(True)
         self._adv_console.help_with_error_requested.connect(
@@ -2743,16 +2772,54 @@ class StudioView(QWidget):
         console, section d'outils du code) dans le conteneur du mode actif.
         Une seule instance de chaque -> aucun contenu/état perdu au changement
         de mode."""
-        if mode_id == "advanced":
+        if mode_id == "beginner":
+            # TODO #99 : le débutant rejoint le mécanisme de reparentage au
+            # lieu d'avoir sa propre console. Seuls l'éditeur et les outils
+            # restent dans le conteneur intermédiaire — ils sont cachés en
+            # débutant, mais y être ne coûte rien et évite un troisième jeu
+            # de slots.
+            self._int_editor_slot.layout().addWidget(self._code_panel)
+            self._ia_controls_slot.layout().addWidget(self._ia_controls_w)
+            self._int_tools_slot.layout().addWidget(self._code_tools_w)
+            self._beg_console_slot.layout().addWidget(self._console_w)
+            # Habit débutant : contrôles série dans la ligne de titre (pas
+            # sous le journal), pas de sélecteur de baud, taille normale.
+            self._console.set_serial_bar_in_log(False)
+            # `stretch=1` : sans lui le widget de contrôles prend sa largeur
+            # NATURELLE dans le slot, donc son ressort interne ne pousse
+            # « Défilement auto » qu'au bord de son propre contenu — pas au
+            # bord droit du journal. Signalé en QA AM3 avec une capture
+            # (2026-09-08).
+            self._beg_serial_slot.layout().addWidget(
+                self._serial_monitor.get_ctrl_widget(), 1)
+            # ⚠️ ORDRE IMPORTANT, et il a mordu (QA AM3, 2026-09-08) :
+            # `set_compact()` force `_lbl_baud.setVisible(True)` en son sein.
+            # Appelé APRÈS `set_baud_visible(False)`, il annulait le masquage
+            # et le libellé « Baud » restait affiché en Débutant, sans son
+            # sélecteur — un mot qui ne désigne plus rien. Le dernier mot
+            # revient donc à l'appel qui exprime l'intention.
+            self._serial_monitor.set_compact(False)
+            self._serial_monitor.set_baud_visible(False)
+            self._lbl_output.setVisible(False)
+        elif mode_id == "advanced":
             self._adv_ia_editor_slot.layout().addWidget(self._code_panel)
             self._adv_ia_controls_slot.layout().addWidget(self._ia_controls_w)
             self._adv_console_slot.layout().addWidget(self._console_w)
             self._adv_ia_tools_slot.layout().addWidget(self._code_tools_w)
+            self._console.set_serial_bar_in_log(True)
+            self._serial_monitor.set_compact(False)   # cf. l'ordre, en Débutant
+            self._serial_monitor.set_baud_visible(True)
+            self._lbl_output.setVisible(True)
         else:
             self._int_editor_slot.layout().addWidget(self._code_panel)
             self._ia_controls_slot.layout().addWidget(self._ia_controls_w)
             self._int_console_slot.layout().addWidget(self._console_w)
             self._int_tools_slot.layout().addWidget(self._code_tools_w)
+            self._console.set_serial_bar_in_log(True)
+            # Colonne étroite (380 px) : tout doit tenir sur une ligne.
+            self._serial_monitor.set_compact(True)
+            self._serial_monitor.set_baud_visible(True)
+            self._lbl_output.setVisible(True)
 
     def _may_switch_mode(self, mode_id: str) -> bool:
         """Veto du sélecteur : refuse un changement de mode UTILISATEUR pendant
@@ -2851,15 +2918,19 @@ class StudioView(QWidget):
         self._refresh_action_button_styles()
         self._serial_monitor_beg.set_send_visible(False)
 
-        # On mode change, close the other mode's monitor but
-        # do NOT automatically open the target mode's: the port is
-        # only opened on explicit action (upload or click on "Connecter") to
-        # avoid connecting at a wrong baudrate at startup and saturating
-        # the read loop (observed UI latencies).
-        if show:
-            self._serial_monitor_beg.close_port()
-        else:
-            self._serial_monitor.close_port()
+        # ⚠️ PLUS DE FERMETURE DE PORT AU CHANGEMENT DE MODE (TODO #99).
+        # Ce bloc fermait « le moniteur de l'autre mode » — ce qui ne fermait
+        # rien d'actif entre Intermédiaire et Avancé (même objet) mais coupait
+        # la liaison en cours dès qu'on passait en Débutant, qui avait la
+        # sienne. Il n'y a plus d'autre moniteur : les trois modes partagent
+        # le même, et il n'y a donc plus rien à fermer.
+        #
+        # ⛔ La raison d'être de ce bloc, elle, SURVIT et ne doit pas être
+        # perdue : on n'ouvre JAMAIS le port automatiquement au changement de
+        # mode. L'ouverture reste sur action explicite (upload, ou clic sur
+        # « Connecter ») — se connecter d'office au démarrage risquait le
+        # mauvais débit et saturait la boucle de lecture (latences mesurées).
+        # Ne rien faire ici est précisément ce qui respecte cette règle.
 
         # #12: reflect the « generation in progress » state on the new mode's
         # button (loader « ◐ Annuler » if a generation is running, otherwise normal state).
@@ -2867,13 +2938,32 @@ class StudioView(QWidget):
         # Bandeau des fonctionnalités (puces) : visible seulement Int/Avancé.
         self._refresh_feature_chips()
 
-        # (Re)signal the program state (« Code prêt : … » / « Aucun code
-        # généré ») in the DISPLAYED mode's log — ALL MODES, not just
-        # beginner. Log cleared first to avoid stacking on each
-        # mode switch.
-        (self._beg_output_area if mode_id == "beginner"
-         else self._output_area).clear()
-        self._beg_mark_program_ready()
+        # État du programme (« Code prêt : … » / « Aucun code généré ») dans
+        # le journal.
+        #
+        # ⚠️ Ce bloc VIDAIT le journal avant de réécrire la ligne, pour éviter
+        # de l'empiler à chaque bascule — `begin_phase` ajoute, il ne remplace
+        # pas. C'était sans conséquence quand chaque mode avait son journal :
+        # on vidait celui qu'on allait afficher. Depuis le #99 il n'y en a
+        # qu'UN, partagé, et ce `clear()` effaçait la transcription commune à
+        # chaque changement de mode — il aurait annulé tout l'intérêt du
+        # chantier.
+        #
+        # La ligne n'a plus à être réécrite : étant dans le journal partagé,
+        # elle est déjà visible depuis les trois modes. On ne l'écrit donc que
+        # lorsqu'il n'y a rien — ce qui couvre le démarrage, sans jamais
+        # empiler ni effacer.
+        #
+        # ⛔ ET JAMAIS PENDANT UN CHARGEMENT DE PROJET. `load_project` vide le
+        # journal, PUIS change de mode, PUIS injecte le code, PUIS écrit la
+        # ligne d'état. Sans ce garde-fou, le changement de mode trouvait un
+        # journal vide et écrivait une ligne décrivant le code du projet
+        # PRÉCÉDENT — encore dans l'éditeur à cet instant. On lisait donc deux
+        # « Code prêt : … », celle d'avant et celle d'après (signalé en QA
+        # AM2, 2026-09-08). Le chemin de chargement écrit la sienne à la fin,
+        # avec le bon code : il n'y a rien à faire ici.
+        if not self._loading and self._active_output_area().is_empty():
+            self._beg_mark_program_ready()
 
     # ── AI context file ──────────────────────────────────────
 
@@ -3568,7 +3658,20 @@ class StudioView(QWidget):
         # Directive en ANGLAIS, comme toutes les consignes machine du prompt
         # (Serial, FEATURE_SUMMARY…) — le prompt utilisateur reste dans sa
         # langue, la consigne n'a pas à en changer (revue 2026-07-29 #6).
-        if new_entry is not None:
+        if new_entry is not None and old_cid and old_cid == new_cid:
+            # MEME document des deux cotes (2026-09-09) : les trois Sharp
+            # GP2Y0A partagent `sharpir`, comme ds1307/ds3231 partagent
+            # `rtclib`. Dire « utilise la bibliotheque du X, pas celle du Y »
+            # y serait absurde -- c'est LA MEME. Ce qui change est le MODELE
+            # passe a cette bibliotheque, et c'est ca qu'il faut dire.
+            # Sans cette branche, l'offre de regeneration existait deja mais
+            # sa consigne etait documentee comme « inutile dans ce cas
+            # precis » ; elle devient utile.
+            swap_note = (f"Replace the {old_lbl} with a {new_lbl}: SAME "
+                         f"library, but the model/parameter it is given must "
+                         f"become the {new_lbl} one. Do not keep the "
+                         f"{old_lbl} constant.")
+        elif new_entry is not None:
             swap_note = (f"Replace the {old_lbl} with a {new_lbl}: use the "
                          f"{new_lbl} library and API, not the {old_lbl} ones.")
         else:
@@ -3741,6 +3844,12 @@ class StudioView(QWidget):
         self._pending_from_scratch = bool(from_scratch)
         # Bannière registre d'une génération précédente : obsolète.
         self._registry_banner.setVisible(False)
+        # Variante Sharp que `SharpIR` ne sait pas convertir (spec
+        # 2026-09-09). La regle vit dans `rag.unsupported_sharp_model` --
+        # UNE source de verite, deux consommateurs : `rag` y supprime la
+        # bibliotheque, la vue y pose la banniere.
+        from .rag import unsupported_sharp_model
+        self._sharp_variant = unsupported_sharp_model(prompt)
         # Composant hors-corpus (spec 2026-07-29) : un part-number inconnu du
         # corpus rend le retrieval sémantique toxique (des libs SANS RAPPORT
         # passent le plancher 0.50 sur le bruit de la phrase). On le coupe et
@@ -3919,12 +4028,25 @@ class StudioView(QWidget):
         `[RAG] retrieved: …` nomment déjà les libs injectées.
         """
         from .info_banner import numbered, should_disclose_resemblance
+        s = lang_manager.current
+        # ⛔ La variante non supportée PASSE DEVANT, et ne peut pas emprunter
+        # le message ci-dessous (spec 2026-09-09). « Aucun composant reconnu »
+        # serait FAUX ici : l'app a parfaitement reconnu le composant, c'est
+        # la BIBLIOTHÈQUE qui ne couvre pas ce modèle. Même discipline que le
+        # cas « composant déclaré », laissé muet plutôt que d'emprunter un
+        # message qui mentirait.
+        if self._sharp_variant:
+            self._registry_banner.show_nudge(
+                numbered([s.rag_sharp_variant_unsupported.format(
+                    model=self._sharp_variant)]),
+                "", s.registry_ask_chat)
+            return
         if not should_disclose_resemblance(
                 by_resemblance=self._last_resemblance, action=action,
                 from_scratch=bool(from_scratch), has_targets=bool(has_targets)):
             return
         self._registry_banner.show_nudge(
-            numbered([lang_manager.current.rag_guess_by_resemblance]), "", "")
+            numbered([s.rag_guess_by_resemblance]), "", "")
 
     def _apply_registry_results(self, forced, results, prompt: str = ""):
         """Intègre les résultats du lookup registre : les entrées ad hoc
@@ -5486,6 +5608,59 @@ class StudioView(QWidget):
         dlg = getattr(self, "_open_wiring_dialog", None)
         if dlg is not None:
             QTimer.singleShot(0, dlg.reject)
+
+    def _on_banner_help_requested(self) -> None:
+        """Aiguillage du 2e bouton de la banniere ambre.
+
+        UN seul bouton, deux situations : la variante Sharp non supportee
+        passe devant, parce qu'elle est PLUS precise -- si les deux
+        coexistaient, envoyer la question generique « l'app ne connait pas
+        tes composants » serait faux, l'app connait parfaitement celui-la.
+        """
+        if self._sharp_variant:
+            self._open_chat_help_sharp_variant()
+            return
+        self._open_chat_help_unknown_parts()
+
+    def _open_chat_help_sharp_variant(self) -> None:
+        """« Demander de l'aide » quand la bibliotheque ne couvre pas le
+        modele nomme (spec 2026-09-09).
+
+        ⚠️ L'EXPLICATION VOYAGE AVEC LE BOUTON, elle n'est pas recuperee.
+        Le plan pariait sur le BM25 de `concepts.json` ; mesure le
+        2026-09-09, ca ne tient pas : l'entree corpus `sharpir` decrit le
+        MEME capteur avec un document bien plus court, et BM25 normalise par
+        la longueur -- elle sort a 30,9 quand l'entree piege n'est pas dans
+        les six premieres. Et `_SLM_TOP_K` vaut 1 : avec un modele local,
+        une seule entree est recuperee.
+
+        Le `system_extras` ci-dessous rend donc le resultat certain par
+        construction. L'entree `hardware_trap`, elle, sert l'utilisateur qui
+        pose la question LUI-MEME (« que veut dire 2Y0A21 F 7X ? »), ou elle
+        sort en rang 1.
+        """
+        if not self._sharp_variant:
+            return
+        s = lang_manager.current
+        prefix = s.chat_help_prefix_sharp_variant.format(
+            model=self._sharp_variant)
+        extras = (
+            f"VARIANTE NON SUPPORTEE : l'utilisateur a nomme un "
+            f"{self._sharp_variant}, un telemetre infrarouge analogique Sharp "
+            f"GP2Y0A. La bibliotheque SharpIR ne definit de courbe de "
+            f"conversion que pour GP2Y0A41SK0F, GP2Y0A21YK0F et "
+            f"GP2Y0A02YK0F ; son getDistance() est un switch SANS default sur "
+            f"une variable non initialisee, donc une constante voisine rend "
+            f"une valeur indeterminee. L'application a donc REFUSE d'imposer "
+            f"cette bibliotheque au modele.\n"
+            f"Aide l'eleve concretement : comment lire la serigraphie du "
+            f"boitier pour confirmer son modele (le nom imprime omet le "
+            f"prefixe GP et est suivi d'un code de DATE), et comment obtenir "
+            f"une distance malgre tout -- lire la valeur brute et calibrer en "
+            f"mesurant. N'invente AUCUN coefficient de conversion. Ne propose "
+            f"PAS de changer de composant : l'eleve a le composant qu'il a."
+        )
+        self.chat_help_requested.emit(prefix, extras)
 
     def _open_chat_help_unknown_parts(self) -> None:
         """Banner action: ask the chat about the components the app could not
@@ -9444,7 +9619,9 @@ class StudioView(QWidget):
         if (bm.state in (BoardState.CONNECTED, BoardState.MANUAL)
                 and bm.env and bm.model):
             env_label = BOARDS.get(bm.env, {}).get("label", bm.env)
-            parts = [env_label, bm.model]
+            # Libellé, pas identifiant : « Uno » nu est ambigu à côté des
+            # deux « Uno R4 » de la liste (signalé en QA le 2026-09-08).
+            parts = [env_label, model_label(bm.env, bm.model)]
             if bm.port:
                 parts.append(bm.port)
             self._lbl_board_badge.setText(" · ".join(parts))
@@ -9544,6 +9721,58 @@ class StudioView(QWidget):
             "last_compile_error": "",
         })
 
+    def _clear_previous_project_screen(self) -> None:
+        """Efface ce qui, a l'ecran, ne parle QUE du projet precedent.
+
+        Point de passage unique, appele par `load_project` ET par
+        `_begin_inline_new_project`. La FORME du correctif est le correctif :
+        le defaut du #96 ne venait pas d'une ligne oubliee mais de deux remises
+        a zero paralleles qui avaient diverge -- l'ouverture d'un projet
+        nettoyait l'ecran, la creation d'un nouveau projet ne nettoyait rien.
+        Recopier les lignes dans la seconde aurait laisse les deux libres de
+        diverger a nouveau.
+
+        Ce que ca couvre, et pourquoi chaque element est RELATIF au projet :
+        - la banniere ambre (registre + ressemblance) ne parle que de la
+          DERNIERE generation. « Aucun composant reconnu dans ta demande »
+          dans un projet vide ou l'on n'a rien demande est un mensonge (#61) ;
+        - les DEUX journaux, debutant et int/avance -- ce sont deux widgets
+          distincts, et n'en vider qu'un laisse l'autre raconter le projet
+          d'avant des qu'on change de mode ;
+        - l'historique de reparation, sinon le bouton « voir les corrections »
+          renvoie a des corrections faites dans un autre projet.
+
+        ⛔ `_nudge_banner` n'y est PAS, et c'est un choix mesure. Elle porte
+        les nudges de PROGRESSION, qui sont app-wide (`session.nudge_seen`) et
+        a usage unique : `mark_nudge_seen` est appele au moment ou le bandeau
+        s'affiche. Le masquer sur un changement de projet CONSOMMERAIT le
+        nudge sans que l'utilisateur l'ait lu -- il ne reviendrait jamais. Son
+        message parle de l'utilisateur, pas du projet.
+
+        Appele juste apres le point de non-retour de chaque methode : les deux
+        peuvent encore renoncer (confirmation de sauvegarde), et renoncer doit
+        vouloir dire que rien n'a change.
+        """
+        self._registry_banner.setVisible(False)
+        self._beg_output_area.clear()
+        self._output_area.clear()
+        self._last_repair_steps = []
+        # ⛔ LE MONITEUR SERIE DU PROJET PRECEDENT. Il vivait dans
+        # `load_project` SEULE : ouvrir un autre projet fermait le port,
+        # CREER un nouveau projet le laissait ouvert -- et il continuait de
+        # deverser dans le journal du projet neuf. Signale en QA le
+        # 2026-09-10.
+        #
+        # ⚠️ C'est LE MEME DEFAUT QUE LE #96, dans la MEME paire de methodes,
+        # sur une autre ligne : j'avais cree ce point de passage partage pour
+        # la banniere, les journaux et l'historique de reparation, et laisse
+        # la deconnexion dehors. Deux remises a zero paralleles rediverguent
+        # toujours par la ligne qu'on a oublie de deplacer. D'ou le
+        # DEPLACEMENT plutot que la recopie -- la forme du correctif EST le
+        # correctif.
+        self._serial_monitor.close_port()
+        self._serial_monitor_beg.close_port()
+
     def load_project(self, project: Project):
         """Loads a project into the Studio (code + prompt + mode)."""
         if self._dirty and self._current_project is not None:
@@ -9553,16 +9782,13 @@ class StudioView(QWidget):
             if action == "save":
                 self.save_project()
 
-        # Bannière d'info du projet PRÉCÉDENT : elle ne parle que de la
-        # dernière génération, donc elle ment dès qu'on change de projet.
-        # Répare les DEUX messages qu'elle porte : celui du registre (défaut
-        # antérieur, atténué parce qu'il nomme un composant) et celui de la
-        # ressemblance, entièrement relatif au dernier prompt — « Aucune
-        # référence reconnue dans ta demande » dans un projet où l'on n'a rien
-        # demandé (revue finale #61, 2026-08-21). Placé APRÈS le contrôle de
-        # sauvegarde — seul endroit d'où `load_project` renonce encore — et
-        # avant tout le reste.
-        self._registry_banner.setVisible(False)
+        # Écran du projet PRÉCÉDENT : bannière, journaux, historique de
+        # réparation. Placé APRÈS le contrôle de sauvegarde — seul endroit
+        # d'où `load_project` renonce encore — et avant tout le reste. Le
+        # détail de ce qui est effacé, et de ce qui ne l'est pas, vit dans
+        # `_clear_previous_project_screen` : c'est le point de passage que
+        # `_begin_inline_new_project` partage désormais (#96).
+        self._clear_previous_project_screen()
         # Même raison, pour les refus de l'offre « rendre non bloquante »
         # (#89) : ils sont indexés par ID de fonctionnalité, et les ids sont
         # PAR PROJET (`fn-1`, `fn-2`…). Sans cette remise à zéro, refuser
@@ -9574,11 +9800,6 @@ class StudioView(QWidget):
         code   = project_manager.load_code(project)
         prompt = project.last_prompt or ""
         mode   = project.mode if project.mode in ("beginner", "intermediate", "advanced") else "beginner"
-
-        # Disconnect the serial monitor of the PREVIOUS project: otherwise the port stays
-        # open and keeps streaming into the new project's journal.
-        self._serial_monitor.close_port()
-        self._serial_monitor_beg.close_port()
 
         self._loading = True
         try:
@@ -9668,13 +9889,11 @@ class StudioView(QWidget):
         finally:
             self._loading = False
         self._set_dirty(False)
-        # Journals: start fresh on opening a project — the beginner
-        # AND the int/advanced (otherwise the previous project's journal persists). We
-        # also reset the repair history (no stale
-        # « voir les corrections » button).
-        self._beg_output_area.clear()
-        self._output_area.clear()
-        self._last_repair_steps = []
+        # Les journaux ont été vidés en tête par
+        # `_clear_previous_project_screen`, avec la bannière et l'historique
+        # de réparation. Rien n'écrit entre les deux (vérifié le 2026-09-08 :
+        # ni `_on_mode_changed`, ni `close_port`), et le seul écrivain est la
+        # ligne d'état juste en dessous.
         # Signals the program state (« Code prêt : … » if code is present)
         # in the current mode's journal — all modes (mode-aware helper).
         self._beg_mark_program_ready()
@@ -9735,6 +9954,13 @@ class StudioView(QWidget):
                 # silently losing the edits.
                 if self._dirty:
                     return
+
+        # Même écran à nettoyer que lors de l'ouverture d'un projet, et par
+        # le MÊME chemin — c'est tout l'objet du #96 : cette remise à zéro-ci
+        # ne faisait aucun des nettoyages d'affichage que fait `load_project`,
+        # si bien qu'un nouveau projet s'ouvrait sous la bannière ambre et le
+        # journal du précédent.
+        self._clear_previous_project_screen()
 
         # Reset of the project state: mimics on_project_deleted + reset of the
         # edit fields (editor + prompt) to start from a clean template.

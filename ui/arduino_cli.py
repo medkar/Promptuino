@@ -175,6 +175,72 @@ def _installed_libs(config_file: str) -> dict[str, dict]:
         return {}
 
 
+# Repertoires d'une bibliotheque qui ne fournissent RIEN a `#include` : les
+# croquis d'exemple ont leurs propres en-tetes, et `docs/` peut en contenir des
+# copies. Les balayer ferait dire « fournie » a une bibliotheque qui ne l'est
+# pas depuis le croquis de l'utilisateur.
+_NON_SRC_DIRS = {'examples', 'example', 'docs', 'doc', 'extras', 'tests',
+                 '.git', '.github'}
+
+# Plafond de securite du balayage disque : une bibliotheque Arduino en tient
+# largement dessous (la plus grosse du corpus, Adafruit EPD, en compte ~120).
+# Il n'est pas la pour trancher un cas reel mais pour qu'un depot aberrant ne
+# fasse pas ramer la compilation.
+_MAX_SCANNED_FILES = 4000
+
+
+def _lib_provides_header(info: dict, header_file: str) -> bool:
+    """Cette bibliotheque fournit-elle REELLEMENT cet en-tete ?
+
+    ⛔ `provides_includes` NE DECRIT PAS ce que la bibliotheque contient. C'est
+    le champ `includes=` de `library.properties` : la liste que l'IDE insere
+    quand on ajoute la bibliotheque -- une SUGGESTION, facultative, et qui peut
+    etre FAUSSE. Deux cas mesures le 2026-09-11, tous deux vivants :
+
+      - `TM1637` (Avishay Orpaz) livre `TM1637Display.h` et declare
+        `includes=TM1637.h`, un fichier QUI N'EXISTE PAS chez elle ;
+      - `IRremote` 4.7.1 declare `IRremote.hpp` seul, alors qu'elle livre AUSSI
+        `IRremote.h` (un stub de compatibilite qui inclut le premier) --
+        verifie a l'`arduino-cli` : un croquis en `#include <IRremote.h>`
+        COMPILE une fois la bibliotheque posee.
+
+    S'en servir comme d'un inventaire faisait donc installer la bonne
+    bibliotheque, la rejeter, puis la DESINSTALLER (#113).
+
+    ⚠️ La declaration reste consultee EN PREMIER, et ce n'est pas de la
+    politesse : quand elle est absente, `arduino-cli lib list` la calcule
+    depuis le disque (mesure : `Servo` ne declare rien a l'index et rapporte
+    `['Servo.h']` une fois installee), donc le chemin rapide couvre deja
+    l'immense majorite des cas sans toucher au disque.
+    """
+    if header_file in (info.get('headers') or []):
+        return True
+
+    racine = info.get('install_dir') or ''
+    if not racine:
+        return False
+
+    import os
+    cible = header_file.replace('\\', '/').lstrip('./')
+    vus = 0
+    try:
+        for dossier, sous_dossiers, fichiers in os.walk(racine):
+            sous_dossiers[:] = [d for d in sous_dossiers
+                                if d.lower() not in _NON_SRC_DIRS]
+            for nom in fichiers:
+                vus += 1
+                if vus > _MAX_SCANNED_FILES:
+                    return False
+                chemin = os.path.join(dossier, nom).replace('\\', '/')
+                # Egalite sur le SEGMENT de fin, pour que `<utility/Foo.h>`
+                # trouve `src/utility/Foo.h` sans qu'un `XFoo.h` ne passe.
+                if chemin == cible or chemin.endswith('/' + cible):
+                    return True
+    except OSError:
+        return False
+    return False
+
+
 def _read_depends(install_dir: str) -> list[str]:
     """
     Reads library.properties and returns the list of direct dependencies.
@@ -250,15 +316,25 @@ def _search_candidates(query: str, config_file: str) -> list[str]:
     return candidates
 
 
+# Issues de `_try_install_lib`. Un booleen ne suffisait pas : `False`
+# recouvrait DEUX causes opposees, et le journal en affichait une seule --
+# « introuvable dans le registre » s'imprimait alors que la bibliotheque avait
+# ete trouvee, installee, puis rejetee (#113). Un message qui designe la
+# mauvaise cause envoie chercher le defaut au mauvais endroit.
+INSTALL_OK = 'ok'                  # une bibliotheque fournit l'en-tete
+INSTALL_NO_CANDIDATE = 'absente'   # le registre ne propose rien pour ce nom
+INSTALL_NO_PROVIDER = 'sans-entete'  # trouvee, mais aucune ne fournit l'en-tete
+
+
 def _try_install_lib(name: str, config_file: str,
                      known_lib: str | None = None,
-                     header_file: str | None = None) -> bool:
+                     header_file: str | None = None) -> str:
     """
     For each candidate returned by 'lib search <query>':
       1. Snapshot of installed libs
       2. Install the candidate (+ automatic dependencies)
       3. Diff → new libs
-      4. Identify the provider via 'provides_includes'
+      4. Identify the provider (`_lib_provides_header`)
       5. Compute provider + transitive dependencies (library.properties/depends)
          → to keep
       6. Uninstall everything else (e.g. DotStarMatrix, DotStar)
@@ -268,28 +344,30 @@ def _try_install_lib(name: str, config_file: str,
     `name` stays the HEADER STEM: it is what identifies the provider at step 4,
     and it must not be replaced by the library name. `known_lib` only widens the
     SEARCH (see `_search_queries`) -- the verification stays "does this library
-    provide <name>.h", so a wrong stored name can never install the wrong lib.
+    provide that header", so a wrong stored name can never install the wrong lib.
 
-    `header_file` est l'en-tete REEL vu dans le `#include` : c'est lui que
-    `provides_includes` liste, et il ne se devine pas depuis `name` (IRremote
-    fournit `IRremote.hpp`, pas `IRremote.h`). Repli sur `<name>.h` pour les
-    appelants qui ne l'ont pas.
+    `header_file` est l'en-tete REEL vu dans le `#include` : il ne se devine pas
+    depuis `name` (IRremote fournit `IRremote.hpp`, pas `IRremote.h`). Repli sur
+    `<name>.h` pour les appelants qui ne l'ont pas.
 
-    Returns True if a lib providing that header was installed.
+    Rend une des trois constantes `INSTALL_*` ci-dessus.
     """
     header_file = header_file or f"{name}.h"
 
     # If an already-installed lib provides this header, nothing to do
     current = _installed_libs(config_file)
-    if any(header_file in info['headers'] for info in current.values()):
-        return True
+    if any(_lib_provides_header(info, header_file)
+           for info in current.values()):
+        return INSTALL_OK
 
+    vu_un_candidat = False
     tried: set[str] = set()
     for query in _search_queries(name, known_lib):
         for candidate in _search_candidates(query, config_file):
             if candidate in tried:
                 continue
             tried.add(candidate)
+            vu_un_candidat = True
             before = _installed_libs(config_file)
 
             ret, _ = _run([
@@ -306,7 +384,7 @@ def _try_install_lib(name: str, config_file: str,
             # Find the lib that provides the header
             provider = next(
                 (n for n, info in new_libs.items()
-                 if header_file in info['headers']),
+                 if _lib_provides_header(info, header_file)),
                 None,
             )
 
@@ -317,14 +395,14 @@ def _try_install_lib(name: str, config_file: str,
                     if lib_name not in keep:
                         _run(['arduino-cli', 'lib', 'uninstall',
                               '--config-file', config_file, lib_name])
-                return True
+                return INSTALL_OK
 
             # No new lib provides the header → uninstall everything
             for lib_name in new_libs:
                 _run(['arduino-cli', 'lib', 'uninstall',
                       '--config-file', config_file, lib_name])
 
-    return False
+    return INSTALL_NO_PROVIDER if vu_un_candidat else INSTALL_NO_CANDIDATE
 
 
 # ── Error classification ──────────────────────────────────────────────────────
@@ -791,10 +869,20 @@ class CompileUploadWorker(QThread):
             known = lib_name_for_header(header)
             stem = _header_stem(header)
             self.output.emit(f"→ lib install {(known or stem)!r}")
-            if not _try_install_lib(stem, cli_cfg, known_lib=known,
-                                    header_file=header):
+            issue = _try_install_lib(stem, cli_cfg, known_lib=known,
+                                     header_file=header)
+            # Deux echecs OPPOSES, deux messages : « rien au registre » envoie
+            # verifier le nom, « personne ne fournit l'en-tete » envoie
+            # verifier le `#include`. Les confondre a coute une enquete
+            # entiere au mauvais endroit (#113).
+            if issue == INSTALL_NO_CANDIDATE:
                 self.output.emit(
                     f"ℹ '{known or stem}' introuvable dans le registre — la compilation vérifiera."
+                )
+            elif issue == INSTALL_NO_PROVIDER:
+                self.output.emit(
+                    f"ℹ '{known or stem}' trouvée au registre, mais aucune version "
+                    f"ne fournit '{header}' — la compilation vérifiera."
                 )
 
     def run(self):

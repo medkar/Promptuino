@@ -16,7 +16,14 @@ def test_all_presets_well_formed():
         ids.add(p.id)
         assert p.label, f"label manquant: {p.id}"
         assert p.base_url.startswith("http"), f"base_url invalide: {p.id}"
-        assert p.default_model, f"default_model manquant: {p.id}"
+        # Plus AUCUN modele par defaut, et c'est le contrat depuis la spec
+        # 2026-09-03 : les modeles bougent, et un defaut se recopie dans la
+        # config de qui ouvre l'ecran une fois. `gemini-2.5-flash`, ecrit ici
+        # en avril 2026, etait retire par Google en septembre et continuait
+        # d'etre demande. Le champ est SUPPRIME, pas vide -- un champ qui
+        # existe finit par etre lu.
+        assert not hasattr(p, "default_model"), \
+            f"un modele par defaut est revenu: {p.id}"
         assert p.context_window_hint > 0
 
 

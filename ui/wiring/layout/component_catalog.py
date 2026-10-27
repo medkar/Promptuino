@@ -371,11 +371,18 @@ CATALOG: dict[str, CatalogEntry] = {
         is_dip=False, pin_count=7,
         pin_labels={1: "VCC", 2: "GND", 3: "CS", 4: "DC", 5: "RST", 6: "SCK", 7: "MOSI"},
         pin_roles={1: "vcc", 2: "gnd", 3: "cs", 4: "signal", 5: "signal", 6: "sck", 7: "mosi"}),
+    # ⚠️ 7e broche : « MOSI », pas « SDA ». `markers` emet MOSI (c'est une
+    # liaison SPI, pas I2C) et le routage apparie par EGALITE DE NOM, donc
+    # « SDA » faisait que la ligne de DONNEES de l'ecran n'etait jamais tiree
+    # -- l'ecran sortait alimente et pilote, mais muet. Corrige le 2026-09-07.
+    # Les cartes se partagent entre les deux serigraphies (Adafruit imprime
+    # MOSI, plusieurs modules chinois impriment SDA) : dans le doute on ne
+    # revendique aucune des deux et on garde le meme mot que les instructions.
     "st7735": CatalogEntry(name="ST7735", asset_path=_single_row(7), is_dip=False,
-        pin_count=7, pin_labels={1: "VCC", 2: "GND", 3: "CS", 4: "DC", 5: "RST", 6: "SCK", 7: "SDA"},
+        pin_count=7, pin_labels={1: "VCC", 2: "GND", 3: "CS", 4: "DC", 5: "RST", 6: "SCK", 7: "MOSI"},
         pin_roles={1: "vcc", 2: "gnd", 3: "cs", 6: "sck", 7: "data"}),
     "st7789": CatalogEntry(name="ST7789", asset_path=_single_row(7), is_dip=False,
-        pin_count=7, pin_labels={1: "VCC", 2: "GND", 3: "CS", 4: "DC", 5: "RST", 6: "SCK", 7: "SDA"},
+        pin_count=7, pin_labels={1: "VCC", 2: "GND", 3: "CS", 4: "DC", 5: "RST", 6: "SCK", 7: "MOSI"},
         pin_roles={1: "vcc", 2: "gnd", 3: "cs", 6: "sck", 7: "data"}),
     "max31855": CatalogEntry(name="MAX31855", asset_path=_single_row(5), is_dip=False,
         pin_count=5, pin_labels={1: "VCC", 2: "GND", 3: "SCLK", 4: "CS", 5: "MISO"},
@@ -404,7 +411,18 @@ CATALOG: dict[str, CatalogEntry] = {
         asset_path=_single_row(2),
         is_dip=False, pin_count=2,
         name="MOD",
-        pin_labels={1: "1", 2: "2"},
+        # Repli universel : une broche vue dans le code que rien n'a permis de
+        # classer. `markers` emet UNE broche, « SIG », avec son net reel -- on
+        # ignore ce qu'est le composant, mais on sait sur quelle broche
+        # Arduino il est. « 1 »/« 2 » ne correspondait a rien, donc ce fil
+        # connu n'etait pas trace : une information qu'on possede et qu'on
+        # jetait. La 2e broche n'existe que parce que le plus petit gabarit
+        # generique en a deux ; son « ? » dit qu'on ne sait pas, et n'etant
+        # jamais emis elle reste libre. Corrige le 2026-09-07.
+        # ⚠️ Non reproduit a l'execution : cette branche est un repli profond
+        # que je n'ai pas su declencher depuis un sketch. Verrouille par le
+        # balayage AST des `Component(...)`, pas par un routage reel.
+        pin_labels={1: "SIG", 2: "?"},
     ),
     # Simple DC motor (2 wires). Placed off-BB like the stepper: it
     # connects to the OUT1/OUT2 outputs of the driver (L298N) via wires, not
@@ -661,7 +679,32 @@ CATALOG: dict[str, CatalogEntry] = {
         asset_path=_single_row(3),
         is_dip=False, pin_count=3,
         name="DS18B20",
-        pin_labels={1: "VDD", 2: "GND", 3: "DQ"},
+        # Les noms de la DATASHEET (VDD / DQ) ne sont PAS ceux que `markers`
+        # emet (VCC / DATA). Le routage apparie les broches par EGALITE DE
+        # NOM : tant que ces noms-la etaient dans `pin_labels`, seul GND
+        # correspondait et le capteur sortait avec un unique fil (5V et DATA
+        # jamais tires). Corrige le 2026-09-04.
+        #
+        # ⛔ PAS de `pin_display_labels` ici, contrairement au BME280 -- et la
+        # difference tient au COMPOSANT, pas a une preference. Une carte
+        # BME280 porte une serigraphie : le dessin doit la reprendre, meme
+        # quand elle differe du nom emis. Un DS18B20 ne porte RIEN : sous sa
+        # forme nue (petit boitier plastique noir a trois pattes, qu'on confond
+        # avec un transistor) seule la mention « DS18B20 » est gravee, aucun
+        # nom de patte ; sous sa forme sonde etanche, il n'y a que trois fils
+        # de couleur. Afficher `VDD`/`DQ` ne reproduisait donc aucun objet : ca
+        # faisait seulement dire deux mots differents aux deux ecrans de l'app
+        # pour la meme patte, le schema annoncant `DQ` quand les instructions
+        # disaient `DATA`. Quand rien n'est ecrit sur le composant, la
+        # coherence interne prime.
+        #
+        # ⛔ Et `DQ` n'est meme pas le nom faisant autorite ici. Il vient du
+        # fiche technique du COMPOSANT NU ; ce qui se vend et se
+        # documente, c'est un module ou une sonde, et l'utilisateur a verifie
+        # le 2026-09-07 que « toutes les references que je trouve indiquent
+        # DATA, pas DQ ». Ne pas « corriger » vers `DQ` en croyant remonter a
+        # la source : ce serait s'eloigner de ce que la personne a en main.
+        pin_labels={1: "VCC", 2: "GND", 3: "DATA"},
         pin_roles={1: "vcc", 2: "gnd", 3: "data"},
     ),
     "hmc5883": CatalogEntry(
@@ -717,7 +760,20 @@ CATALOG: dict[str, CatalogEntry] = {
         asset_path=_single_row(5),
         is_dip=False, pin_count=5,
         name="ACS712",
-        pin_labels={1: "IP+", 2: "IP-", 3: "5V", 4: "VO", 5: "GND"},
+        # TODO #98. Deux libelles corriges sur cinq, pour la meme raison
+        # qu'au GUVA-S12SD : « 5V » nomme le NET et non la broche, et « VO »
+        # n'est pas « OUT » -- or le routage apparie par EGALITE DE NOM.
+        # La carte rouge du commerce porte bien « VCC OUT GND » sur son
+        # connecteur, et « IP+ / IP- » sur les borniers a vis : rien a
+        # reproduire de plus, donc pas de table d'affichage.
+        #
+        # ⛔ IP+ et IP- restent SANS FIL, et c'est le comportement voulu :
+        # elles ne vont pas a la carte, elles se coupent EN SERIE dans le
+        # circuit dont on mesure le courant -- circuit que l'app ne
+        # modelise pas. Les cinq broches sont dessinees quand meme (decision
+        # utilisateur du 2026-09-07 : « en vrai il a 6 pattes, n'en mettre
+        # que 4 induit un debutant en erreur ») et un info les explique.
+        pin_labels={1: "IP+", 2: "IP-", 3: "VCC", 4: "OUT", 5: "GND"},
         pin_roles={1: "signal", 2: "signal", 3: "vcc", 4: "signal", 5: "gnd"},
     ),
     "adjd_s311": CatalogEntry(
@@ -731,8 +787,24 @@ CATALOG: dict[str, CatalogEntry] = {
         asset_path=_single_row(6),
         is_dip=False, pin_count=6,
         name="BME280",
-        pin_labels={1: "GND", 2: "3.3V", 3: "SDI/SDA", 4: "SCK/SCL", 5: "!CS", 6: "SDO/ADR"},
-        pin_roles={1: "gnd", 2: "vcc", 3: "sda", 4: "scl", 5: "cs", 6: "signal"},
+        # La carte a bien SIX pattes -- n'en dessiner que quatre tromperait le
+        # debutant qui la tient en main. Sérigraphie de la GY-BME280 / VMA335,
+        # dans son ordre (relevee sur la carte le 2026-09-07) : les quatre
+        # premieres sont celles que `markers` emet, donc elles s'apparient et
+        # recoivent un fil ; `CSB` et `SDO` ne correspondent a rien d'emis,
+        # donc elles restent dessinees et NON CABLEES. C'est le cas normal, pas
+        # une exception : le MPU6050 a huit broches au catalogue pour quatre
+        # emises depuis toujours.
+        #
+        # ⛔ Ce qu'il ne faut PAS refaire : ces libelles portaient jusqu'au
+        # 2026-09-04 le brochage d'une carte Adafruit (`3.3V`, `SDI/SDA`,
+        # `SCK/SCL`, `!CS`, `SDO/ADR`) -- ni la carte que l'utilisateur a, ni
+        # des noms que `markers` emet. Le routage appariant par EGALITE DE NOM,
+        # seul `GND` correspondait et le capteur sortait avec UN SEUL fil.
+        pin_labels={1: "VCC", 2: "GND", 3: "SCL", 4: "SDA",
+                    5: "CSB", 6: "SDO"},
+        pin_roles={1: "vcc", 2: "gnd", 3: "scl", 4: "sda",
+                   5: "cs", 6: "signal"},
     ),
     "bmp180": CatalogEntry(
         asset_path=_single_row(4),
@@ -745,7 +817,11 @@ CATALOG: dict[str, CatalogEntry] = {
         asset_path=_single_row(5),
         is_dip=False, pin_count=5,
         name="DS1307",
-        pin_labels={1: "5V", 2: "GND", 3: "SQW", 4: "SCL", 5: "SDA"},
+        # « 5V » decrit le NET, pas la broche : `markers` emet « VCC », donc
+        # l'alimentation du module n'etait jamais tiree (GND, SDA et SCL
+        # l'etaient). `SQW` reste sans fil, comme les broches libres du
+        # DS3231 juste au-dessus. Corrige le 2026-09-07.
+        pin_labels={1: "VCC", 2: "GND", 3: "SQW", 4: "SCL", 5: "SDA"},
         pin_roles={1: "vcc", 2: "gnd", 3: "signal", 4: "scl", 5: "sda"},
     ),
     "ds3234": CatalogEntry(
@@ -756,11 +832,18 @@ CATALOG: dict[str, CatalogEntry] = {
         pin_roles={1: "cs", 2: "mosi", 3: "miso", 4: "sck", 5: "signal", 6: "vcc", 7: "gnd"},
     ),
     "force_sensor": CatalogEntry(
-        asset_path=_single_row(2),
-        is_dip=False, pin_count=2,
+        asset_path=_single_row(3),
+        is_dip=False, pin_count=3,
         name="FSR",
-        pin_labels={1: "Pin 1", 2: "Pin 2"},
-        pin_roles={1: "signal", 2: "signal"},
+        # TODO #94. La fiche Fritzing numerotait les pads (« Pin 1 »/
+        # « Pin 2 ») : elle ne NOMMAIT rien, donc rien a reprendre a
+        # l'affichage -- c'est la regle que `fritzing_import` fait desormais
+        # respecter. Le composant nu a bien deux pattes, mais l'app le cable
+        # en pont diviseur et le represente en module trois broches, comme la
+        # LDR depuis toujours. Suivre ce precedent plutot que d'ouvrir la
+        # modelisation du pont, qui serait un autre chantier.
+        pin_labels={1: "VCC", 2: "OUT", 3: "GND"},
+        pin_roles={1: "vcc", 2: "signal", 3: "gnd"},
     ),
     "ftdi_basic": CatalogEntry(
         asset_path=_single_row(6),
@@ -861,11 +944,15 @@ CATALOG: dict[str, CatalogEntry] = {
         pin_roles={1: "signal", 2: "signal", 3: "signal", 4: "signal", 5: "cs", 6: "mosi", 7: "miso", 8: "gnd", 9: "signal", 10: "sck", 11: "signal", 12: "vcc", 13: "signal", 14: "signal"},
     ),
     "microphone": CatalogEntry(
-        asset_path=_single_row(2),
-        is_dip=False, pin_count=2,
+        asset_path=_single_row(3),
+        is_dip=False, pin_count=3,
         name="Microphone",
-        pin_labels={1: "pin1", 2: "pin2"},
-        pin_roles={1: "signal", 2: "signal"},
+        # Meme defaut que la thermistance : `markers` emet le module trois
+        # broches VCC/OUT/GND, les libelles importes de Fritzing (« pin1 »,
+        # « pin2 ») ne correspondaient a rien et le capteur de son sortait SANS
+        # AUCUN FIL. Corrige le 2026-09-07.
+        pin_labels={1: "VCC", 2: "OUT", 3: "GND"},
+        pin_roles={1: "vcc", 2: "signal", 3: "gnd"},
     ),
     "mma8452q": CatalogEntry(
         asset_path=_single_row(6),
@@ -892,7 +979,12 @@ CATALOG: dict[str, CatalogEntry] = {
         asset_path=_single_row(2),
         is_dip=False, pin_count=2,
         name="Reed Switch",
-        pin_labels={1: "pin 1", 2: "pin 2"},
+        # TODO #94. Deux bornes, comme le bouton dont ce type herite par
+        # mutation : « A »/« B » est la convention interne de l'app pour un
+        # contact a deux bornes, donc la cle d'appariement du routage. Les
+        # libelles importes NUMEROTAIENT les pads -- ils ne nommaient rien,
+        # il n'y a donc rien a reprendre a l'affichage.
+        pin_labels={1: "A", 2: "B"},
         pin_roles={1: "signal", 2: "signal"},
     ),
     "sht15": CatalogEntry(
@@ -913,7 +1005,10 @@ CATALOG: dict[str, CatalogEntry] = {
         asset_path=_single_row(2),
         is_dip=False, pin_count=2,
         name="Slide Switch",
-        pin_labels={1: "OFF", 2: "ON"},
+        # TODO #94. « OFF »/« ON » decrivent les POSITIONS du curseur, pas les
+        # bornes : ce ne sont pas des noms de broche, donc rien a afficher.
+        # Deux bornes, meme convention « A »/« B » que le bouton.
+        pin_labels={1: "A", 2: "B"},
         pin_roles={1: "signal", 2: "signal"},
     ),
     "slider": CatalogEntry(
@@ -923,11 +1018,71 @@ CATALOG: dict[str, CatalogEntry] = {
         pin_labels={1: "A", 2: "E", 3: "S"},
         pin_roles={1: "signal", 2: "signal", 3: "signal"},
     ),
+    # ── Telemetres infrarouges Sharp GP2Y0A (2026-09-09) ─────────────
+    # UN TYPE PAR MODELE, et non un « sharp_ir » generique. Le nom sur
+    # le schema est ce qui permet a l'utilisateur de CONSTATER que le
+    # code ne vise pas son capteur, puis de demander le changement --
+    # une boite generique rend l'ecart indetectable pour qui ignore
+    # qu'il existe des declinaisons. Meme regle que dht11/dht22 :
+    # meme cablage, meme bibliotheque, DEUX entrees, parce que ce sont
+    # deux objets qu'on tient en main.
+    #
+    # Ordre PHYSIQUE du connecteur JST, tel que l'exemple officiel le
+    # decrit : broche 1 = Vcc, 2 = GND, 3 = sortie. « The pin
+    # configuration is the same for all models », dit la fiche
+    # technique -- d'ou un brochage identique pour les trois.
+    #
+    # Aucune table d'affichage : le boitier ne porte AUCUN nom de
+    # broche, seulement la reference du modele.
+    "gp2y0a21": CatalogEntry(
+        asset_path=_single_row(3),
+        is_dip=False, pin_count=3,
+        name="GP2Y0A21",
+        pin_labels={1: "VCC", 2: "GND", 3: "OUT"},
+    ),
+    "gp2y0a41": CatalogEntry(
+        asset_path=_single_row(3),
+        is_dip=False, pin_count=3,
+        name="GP2Y0A41",
+        pin_labels={1: "VCC", 2: "GND", 3: "OUT"},
+    ),
+    "gp2y0a02": CatalogEntry(
+        asset_path=_single_row(3),
+        is_dip=False, pin_count=3,
+        name="GP2Y0A02",
+        pin_labels={1: "VCC", 2: "GND", 3: "OUT"},
+    ),
+    # ⚠️ Le A51 arrive par une AUTRE bibliotheque (`SharpDistSensor`), pas par
+    # `SharpIR` qui ne le connait pas. Le mecanisme existait deja : `documents`
+    # est un tuple ORDONNE et le premier porte le defaut -- comme `ds18b20`
+    # (dallas-temperature, onewire) ou `stepper_motor`. Rien de special ici.
+    "gp2y0a51": CatalogEntry(
+        asset_path=_single_row(3),
+        is_dip=False, pin_count=3,
+        name="GP2Y0A51",
+        pin_labels={1: "VCC", 2: "GND", 3: "OUT"},
+    ),
+    "gp2y0a60": CatalogEntry(
+        asset_path=_single_row(3),
+        is_dip=False, pin_count=3,
+        name="GP2Y0A60",
+        pin_labels={1: "VCC", 2: "GND", 3: "OUT"},
+    ),
+    "gp2y0a710": CatalogEntry(
+        asset_path=_single_row(3),
+        is_dip=False, pin_count=3,
+        name="GP2Y0A710",
+        pin_labels={1: "VCC", 2: "GND", 3: "OUT"},
+    ),
     "soil_moisture": CatalogEntry(
         asset_path=_single_row(3),
         is_dip=False, pin_count=3,
         name="Soil Moisture",
-        pin_labels={1: "VCC", 2: "GND", 3: "SIG"},
+        # TODO #94. Ordre PHYSIQUE de la carte (VCC/GND/SIG) conserve ; seul
+        # le nom de la 3e broche change de role : « OUT » apparie ce que la
+        # mutation emet, « SIG » reste ce qui est serigraphie.
+        pin_labels={1: "VCC", 2: "GND", 3: "OUT"},
+        pin_display_labels={1: "VCC", 2: "GND", 3: "SIG"},
         pin_roles={1: "vcc", 2: "gnd", 3: "signal"},
     ),
     "solenoid": CatalogEntry(
@@ -952,17 +1107,24 @@ CATALOG: dict[str, CatalogEntry] = {
         pin_roles={1: "rx", 2: "tx", 3: "gnd", 4: "vcc"},
     ),
     "thermistor": CatalogEntry(
-        asset_path=_single_row(2),
-        is_dip=False, pin_count=2,
+        asset_path=_single_row(3),
+        is_dip=False, pin_count=3,
         name="Thermistor",
-        pin_labels={1: "pin 0", 2: "pin 1"},
-        pin_roles={1: "signal", 2: "signal"},
+        # `markers` emet le MODULE trois broches (VCC/OUT/GND), pas la
+        # thermistance nue a deux pattes -- c'est ce qui se trouve dans un kit.
+        # Les libelles importes de Fritzing (« pin 0 », « pin 1 ») ne
+        # correspondaient a rien de ce qui est emis : le composant sortait
+        # SANS AUCUN FIL. Corrige le 2026-09-07.
+        pin_labels={1: "VCC", 2: "OUT", 3: "GND"},
+        pin_roles={1: "vcc", 2: "signal", 3: "gnd"},
     ),
     "tilt_switch": CatalogEntry(
         asset_path=_single_row(2),
         is_dip=False, pin_count=2,
         name="Tilt Switch",
-        pin_labels={1: "1", 2: "2"},
+        # TODO #94. Meme cas que le reed : deux bornes, pads numerotes par la
+        # fiche importee, convention « A »/« B » du contact.
+        pin_labels={1: "A", 2: "B"},
         pin_roles={1: "signal", 2: "signal"},
     ),
     "tmp102": CatalogEntry(
@@ -1108,13 +1270,27 @@ CATALOG: dict[str, CatalogEntry] = {
         asset_path=_single_row(3),
         is_dip=False, pin_count=3,
         name="TMP36",
-        pin_labels={1: "+Vs", 2: "Vout", 3: "GND"},
+        # TODO #94. `pin_labels` = ce que la mutation analogique emet
+        # (VCC/OUT/GND, comme la LDR et la thermistance) ; les noms de la
+        # fiche technique, eux, sont ce qui est DESSINE -- ils font autorite
+        # ici parce que tous les brochages publies du TMP36 les emploient.
+        pin_labels={1: "VCC", 2: "OUT", 3: "GND"},
+        pin_display_labels={1: "+Vs", 2: "Vout", 3: "GND"},
+        pin_roles={1: "vcc", 2: "signal", 3: "gnd"},
     ),
     "flex_sensor": CatalogEntry(
-        asset_path=_single_row(2),
-        is_dip=False, pin_count=2,
+        asset_path=_single_row(3),
+        is_dip=False, pin_count=3,
         name="Flex",
-        pin_labels={1: "Pin 1", 2: "Pin 2"},
+        # TODO #94. La fiche Fritzing numerotait les pads (« Pin 1 »/
+        # « Pin 2 ») : elle ne NOMMAIT rien, donc rien a reprendre a
+        # l'affichage -- c'est la regle que `fritzing_import` fait desormais
+        # respecter. Le composant nu a bien deux pattes, mais l'app le cable
+        # en pont diviseur et le represente en module trois broches, comme la
+        # LDR depuis toujours. Suivre ce precedent plutot que d'ouvrir la
+        # modelisation du pont, qui serait un autre chantier.
+        pin_labels={1: "VCC", 2: "OUT", 3: "GND"},
+        pin_roles={1: "vcc", 2: "signal", 3: "gnd"},
     ),
     "si4713": CatalogEntry(
         asset_path=_dip(12),
@@ -1144,10 +1320,26 @@ CATALOG: dict[str, CatalogEntry] = {
     # phototransistor recepteur — 2 composants optiques dans un seul boitier,
     # fiche Fritzing core (QRE1113/QRD1114, memes 4 broches).
     "ir_reflective_sensor": CatalogEntry(
-        asset_path=_single_row(4),
-        is_dip=False, pin_count=4,
+        asset_path=_single_row(3),
+        is_dip=False, pin_count=3,
         name="QRE1113",
-        pin_labels={1: "A", 2: "C", 3: "E", 4: "K"},
+        # TODO #98, arbitrage utilisateur du 2026-09-08. La fiche importee
+        # decrivait la PUCE NUE : « A / C / E / K » est le brochage d'un
+        # OPTO-COUPLEUR -- anode et cathode de la LED infrarouge, emetteur
+        # et collecteur du phototransistor. Deux composants optiques dans un
+        # boitier, donc deux resistances et un nombre de broches cote carte
+        # qui depend du montage.
+        #
+        # Ce qu'un debutant achete est un MODULE tout fait (QRE1113 ou
+        # TCRT5000 sur petite carte) : trois fils, VCC / OUT / GND. C'est
+        # lui qu'on dessine -- meme decision qu'au capteur tactile du #94,
+        # dont la fiche decrivait aussi la puce nue (« LEDA / CAPPAD »).
+        #
+        # ⛔ Garder « A / C / E / K » aurait fait sortir le composant sans
+        # AUCUN fil : le routage apparie par egalite de nom, et ces quatre
+        # noms ne correspondent a rien de ce que le detecteur emet. C'est
+        # exactement le defaut du #93.
+        pin_labels={1: "VCC", 2: "OUT", 3: "GND"},
     ),
 
     # ── Lot #4 (2026-08-19). À cette époque, `stspin220` et `tmc2209`
@@ -1186,13 +1378,54 @@ CATALOG: dict[str, CatalogEntry] = {
         asset_path=_single_row(5),
         is_dip=False, pin_count=5,
         name="INA169",
+        # TODO #98. Brochage deja juste : les trois broches cote carte
+        # portent bien VCC / GND / OUT, ce que la mutation analogique emet.
+        # ⛔ VIN- et VIN+ restent SANS FIL, comme IP+/IP- de l'ACS712 :
+        # elles se coupent EN SERIE dans le circuit mesure. Un info le dit.
         pin_labels={1: "VIN-", 2: "VIN+", 3: "VCC", 4: "GND", 5: "OUT"},
     ),
     "guva_s12sd": CatalogEntry(
         asset_path=_single_row(3),
         is_dip=False, pin_count=3,
         name="GUVA-S12SD",
-        pin_labels={1: "5V", 2: "Out", 3: "GND"},
+        # TODO #98. La fiche importee portait « 5V / Out / GND ». Deux
+        # defauts distincts dans trois libelles : « 5V » nomme le NET et non
+        # la broche (meme cas que le DS1307 au #93 -- une alimentation qui
+        # n'est jamais tiree), et « Out » n'est pas « OUT » -- l'appariement
+        # du routage se fait par egalite de nom, donc la casse suffit a
+        # perdre le fil de signal.
+        pin_labels={1: "VCC", 2: "OUT", 3: "GND"},
+    ),
+    # ── TODO #98 : trois modules a trois fils, sans entree jusqu'ici ─────
+    # Ils etaient DESSINABLES par `resolve_generic` (3 broches en ligne),
+    # mais l'engrenage, lui, ne fabrique un brochage qu'en LISANT
+    # `pin_labels` : sans entree il garde les broches du composant qu'il
+    # remplace. Mesure du 2026-09-08 : remplacer un potentiometre par un
+    # capteur Hall rendait une boite « Capteur Hall » aux broches nommees
+    # « A / W / B » -- les nets etaient bons, les libelles mentaient. Les
+    # deux chemins s'accordent enfin.
+    #
+    # Aucune table d'affichage : ces modules chinois sont serigraphies
+    # exactement ainsi (« VCC OUT GND », parfois « + S - »), donc rien a
+    # reproduire de plus, et la coherence interne prime -- meme raison
+    # qu'au DS18B20 (#93).
+    "flame_sensor": CatalogEntry(
+        asset_path=_single_row(3),
+        is_dip=False, pin_count=3,
+        name="Flame",
+        pin_labels={1: "VCC", 2: "OUT", 3: "GND"},
+    ),
+    "rain_sensor": CatalogEntry(
+        asset_path=_single_row(3),
+        is_dip=False, pin_count=3,
+        name="Rain",
+        pin_labels={1: "VCC", 2: "OUT", 3: "GND"},
+    ),
+    "hall_sensor": CatalogEntry(
+        asset_path=_single_row(3),
+        is_dip=False, pin_count=3,
+        name="Hall",
+        pin_labels={1: "VCC", 2: "OUT", 3: "GND"},
     ),
     "i2c_multiplexer": CatalogEntry(
         asset_path=_dip(22),
@@ -1239,10 +1472,16 @@ CATALOG: dict[str, CatalogEntry] = {
     # équivalent » — LEDA est la sortie de rétroaction LED, pas une broche
     # d'alimentation.
     "touch_sensor": CatalogEntry(
-        asset_path=_single_row(5),
-        is_dip=False, pin_count=5,
+        asset_path=_single_row(3),
+        is_dip=False, pin_count=3,
         name="Touch",
-        pin_labels={1: "LEDA", 2: "VDD", 3: "OUT", 4: "GND", 5: "CAPPAD"},
+        # TODO #94. La fiche importee decrivait la PUCE NUE : « LEDA » est une
+        # sortie de retroaction et « CAPPAD » un pad capacitif -- un pad ne se
+        # cable pas. C'est exactement le cas que `prose_labels`
+        # (`scripts/fritzing_import.py`) existe pour signaler : une fiche a
+        # REMPLACER, pas a nettoyer. Le module TTP223 que le debutant possede
+        # a trois fils, et c'est lui qu'on dessine.
+        pin_labels={1: "VCC", 2: "OUT", 3: "GND"},
     ),
 
     # ── TODO #58 (2026-08-20) : les six composants que #57 avait laisses non

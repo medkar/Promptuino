@@ -215,6 +215,16 @@ _UNIVERSAL_NAME: dict[str, str] = {
     "ads7830": "ADS7830",
     "trellis": "Trellis",
     "ir_reflective_sensor": "QRE1113",
+    # Marque + famille, identique dans les quatre langues. Le MODELE
+    # exact (GP2Y0A21 / A41 / A02) ne change pas le cablage : il ne
+    # vit donc pas dans la boite, mais dans le code que la
+    # bibliotheque genere.
+    "gp2y0a21": "GP2Y0A21",
+    "gp2y0a41": "GP2Y0A41",
+    "gp2y0a02": "GP2Y0A02",
+    "gp2y0a51": "GP2Y0A51",
+    "gp2y0a60": "GP2Y0A60",
+    "gp2y0a710": "GP2Y0A710",
     # ── Lot #4 (2026-08-19) ──
     "mmc5603": "MMC5603",
     "hdc3021": "HDC3021",

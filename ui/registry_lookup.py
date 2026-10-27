@@ -67,6 +67,106 @@ _TOKEN_RE = re.compile(r"[a-z0-9]+")
 _HYPHENATED_RE = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)+")
 _HEX_RE = re.compile(r"0x[0-9a-f]+")
 
+# Racine alphabetique d'au moins 3 lettres suivie d'UN SEUL chiffre : c'est un
+# NUMERO D'ORDRE, pas une reference. « led2 », « bouton2 », « servo1 »,
+# « moteur3 », « pulsante2 » -- l'utilisateur numerote ses composants.
+_INDEXED_DESIGNATOR_RE = re.compile(r"^[a-z]{3,}\d$")
+
+# Telemetre infrarouge Sharp GP2Y0A. ⚠️ CETTE REGLE A ETE RETIREE PUIS
+# REMISE le 2026-09-10, et l'aller-retour vaut d'etre ecrit : je l'avais
+# crue absorbee par `_registry_part_tokens`, la regle generale posee le meme
+# jour. Elle ne l'est pas -- elles repondent a DEUX questions differentes :
+#
+#   `_registry_part_tokens`  « ce jeton EXACT est-il au registre ? »
+#   `_is_sharp_model`        « ce jeton a-t-il la FORME d'un Sharp, quel que
+#                              soit ce qui le suit ? »
+#
+# Le registre porte `gp2y0a21`, pas `2y0a21f81` (code de date colle) ni
+# `gp2y0a51sk` (suffixe de type). Mesure au moment de la suppression : les
+# deux repartaient au registre Arduino. Une regle generale n'absorbe une
+# regle particuliere que si elle couvre ses cas -- verifier, pas supposer.
+_SHARP_MODEL_TOKEN_RE = re.compile(r"^(?:gp)?2y0a\d{2,3}[a-z0-9]*$")
+
+
+def _is_sharp_model(token: str) -> bool:
+    """True pour toute ecriture d'un telemetre Sharp GP2Y0A."""
+    return bool(_SHARP_MODEL_TOKEN_RE.match(token))
+
+
+def _is_indexed_designator(token: str) -> bool:
+    """Vrai si le token est un composant NUMEROTE et non une reference.
+
+    Sans ce filtre, « fais clignoter led1 et led2 » declenchait tout le
+    pipeline hors-corpus : recherche au registre Arduino, installation d'une
+    bibliotheque sans rapport, entree corpus ad hoc, et la banniere ambre qui
+    annonce a l'utilisateur la bibliotheque « utilisee » pour son composant.
+    Signale en test avec un etudiant le 2026-09-04.
+
+    La regle est STRUCTURELLE, pas calibree sur un echantillon, et surtout
+    elle ne depend d'aucun lexique -- donc elle vaut dans les quatre langues
+    sans table a tenir a jour. Verifiee sur la totalite du corpus : des 280
+    tokens de puce connus, cinq ont cette forme (`ain1`, `bin1`, `eco2`,
+    `spo2`, `ethernet3`) et AUCUN n'est un numero de piece -- ce sont des noms
+    de broches de driver, des grandeurs mesurees (eCO2, SpO2) et un nom de
+    bibliotheque. Meme constat sur le corpus brut : les 18 tokens de cette
+    forme sont des broches (`ain2`, `pin3`), des grandeurs (`sno2`) ou des
+    fonctions (`atan2`, `crc8`).
+
+    Le plancher de 3 lettres ne fait que rejoindre la regle de forme deja en
+    place (`_is_part_shaped`, >= 4 caracteres) : un token plus court
+    n'atteignait de toute facon jamais ce filtre -- les capteurs de gaz
+    « mq2 »/« mq3 » n'ont jamais ete cherches au registre. Il est ecrit
+    explicitement pour que la regle se lise seule, sans dependre de l'ordre
+    des filtres appelants.
+
+    Limite assumee : un index a DEUX chiffres (« led10 ») n'est pas reconnu.
+    L'elargir ferait tomber des references reelles a deux chiffres (« sg90 »,
+    « hcsr04 », « nema17 »), ce qui coute bien plus cher.
+    """
+    return bool(_INDEXED_DESIGNATOR_RE.match(token))
+
+
+_registry_tokens_cache: frozenset[str] | None = None
+
+
+def _registry_part_tokens() -> frozenset[str]:
+    """Références que le REGISTRE connaît — ids et mots-clés, normalisés.
+
+    ⛔ TROUVE EN QA (AP1, 2026-09-10) : « lis un capteur UV GUVA-S12SD sur
+    A0 » partait au registre Arduino sous DEUX tokens inconnus, `s12sd` et
+    `guvas12sd`, avec la bannière ambre — pour un composant que
+    l'application connaît parfaitement (type de câblage, entrée catalogue,
+    fiche au registre).
+
+    La cause : `detect_unknown_part_tokens` ne consultait que le CORPUS, et
+    un composant SANS BIBLIOTHÈQUE n'y a pas d'entrée. Mesuré : **34**
+    composants du registre dans ce cas — `acs712`, `ina169`, `tmp36`,
+    `ky018`, `us100`, `qre1113`, `ttp223`, `hc05`, `ds3234`… tous connus,
+    tous traités comme des références inconnues.
+
+    C'est le défaut « led2 » (2026-09-04) à l'échelle : l'app allait chercher
+    au registre une bibliothèque pour un composant dont elle sait qu'il n'en
+    a pas besoin.
+
+    ⚠️ La question est CATÉGORIELLE — « l'application connaît-elle ce
+    composant ? » — donc rien à calibrer. Et elle REMPLACE le cas particulier
+    `_is_sharp_model` ajouté le 2026-09-09 : celui-ci répondait à la même
+    question pour une seule famille. Une règle générale qui absorbe son
+    précédent vaut mieux que deux règles qui se ressemblent.
+    """
+    global _registry_tokens_cache
+    if _registry_tokens_cache is not None:
+        return _registry_tokens_cache
+    from .component_registry import registry
+    out: set[str] = set()
+    for comp in registry():
+        for brut in (comp.id, *comp.keywords):
+            t = _norm(brut)
+            if t:
+                out.add(t)
+    _registry_tokens_cache = frozenset(out)
+    return _registry_tokens_cache
+
 
 def _is_part_shaped(token: str) -> bool:
     """Part-number shape: ≥4 chars, at least one digit AND one letter, not a
@@ -86,8 +186,11 @@ def detect_unknown_part_tokens(prompt: str) -> list[str]:
     Purely lexical and deterministic (no embedding, no network). Hyphenated
     references are joined ("ZXQ-9000" → "zxq9000") so exotic vendor names are
     caught too. Excluded: corpus signature tokens (known chips), named
-    multi-chip modules (HW-612…, handled by ``hardware_modules``), and the
-    board/MCU blocklist. Order = first appearance; capped at
+    multi-chip modules (HW-612…, handled by ``hardware_modules``), the
+    board/MCU blocklist, NUMBERED COMPONENTS ("led2", "bouton2" — see
+    ``_is_indexed_designator``), and every reference the REGISTRY knows (see
+    ``_registry_part_tokens``: a component without a library has no corpus
+    entry, but the app knows it all the same). Order = first appearance; capped at
     ``_MAX_UNKNOWN_TOKENS``. Empty list when the corpus itself cannot load
     (we cannot tell known from unknown — better to change nothing)."""
     if not prompt or not prompt.strip():
@@ -104,6 +207,24 @@ def detect_unknown_part_tokens(prompt: str) -> list[str]:
     for m in _HYPHENATED_RE.findall(low):
         candidates.append(m.replace("-", ""))
 
+    def _exclu(tok: str) -> bool:
+        """Une seule porte, pour le jeton ET pour ses fragments."""
+        return (_is_indexed_designator(tok) or _is_sharp_model(tok)
+                or tok in _TOKEN_BLOCKLIST or tok in known
+                or tok in _registry_part_tokens()
+                or detect_module(tok) is not None)
+
+    # ⛔ UN FRAGMENT SUIT LE SORT DE SA FORME JOINTE (QA AP1, 2026-09-10).
+    # « GUVA-S12SD » produit `guva`, `s12sd` ET `guvas12sd`. La forme jointe
+    # est au registre, donc ecartee -- mais le FRAGMENT `s12sd` partait
+    # quand meme au registre Arduino, et la banniere ambre annoncait
+    # « Composant S12SD inconnu » pour un composant que l'app connait.
+    # Un morceau de reference n'est pas une reference.
+    fragments: set[str] = set()
+    for m in _HYPHENATED_RE.findall(low):
+        if _exclu(m.replace("-", "")):
+            fragments.update(m.split("-"))
+
     out: list[str] = []
     seen: set[str] = set()
     for tok in candidates:
@@ -112,11 +233,7 @@ def detect_unknown_part_tokens(prompt: str) -> list[str]:
         seen.add(tok)
         if not _is_part_shaped(tok):
             continue
-        if tok in _TOKEN_BLOCKLIST:
-            continue
-        if tok in known:
-            continue
-        if detect_module(tok) is not None:
+        if tok in fragments or _exclu(tok):
             continue
         out.append(tok)
         if len(out) >= _MAX_UNKNOWN_TOKENS:

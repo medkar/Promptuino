@@ -422,6 +422,44 @@ def _strip_suppressed_includes(code: str, headers: frozenset[str]) -> str:
 
 _INCLUDE_SERVO_RE = re.compile(r"#\s*include\s*[<\"]\s*Servo\.h\s*[>\"]")
 _INCLUDE_DHT_RE   = re.compile(r"#\s*include\s*[<\"]\s*DHT\.h\s*[>\"]")
+_INCLUDE_SHARPIR_RE = re.compile(r"#\s*include\s*[<\"]\s*SharpIR\.h\s*[>\"]")
+# La SECONDE bibliotheque Sharp (`SharpDistSensor`, DrGFreeman) : elle couvre
+# cinq modeles, dont le GP2Y0A51 que `SharpIR` ignore. Le modele n'est PAS au
+# constructeur ici -- il se pose par `setModel(...)`, donc on le cherche la.
+_INCLUDE_SHARPDIST_RE = re.compile(
+    r"#\s*include\s*[<\"]\s*SharpDistSensor\.h\s*[>\"]")
+_SHARPDIST_DECLARE_RE = re.compile(
+    r"SharpDistSensor\s+\w+\s*\(\s*([A-Za-z0-9_]+)")
+_SHARPDIST_MODEL_RE = re.compile(r"setModel\s*\(\s*[\w:]*?(GP2Y0A\w+)")
+_SHARPDIST_CONST_TO_TYPE = {
+    "GP2Y0A51SK0F_5V_DS": "gp2y0a51",
+    "GP2Y0A41SK0F_5V_DS": "gp2y0a41",
+    "GP2Y0A21F_5V_DS":    "gp2y0a21",
+    "GP2Y0A60SZLF_5V":    "gp2y0a60",
+    "GP2Y0A710K0F_5V_DS": "gp2y0a710",
+}
+# `SharpIR capteur(SharpIR::GP2Y0A21YK0F, A0);` — le 1er argument est le
+# MODÈLE (il ne change pas le câblage), le 2e est la broche. Le modèle est
+# accepté sous n'importe quelle forme : la constante qualifiée de l'exemple
+# officiel, mais aussi un entier nu, que le modèle de langage écrit parfois.
+# ⚠️ On capture les DEUX arguments : le 1er nomme le MODELE, le 2e la
+# broche. Depuis l'eclatement du 2026-09-09, le modele decide du TYPE emis --
+# c'est le code lui-meme qui dit lequel, la meilleure source possible.
+_SHARPIR_DECLARE_RE = re.compile(
+    r"SharpIR\s+\w+\s*\(\s*([^,]+),\s*([A-Za-z0-9_]+)\s*\)")
+
+# Constante de la bibliotheque -> type emis. LUES dans `SharpIR.h` v2.0.1.
+_SHARPIR_CONST_TO_TYPE = {
+    "GP2Y0A41SK0F": "gp2y0a41",
+    "GP2Y0A21YK0F": "gp2y0a21",
+    "GP2Y0A02YK0F": "gp2y0a02",
+}
+# Le modele que l'app pose quand RIEN ne le nomme : le plus courant. Il est
+# alors marque `presumed_from_description` -- nommer une supposition la rend
+# CORRIGEABLE (l'utilisateur voit un numero qui n'est pas le sien et le
+# change), la taire la rendrait indetectable. Meme motif que le
+# potentiometre 10 kΩ presume sur une broche analogique nue.
+_SHARP_DEFAULT_TYPE = "gp2y0a21"
 _INCLUDE_OLED_RE  = re.compile(r"#\s*include\s*[<\"]\s*Adafruit_SSD1306\.h\s*[>\"]")
 _INCLUDE_LCD_RE   = re.compile(r"#\s*include\s*[<\"]\s*LiquidCrystal_I2C\.h\s*[>\"]")
 _INCLUDE_INA219_RE = re.compile(r"#\s*include\s*[<\"]\s*Adafruit_INA219\.h\s*[>\"]")
@@ -764,6 +802,16 @@ _NON_COMPONENT_HEADERS = frozenset({
     "bluefruitconfig",             # configuration (Bluefruit)
     "flash_config",                # configuration (SPI flash)
     "sdfat_adafruit_fork",         # système de fichiers, pas un composant
+    # ── Génération de son : du LOGICIEL, jamais du matériel (QA AK2.1,
+    # 2026-09-07). Un prompt « joue une mélodie sur un haut-parleur » fait
+    # écrire au modèle `#include <Tone.h>` ou `#include "pitches.h"` — ce
+    # dernier est dans l'exemple OFFICIEL `toneMelody` d'Arduino, donc le
+    # modèle le reproduit fidèlement. Le schéma affichait alors une boîte
+    # fantôme « tone » à 4 broches, non câblée, avec son avertissement « type
+    # non reconnu » : l'app inventait un composant à côté du haut-parleur
+    # qu'elle venait de dessiner correctement.
+    "tone", "newtone", "toneac",   # bibliothèques de génération de ton
+    "pitches", "notes",            # tables de fréquences de notes
 })
 # Répertoires d'en-têtes SYSTÈME : `avr/power.h`, `util/delay.h`… Une règle de
 # préfixe plutôt qu'une liste, parce que la famille est ouverte.
@@ -1290,6 +1338,57 @@ def _detect_libraries(
             ctype = "dht22" if m.group(2) in ("DHT22", "DHT21") else "dht11"
             _add(ctype, [Pin("VCC", "5V"), Pin("DATA", net), Pin("GND", "GND")])
 
+    # ─── Sharp GP2Y0A (télémètre infrarouge analogique) ──────────────────
+    # Signature UNIQUE : `#include <SharpIR.h>` + le constructeur, dont le
+    # 2e argument est la broche. Le 1er est le MODÈLE, qui ne change rien au
+    # câblage — « la configuration des broches est la même pour tous les
+    # modèles », dit la fiche technique. Il ne sert donc pas ici ; c'est la
+    # bibliothèque qui s'en sert pour la conversion tension → distance.
+    if _INCLUDE_SHARPIR_RE.search(code):
+        for m in _SHARPIR_DECLARE_RE.finditer(code):
+            net = _normalize_pin_token(m.group(2))
+            if net is None or net in claimed:
+                continue
+            # Le 1er argument NOMME le modele : c'est le code qui tranche.
+            # Un entier nu (`SharpIR s(1, A0)`, que le modele de langage
+            # ecrit parfois) ne dit rien de lisible -> on retombe sur le
+            # defaut, marque comme presume.
+            modele = m.group(1).strip().rsplit("::", 1)[-1].upper()
+            ctype = _SHARPIR_CONST_TO_TYPE.get(modele)
+            presume = ctype is None
+            _add(ctype or _SHARP_DEFAULT_TYPE,
+                 [Pin("VCC", "5V"), Pin("GND", "GND"), Pin("OUT", net)],
+                 {"presumed_from_description": "true"} if presume else None)
+            # ⛔ RECLAMER L'EN-TETE, sans quoi le filet des includes inconnus
+            # ajoute une BOITE FANTOME a 4 broches et aux nets vides, en plus
+            # du composant qu'on vient de poser. C'est le piege documente au
+            # TODO #84 (« la boite fantome vient d'un `#include` non
+            # reclame »), et il etait ici depuis la creation du detecteur, le
+            # 2026-09-08 : mes tests verifiaient les broches du composant
+            # attendu, jamais qu'il etait SEUL. Trouve le 2026-09-09 par une
+            # mesure de bout en bout, pas par la suite verte.
+            claimed_headers.add("sharpir.h")
+
+    # ─── Sharp GP2Y0A, seconde bibliotheque (SharpDistSensor) ────────────
+    # Meme composant, autre pilote : `SharpDistSensor capteur(A0, 5);` puis
+    # `capteur.setModel(SharpDistSensor::GP2Y0A51SK0F_5V_DS);`. Le modele
+    # n'est PAS au constructeur ici -- il faut aller le lire au `setModel`.
+    if _INCLUDE_SHARPDIST_RE.search(code):
+        m_mod = _SHARPDIST_MODEL_RE.search(code)
+        ctype = (_SHARPDIST_CONST_TO_TYPE.get(m_mod.group(1))
+                 if m_mod else None)
+        for m in _SHARPDIST_DECLARE_RE.finditer(code):
+            net = _normalize_pin_token(m.group(1))
+            if net is None or net in claimed:
+                continue
+            # Les modeles A60 et A710 que cette bibliotheque gere aussi n'ont
+            # pas de type : on retombe sur le defaut EN LE DISANT, plutot que
+            # d'affirmer un modele qu'on ne sait pas dessiner.
+            _add(ctype or _SHARP_DEFAULT_TYPE,
+                 [Pin("VCC", "5V"), Pin("GND", "GND"), Pin("OUT", net)],
+                 None if ctype else {"presumed_from_description": "true"})
+            claimed_headers.add("sharpdistsensor.h")
+
     # ─── OLED SSD1306 (I2C — fixed pins A4/A5 on Uno) ────────────────────
     if _INCLUDE_OLED_RE.search(code):
         addr_m = _OLED_BEGIN_ADDR_RE.search(code)
@@ -1358,7 +1457,13 @@ def _detect_libraries(
             pin = _normalize_pin_token(m.group(1))
             if pin is None or pin in claimed:
                 continue
-            _add("button", [Pin("1", pin), Pin("2", "GND")],
+            # Les broches d'un bouton s'appellent "A"/"B" -- c'est ce que le
+            # catalogue porte et ce que le chemin ordinaire (pinMode
+            # INPUT_PULLUP) emet. Les nommer "1"/"2" ici ne changeait rien au
+            # texte des instructions mais rendait le bouton INTROUVABLE au
+            # routage, qui apparie par egalite de nom : le composant sortait
+            # sans AUCUN fil. Corrige le 2026-09-04.
+            _add("button", [Pin("A", pin), Pin("B", "GND")],
                  {"pull": "internal"})
 
     # ─── TB6612FNG via la lib SparkFun ──────────────────────────────────
@@ -3205,6 +3310,22 @@ _BUZZER_KEYWORDS = (
     # IT
     "cicalino", "allarme", "sirena",
 )
+# Haut-parleur pilote par `tone()`, sur une broche nue. Meme cablage que le
+# buzzer (+ / - et resistance serie de 100 Ω), donc AUCUN mot du buzzer ici :
+# « buzzer », « piezo », « alarme »... restent chez lui. Seuls les mots qui
+# disent le haut-parleur vivent ici, sinon les deux types se disputeraient
+# chaque prompt et le double-hit ne deciderait rien (TODO #94).
+_SPEAKER_KEYWORDS = (
+    # FR
+    "haut-parleur", "haut parleur", "hautparleur", "haut-parleurs",
+    "enceinte", "hp 8 ohms",
+    # EN
+    "speaker", "speakers", "loudspeaker",
+    # ES
+    "altavoz", "altavoces",
+    # IT
+    "altoparlante", "altoparlanti",
+)
 # "DC motor" keywords — when the prompt mentions a motor on an ambiguous
 # pin, we reclassify LED -> dc_motor (possibly with a driver
 # detected in the same excerpt). Deliberately broad to cover the
@@ -3359,12 +3480,264 @@ _SOUND_SENSOR_KEYWORDS = (
     # FR
     "microphone", "microphones", "capteur de son",
     "capteur son", "capteur sonore",
+    # « detecteur de son » manquait : c'est le nom que porte le module KY-038
+    # chez la plupart des revendeurs, et le registre l'appelle ainsi
+    # (`sound_detector`). Ajoute le 2026-09-07 (TODO #97).
+    "detecteur de son", "détecteur de son",
     # EN
-    "mic", "sound sensor", "audio sensor",
+    "mic", "sound sensor", "audio sensor", "sound detector",
     # ES
     "micrófono", "sensor de sonido",
     # IT
     "microfono", "microfoni", "sensore sonoro", "sensore di suono",
+)
+# TMP36 : capteur de temperature ANALOGIQUE nomme par sa reference. Meme
+# rapport a `thermistor` que `ky018` a `ldr` -- c'est un capteur de
+# temperature, donc les mots generiques (« capteur de temperature »...) restent
+# chez `_TEMP_SENSOR_KEYWORDS` ; SEUL le numero de piece vit ici, sinon toute
+# temperature deviendrait un TMP36. Quand les deux matchent (« capteur de
+# temperature TMP36 »), `_refine` fait gagner le specifique.
+_TMP36_KEYWORDS = (
+    "tmp36", "tmp 36", "tmp-36",
+)
+# Capteur d'humidite du SOL (sonde resistive ou capacitive plantee en terre).
+# ⚠️ « humidite » seul est INTERDIT ici : c'est le mot du DHT11/DHT22, qui
+# mesure l'humidite de l'AIR. Les DHT ont leur propre detecteur de signature
+# (`#include <DHT.h>`), mais un prompt qui dit « humidite » sans code DHT ne
+# doit pas planter une sonde de terre. D'ou les expressions multi-mots seules,
+# conformement a la regle d'or de CLAUDE.md.
+_SOIL_MOISTURE_KEYWORDS = (
+    # FR
+    "humidite du sol", "humidité du sol", "humidite de la terre",
+    "humidité de la terre", "capteur d'humidite du sol",
+    "capteur d'humidité du sol", "hygrometrie du sol", "hygrométrie du sol",
+    "humidite du substrat", "humidité du substrat", "sonde d'humidite",
+    "sonde d'humidité",
+    # EN
+    "soil moisture", "soil humidity", "soil sensor", "moisture sensor",
+    # ES
+    "humedad del suelo", "sensor de humedad del suelo",
+    # IT
+    "umidita del suolo", "umidità del suolo", "umidita del terreno",
+    "umidità del terreno",
+)
+# Capteur de FORCE (FSR, resistance sensible a la pression).
+# ⚠️ « pression » seul est INTERDIT : c'est le mot des barometres BMP180 /
+# BMP280 / BME280, qui sont au corpus et se detectent par leur `#include`. On
+# ne garde que les formes qui disent la force ou nomment le composant.
+_FORCE_SENSOR_KEYWORDS = (
+    # FR
+    "capteur de force", "capteur force", "fsr",
+    "resistance sensible a la force", "résistance sensible à la force",
+    "capteur de pression fsr", "capteur d'appui",
+    # EN
+    "force sensor", "force sensitive resistor", "force sensing resistor",
+    "pressure pad",
+    # ES
+    "sensor de fuerza", "sensor de presion fsr", "sensor de presión fsr",
+    # IT
+    "sensore di forza", "sensore di pressione fsr",
+)
+# Capteur de FLEXION (bande resistive dont la valeur varie quand on la plie).
+_FLEX_SENSOR_KEYWORDS = (
+    # FR
+    "capteur de flexion", "capteur flexion", "capteur de courbure",
+    "capteur de pliage", "bande de flexion",
+    # EN
+    "flex sensor", "bend sensor", "flexion sensor",
+    # ES
+    "sensor de flexion", "sensor de flexión", "sensor de curvatura",
+    # IT
+    "sensore di flessione", "sensore di curvatura",
+)
+# ── TODO #98 : trois capteurs analogiques nus de plus ────────────────────
+# Meme classe que le #94, un lot plus loin : dessinables ou nommes au
+# registre, jamais reconnus. Mesure du 2026-09-08 : 20 prompts qui NOMMENT le
+# composant, 0 reconnu -- « un capteur de flamme sur A0 » sortait dessine en
+# potentiometre 10 kΩ, avec la valeur de resistance que ca implique.
+_FLAME_SENSOR_KEYWORDS = (
+    # FR
+    "capteur de flamme", "detecteur de flamme", "détecteur de flamme",
+    "capteur de feu", "detecteur d'incendie", "détecteur d'incendie",
+    # EN
+    "flame sensor", "flame detector", "fire sensor", "fire detector",
+    # ES
+    "sensor de llama", "detector de llama", "sensor de fuego",
+    # IT
+    "sensore di fiamma", "rilevatore di fiamma", "sensore di fuoco",
+)
+_RAIN_SENSOR_KEYWORDS = (
+    # FR
+    "capteur de pluie", "detecteur de pluie", "détecteur de pluie",
+    "capteur de precipitation", "capteur de précipitation",
+    # EN
+    "rain sensor", "rain detector", "raindrop sensor",
+    # ES
+    "sensor de lluvia", "detector de lluvia",
+    # IT
+    "sensore di pioggia", "rilevatore di pioggia",
+)
+# ⚠️ « uv » NU est ecarte : le mot vit dans « LED UV », « lampe UV », et il
+# existe d'autres capteurs UV (VEML6070, ML8511) qui, eux, ont une
+# bibliotheque et un bus. Ne restent que la reference et l'expression qui
+# DISTINGUE -- « analogique », qui est precisement ce que le GUVA est.
+_GUVA_KEYWORDS = (
+    # FR
+    "guva-s12sd", "guva s12sd", "guva", "capteur uv analogique",
+    "capteur d'uv analogique",
+    # EN
+    # ⛔ PAS « uv light sensor » : la chaine CONTIENT « light sensor », qui
+    # appartient a `_LDR_KEYWORDS`. Deux types matcheraient, et le
+    # double-hit ne decide rien -- on aurait ajoute un mot pour reconnaitre
+    # MOINS qu'avant.
+    "analog uv sensor", "analogue uv sensor",
+    # ES
+    "sensor uv analogico", "sensor uv analógico",
+    # IT
+    "sensore uv analogico",
+)
+# ── Capteurs de courant analogiques (TODO #98) ───────────────────────────
+# ⛔ REFERENCE UNIQUEMENT, dans les quatre langues -- et ce n'est pas de la
+# prudence, c'est la seule redaction possible :
+#  - « capteur de courant » NU est interdit depuis le #97 : un INA219 en
+#    porte le nom, mais il est en I2C et a une bibliotheque. Le mot ne
+#    designe pas une broche analogique.
+#  - « capteur de courant ANALOGIQUE » ne servirait a rien non plus : les
+#    deux le sont, donc les deux matcheraient, et le double-hit ne decide
+#    rien. Ce serait ajouter un mot pour ne reconnaitre personne.
+# Reste le numero de piece, que l'utilisateur lit sur sa carte.
+# ── Telemetre infrarouge Sharp ──────────────────────────────────────────
+# La SERIGRAPHIE du boitier porte le nom SANS le prefixe « GP », suivi d'un
+# CODE DE DATE. Datasheet officiel Sharp, feuille E4-A00201EN, page 2,
+# section « Stamp (Example) », verbatim :
+#
+#     Model name          Month(1 to 9,X,Y,Z)
+#                         Year(2005:5)
+#     2Y0A21   F    4   Z
+#
+# Le mois se code 1 a 9 puis X=10, Y=11, Z=12 ; l'annee par son dernier
+# chiffre (2005 -> « 5 »). Le `F` n'est PAS explique par la legende, donc on
+# ne lui invente pas de sens. Les capteurs de l'utilisateur portent
+# `2Y0A21 F 81` et `2Y0A21 F 7X` : meme modele, janvier et octobre de deux
+# annees differentes.
+#
+# ⛔ CE N'EST PAS UNE AFFAIRE DE LONGUEUR. La regle « 6 caracteres, ou 8 avec
+# GP » a ete proposee puis corrigee le 2026-09-09 : `GP2Y0A21` et
+# `GP2Y0A41SK` n'ont pas la meme longueur. Ce qui identifie le composant est
+# un MOTIF -- `2Y0A` suivi de DEUX CHIFFRES. Ce qui precede (`GP`) est
+# optionnel, ce qui suit (`YK0F`, `SK0F`, le code de date colle, tirete ou
+# espace) n'appartient pas a l'identite.
+#
+# Mesure avant correctif, 15 ecritures reelles : 7 non reconnues, dont la
+# reference COMPLETE de chaque datasheet (`GP2Y0A21YK0F`, `GP2Y0A41SK0F`,
+# `GP2Y0A02YK0F`) et le code de date colle (`2Y0A21F81`).
+#
+# ⚠️ Le motif ne mord PAS sur les autres familles Sharp : `GP2Y1010AU0F` (le
+# capteur de poussiere) commence par `2Y10`, et `GP2Y0A700K0F` (telemetre
+# 1-5 m) rendrait `2Y0A70`, absent du lexique -- donc rien, plutot qu'un
+# faux positif.
+# ⛔ DEUX **OU TROIS** chiffres. La regle « `2Y0A` + deux chiffres » que
+# nous avions posee le 2026-09-09 etait incomplete : le GP2Y0A710 (1-5 m)
+# et le GP2Y0A700 en ont trois, et ils sortaient canonises en `2Y0A71` /
+# `2Y0A70` -- des modeles qui n'existent pas.
+#
+# ⚠️ Le nombre de chiffres est AMBIGU en general (`2Y0A2181` pourrait se
+# lire 21 + code de date, ou 218), donc on ne se fie pas a la gourmandise
+# de la regex : on prend la lecture a TROIS chiffres seulement si elle
+# designe un modele CONNU, sinon on retombe sur deux. Les donnees
+# tranchent, pas la syntaxe.
+_SHARP_MODEL_RE = re.compile(r"\b(?:GP)?2Y0A(\d{2,3})[A-Z0-9]*\b", re.IGNORECASE)
+_SHARP_KNOWN_NUMBERS = frozenset({"21", "41", "02", "51", "60", "710", "700"})
+
+
+def _sharp_number(brut: str) -> str:
+    """Numero de modele lu dans une reference, 2 ou 3 chiffres."""
+    if (len(brut) == 3 and brut not in _SHARP_KNOWN_NUMBERS
+            and brut[:2] in _SHARP_KNOWN_NUMBERS):
+        return brut[:2]
+    return brut
+
+
+def _canonicalize_sharp_models(text: str) -> str:
+    """Ramene toute ecriture d'un telemetre Sharp a sa forme canonique.
+
+    `GP2Y0A21YK0F`, `2Y0A21 F 81`, `2Y0A21-F81`, `2Y0A21F81` -> `2Y0A21`.
+    Pur, sans effet de bord : appele une fois a l'entree d'`extract_netlist`.
+    """
+    if not text:
+        return text
+    return _SHARP_MODEL_RE.sub(
+        lambda m: f"2Y0A{_sharp_number(m.group(1))}", text)
+
+
+# ── Lexique (2026-09-09) ────────────────────────────────────────────────
+# ⚠️ LES DEUX ECRITURES SONT INDISPENSABLES. La serigraphie du capteur porte
+# « 2Y0A21 F 81 » -- PAS « GP2Y0A21 » (verifie par l'utilisateur sur ses
+# propres capteurs). Un debutant recopie ce qui est ecrit sur l'objet qu'il
+# tient en main, pas la reference du catalogue du fabricant.
+#
+# ⛔ « distance » NU est ecarte, et « infrarouge » NU aussi : le premier
+# appartient au `ClarifyGroup` distance (HC-SR04, VL53L0X, APDS9960), le
+# second au recepteur de telecommande. Ne restent que la reference et les
+# expressions ou les DEUX idees sont reunies -- distance ET infrarouge.
+# ⚠️ UN LEXIQUE PAR MODELE depuis l'eclatement du 2026-09-09. Les references
+# n'ont pas besoin de leurs variantes ici : tout ce qui a la forme d'un modele
+# Sharp est ramene a `2Y0Ann` en amont, par `_canonicalize_sharp_models`.
+_GP2Y0A21_KEYWORDS = ("2y0a21",)
+_GP2Y0A41_KEYWORDS = ("2y0a41",)
+_GP2Y0A02_KEYWORDS = ("2y0a02",)
+# ⚠️ Le A51 arrive par une AUTRE bibliotheque (`SharpDistSensor`), que
+# `SharpIR` ne connait pas. Rien de special cote cablage : meme brochage,
+# meme dessin -- seul le document corpus par defaut differe.
+_GP2Y0A51_KEYWORDS = ("2y0a51",)
+_GP2Y0A60_KEYWORDS = ("2y0a60",)
+_GP2Y0A710_KEYWORDS = ("2y0a710",)
+# La FAMILLE, sans modele : « telemetre infrarouge » designe l'objet sans dire
+# lequel. On dessine alors le plus courant, EN LE DISANT.
+#
+# ⛔ NI « sharp ir », NI « sharpir », NI « capteur sharp » : la marque seule
+# ne designe PAS un composant. Sharp fabrique aussi des capteurs de poussiere
+# -- le GP2Y1010AU0F est lui-meme un capteur optique a INFRAROUGE --, des
+# recepteurs IR, et l'ecran memoire qui est deja au corpus. Mesure le
+# 2026-09-09, avant correctif : « un capteur Sharp sur A0 » sortait en
+# telemetre AVEC sa bibliotheque. Et « SharpIR » est le nom de la
+# BIBLIOTHEQUE, pas du composant (decision utilisateur) -- le chemin code n'en
+# depend pas, c'est `_INCLUDE_SHARPIR_RE` qui le lit.
+_SHARP_FAMILY_KEYWORDS = (
+    # FR
+    "telemetre infrarouge", "télémètre infrarouge",
+    "distance infrarouge", "distance par infrarouge",
+    "capteur de distance infrarouge",
+    # EN
+    "ir distance sensor", "infrared distance sensor", "ir rangefinder",
+    # ES
+    "sensor de distancia infrarrojo", "distancia infrarroja",
+    # IT
+    "sensore di distanza infrarosso", "distanza a infrarossi",
+)
+_INA169_KEYWORDS = ("ina169", "ina 169")
+_ACS712_KEYWORDS = ("acs712", "acs 712", "acs-712")
+# ── Capteur reflectif infrarouge / suiveur de ligne (TODO #98) ───────────
+# ⚠️ « infrarouge » NU est ecarte : le mot appartient d'abord au RECEPTEUR
+# infrarouge (telecommande), qui est un tout autre composant. Ne restent que
+# les references et les expressions ou l'infrarouge est QUALIFIE -- reflectif,
+# suiveur de ligne, evitement d'obstacle.
+_IR_REFLECTIVE_KEYWORDS = (
+    # FR
+    "capteur reflectif infrarouge", "capteur réflectif infrarouge",
+    "capteur infrarouge reflectif", "capteur infrarouge réflectif",
+    "suiveur de ligne", "capteur de ligne", "detecteur de ligne",
+    "qrd1114",
+    "détecteur de ligne", "qre1113", "tcrt5000",
+    # EN
+    "ir reflective sensor", "reflective sensor", "line follower",
+    "line sensor", "line tracking sensor",
+    # ES
+    "sensor reflectivo infrarrojo", "sensor seguidor de linea",
+    "sensor seguidor de línea", "sensor de linea",
+    # IT
+    "sensore riflettente infrarosso", "sensore segui linea",
+    "sensore di linea",
 )
 # Button matrix / keypad. Typical case: pins wired as
 # INPUT/OUTPUT and scanned manually (without `#include Keypad.h`, which
@@ -3562,6 +3935,12 @@ def _choose_type_from_text(
         # spécifique gagne (sinon double-hit => aucune décision).
         if "ky018" in hits and "ldr" in hits:
             hits = hits - {"ldr"}
+        # Meme hierarchie pour le TMP36 : c'est un capteur de temperature
+        # nomme par sa reference. « capteur de temperature TMP36 » matche les
+        # deux ; sans cette ligne le double-hit ne deciderait rien et la
+        # reference explicite serait perdue (TODO #94).
+        if "tmp36" in hits and "thermistor" in hits:
+            hits = hits - {"thermistor"}
         return hits
 
     context_hits = _refine(_matches(context))
@@ -3604,6 +3983,9 @@ _LED_RECLASSIF_CANDIDATES = {
     "stepper":  _STEPPER_KEYWORDS,
     "dc_motor": _MOTOR_KEYWORDS,
     "relay":    _RELAY_KEYWORDS,
+    # TODO #94 : dessinable depuis l'import Fritzing, introuvable jusqu'ici --
+    # « un haut-parleur sur la broche 7 » sortait dessine en LED.
+    "speaker":  _SPEAKER_KEYWORDS,
 }
 # Sub-type candidates for an ambiguous potentiometer (analog pin
 # classified by default). A deduced sub-type (ldr/thermistor/microphone),
@@ -3616,7 +3998,160 @@ _POT_SUBTYPE_CANDIDATES = {
     "ky018":         _KY018_KEYWORDS,
     "thermistor":    _TEMP_SENSOR_KEYWORDS,
     "microphone":    _SOUND_SENSOR_KEYWORDS,
+    # TODO #94 (2026-09-07). Ces quatre types etaient DESSINABLES depuis
+    # l'import Fritzing du 2026-08-19 et introuvables par le detecteur :
+    # « capteur d'humidite du sol sur A0 » sortait en potentiometre 10 kΩ.
+    # ⛔ `light_sensor` n'est PAS ici, et c'est deliberé : `_LDR_KEYWORDS`
+    # possede deja « light sensor » / « capteur de luminosite », et ces
+    # prompts donnent `ldr`, ce qui est juste. L'ajouter fabriquerait la
+    # collision que la regle d'or interdit.
+    "tmp36":         _TMP36_KEYWORDS,
+    "soil_moisture": _SOIL_MOISTURE_KEYWORDS,
+    "force_sensor":  _FORCE_SENSOR_KEYWORDS,
+    "flex_sensor":   _FLEX_SENSOR_KEYWORDS,
+    # TODO #98 (2026-09-08). Meme classe, un lot plus loin.
+    "flame_sensor":  _FLAME_SENSOR_KEYWORDS,
+    "rain_sensor":   _RAIN_SENSOR_KEYWORDS,
+    "guva_s12sd":    _GUVA_KEYWORDS,
+    "ina169":        _INA169_KEYWORDS,
+    "acs712":        _ACS712_KEYWORDS,
+    "ir_reflective_sensor": _IR_REFLECTIVE_KEYWORDS,
+    # 2026-09-09. Le Sharp est le seul telemetre ANALOGIQUE de la
+    # famille distance : les trois autres (HC-SR04, VL53L0X, APDS9960)
+    # ne passent jamais par une broche analogique nue.
+    # ⚠️ Le MODELE nomme gagne ; « telemetre infrarouge » nu retombe sur
+    # le defaut, marque comme presume juste apres la boucle.
+    "gp2y0a21":      _GP2Y0A21_KEYWORDS + _SHARP_FAMILY_KEYWORDS,
+    "gp2y0a41":      _GP2Y0A41_KEYWORDS,
+    "gp2y0a02":      _GP2Y0A02_KEYWORDS,
+    "gp2y0a51":      _GP2Y0A51_KEYWORDS,
+    "gp2y0a60":      _GP2Y0A60_KEYWORDS,
+    "gp2y0a710":     _GP2Y0A710_KEYWORDS,
 }
+# Capteurs dont DEUX bornes ne vont pas a la carte : elles se coupent en
+# serie dans le circuit mesure. Elles restent dessinees et sans fil ; un
+# info l'explique, sans quoi le schema montrerait deux broches libres sans
+# raison apparente.
+# Le nom est le NUMERO DE PIECE, identique dans les quatre langues : pas
+# besoin de la machinerie `_WARNING_PARAMS_TO_LABEL`, qui traduit un libelle
+# et lui colle un article.
+_SERIES_MEASUREMENT_TERMINALS = {
+    "ina169": ("INA169", ("VIN+", "VIN-")),
+    "acs712": ("ACS712", ("IP+", "IP-")),
+}
+# ── Interrupteurs et contacts (TODO #94) ─────────────────────────────────
+# Tous dessinables depuis l'import Fritzing, tous introuvables jusqu'ici :
+# « un interrupteur reed sur la broche 4 » sortait dessine en bouton-poussoir.
+#
+# ⛔ Le mot « interrupteur » NU n'appartient a aucun de ces lexiques, et c'est
+# la condition pour qu'ils coexistent : il matcherait les quatre a la fois, le
+# double-hit ne deciderait rien, et on aurait ajoute quatre types pour ne rien
+# reconnaitre de plus. Chaque lexique ne porte que ce qui le DISTINGUE --
+# reference, ou expression multi-mots, comme l'exige la regle d'or.
+_REED_SWITCH_KEYWORDS = (
+    # FR (« ILS » = interrupteur a lame souple, le nom scolaire francais)
+    "interrupteur reed", "contact reed", "capteur reed", "ils magnetique",
+    "interrupteur magnetique", "interrupteur magnétique",
+    "capteur d'ouverture", "detecteur d'ouverture", "détecteur d'ouverture",
+    # EN
+    "reed switch", "reed sensor", "magnetic switch", "door sensor",
+    # ES
+    "interruptor reed", "sensor magnetico", "sensor magnético",
+    # IT
+    "interruttore reed", "sensore magnetico",
+)
+_TILT_SWITCH_KEYWORDS = (
+    # FR
+    "capteur d'inclinaison", "capteur inclinaison", "detecteur d'inclinaison",
+    "détecteur d'inclinaison", "interrupteur a bille", "interrupteur à bille",
+    "interrupteur d'inclinaison", "sw-520d",
+    # EN
+    "tilt switch", "tilt sensor", "ball switch",
+    # ES
+    "sensor de inclinacion", "sensor de inclinación",
+    "interruptor de inclinacion",
+    # IT
+    "sensore di inclinazione", "interruttore a inclinazione",
+)
+_SLIDE_SWITCH_KEYWORDS = (
+    # FR
+    "interrupteur a glissiere", "interrupteur à glissière",
+    "interrupteur glissiere", "interrupteur glissière", "switch a glissiere",
+    # EN
+    "slide switch", "sliding switch",
+    # ES
+    "interruptor deslizante",
+    # IT
+    "interruttore a scorrimento",
+)
+_TOGGLE_SWITCH_KEYWORDS = (
+    # FR
+    "interrupteur a bascule", "interrupteur à bascule", "bascule a levier",
+    "inverseur", "interrupteur a levier", "interrupteur à levier",
+    # EN
+    "toggle switch", "spdt switch", "lever switch",
+    # ES
+    "interruptor de palanca", "conmutador",
+    # IT
+    "interruttore a levetta", "deviatore",
+)
+# Capteur TACTILE capacitif (module type TTP223). « touches » (les touches
+# d'un clavier) reste chez `_KEYPAD_KEYWORDS` -- ce sont deux mots differents,
+# pas deux sens du meme.
+_TOUCH_SENSOR_KEYWORDS = (
+    # FR
+    "capteur tactile", "bouton tactile", "touche tactile", "tactile capacitif",
+    "capteur capacitif", "ttp223",
+    # EN
+    "touch sensor", "touch button", "capacitive touch", "touch pad",
+    # ES
+    "sensor tactil", "sensor táctil", "boton tactil",
+    # IT
+    "sensore tattile", "pulsante tattile",
+)
+# TODO #98. Effet Hall : une entree DIGITALE, pas analogique -- le module
+# courant (A3144, KY-003) sort en tout-ou-rien, d'ou sa place ici et non
+# parmi les sous-types du potentiometre. Il sortait dessine en BOUTON.
+# ⚠️ « hall » NU est ecarte : c'est un mot anglais courant (« hall effect »
+# passe, « in the hall » ne doit pas), et surtout un mot francais et
+# espagnol ordinaire (« le hall d'entree »). Ne restent que les
+# expressions qui DISTINGUENT.
+# ⛔ TROUVE EN QA (AP9, 2026-09-10) : « allume une LED avec une telecommande,
+# recepteur infrarouge sur la broche 4 » sortait dessine en BOUTON. Le
+# recepteur IR a pourtant tout ce qu'il faut -- entree catalogue 3 broches,
+# categorie `digital_in`, libelle et nom court x4 langues -- mais il n'etait
+# candidat d'AUCUNE table de sous-typage : il ne naissait que d'une signature
+# (`IRrecv`), donc jamais d'une broche nue.
+#
+# ⚠️ Le mot « infrarouge » NU lui appartient, et c'est deja ecrit dans le
+# lexique du suiveur de ligne (« ⛔ NI « infrarouge » nu : le mot appartient
+# d'abord au RECEPTEUR infrarouge »). Cette table le lui rend enfin -- mais
+# sur les entrees DIGITALES seulement, la ou le suiveur de ligne est
+# analogique : les deux ne se croisent jamais.
+_IR_RECEIVER_KEYWORDS = (
+    # FR
+    "recepteur infrarouge", "récepteur infrarouge", "recepteur ir",
+    "telecommande", "télécommande", "capteur de telecommande",
+    "vs1838b", "tsop4838", "recepteur de telecommande",
+    # EN
+    "ir receiver", "infrared receiver", "remote control receiver",
+    "tv remote", "remote receiver",
+    # ES
+    "receptor infrarrojo", "receptor de infrarrojos", "mando a distancia",
+    # IT
+    "ricevitore infrarosso", "ricevitore a infrarossi", "telecomando",
+)
+_HALL_SENSOR_KEYWORDS = (
+    # FR
+    "capteur hall", "capteur a effet hall", "capteur à effet hall",
+    "effet hall", "capteur magnetique hall", "a3144",
+    # EN
+    "hall sensor", "hall effect", "hall-effect", "ky-003", "ky003",
+    # ES
+    "sensor hall", "efecto hall",
+    # IT
+    "sensore hall", "sensore di hall", "effetto hall",
+)
 # Sub-type candidates for an ambiguous digital input (button by
 # default). `button` is the "neutral" anchor: we map it to _KEYPAD_KEYWORDS
 # not because a keypad IS a button, but so that a mention
@@ -3627,6 +4162,18 @@ _BTN_SUBTYPE_CANDIDATES = {
     "button":   _KEYPAD_KEYWORDS,
     "pir":      _PIR_KEYWORDS,
     "rcwl0516": _RCWL_KEYWORDS,
+    # TODO #94. Les trois premiers gardent EXACTEMENT le cablage du bouton
+    # (deux bornes, une a la broche, une a la masse, pull-up interne) : seul
+    # le nom du dessin change, et c'est deja tout ce qu'on sait de plus.
+    "reed_switch":   _REED_SWITCH_KEYWORDS,
+    "tilt_switch":   _TILT_SWITCH_KEYWORDS,
+    "slide_switch":  _SLIDE_SWITCH_KEYWORDS,
+    # Ces deux-la ont un brochage PROPRE, traite dans la boucle ci-dessous.
+    "toggle_switch": _TOGGLE_SWITCH_KEYWORDS,
+    "touch_sensor":  _TOUCH_SENSOR_KEYWORDS,
+    # TODO #98. Trois fils, comme le PIR et le capteur tactile.
+    "hall_sensor":   _HALL_SENSOR_KEYWORDS,
+    "ir_receiver":   _IR_RECEIVER_KEYWORDS,
 }
 
 
@@ -3799,6 +4346,118 @@ def _refine_ultrasonic_from_reference(components: list, prompt: str,
     _mutate_component(components, cible, trouves.pop(), list(cible.pins))
 
 
+_JOYSTICK_KEYWORDS = (
+    # FR
+    "joystick", "joysticks", "manette", "manche a balai", "manche à balai",
+    "ky-023", "ky023",
+    # EN
+    "thumbstick", "thumb joystick", "analog stick",
+    # ES
+    "palanca de mando", "mando analogico", "mando analógico",
+    # IT
+    "levetta analogica", "joystick analogico",
+)
+
+
+def _group_joystick_from_prompt(components: list, prompt: str,
+                                context: str) -> None:
+    """Un joystick n'est pas le sous-type d'UNE broche : il en regroupe trois.
+
+    C'est ce qui le distingue de tous les autres ajouts du TODO #94 -- la
+    thermistance ou l'interrupteur reed remplacent un composant deja deduit
+    d'une seule broche, la ou un joystick reunit deux entrees analogiques (les
+    deux axes) et, quand elle existe, l'entree digitale du bouton d'appui.
+    D'ou une passe dediee plutot qu'une entree de plus dans les tables de
+    candidats : celles-ci raisonnent broche par broche et ne pourraient pas
+    l'exprimer. Meme raison d'etre que le regroupement des moteurs DC.
+
+    ⛔ Silencieux des qu'il y a un doute -- se taire vaut mieux que tirer au
+    sort. Il faut EXACTEMENT deux entrees analogiques : trois voudrait dire un
+    joystick plus un potentiometre, ou deux joysticks, et rien ne dit
+    lesquelles vont ensemble.
+
+    ⚠️ Ce que ce regroupement DEVINE, et qu'il declare : quel axe est
+    horizontal. Le code ne le dit pas -- `analogRead(A0)` et `analogRead(A1)`
+    sont indiscernables. On suit la convention de tous les brochages publies
+    (VRx sur la premiere broche analogique, VRy sur la seconde) et on pose
+    `presumed_from_description`, qui dit que le type vient de la description
+    et non d'une lecture du code. Inverser les deux axes donne un schema qui
+    marche, avec les commandes echangees.
+
+    `SEL` (le clic du manche) reste SANS FIL quand aucune entree digitale
+    n'est disponible : une broche dessinee sans fil est le cas normal, en
+    inventer une serait presenter une devinette comme une lecture.
+    """
+    texte = f"{prompt or ''}\n{context or ''}"
+    if not _has_keyword(texte, _JOYSTICK_KEYWORDS):
+        return
+
+    def _net_analogique(c):
+        for p in c.pins:
+            if (p.net and len(p.net) >= 2 and p.net[0] == "A"
+                    and p.net[1:].isdigit()):
+                return p.net
+        return None
+
+    axes = [(c, _net_analogique(c)) for c in components
+            if c.type == "potentiometer" and c.inferred]
+    axes = [(c, n) for c, n in axes if n]
+    if len(axes) != 2:
+        return
+    axes.sort(key=lambda cn: int(cn[1][1:]))
+    (premier, horz), (second, vert) = axes
+
+    # Le clic du manche : une entree digitale encore neutre, s'il y en a une
+    # SEULE. Deux boutons voudraient dire qu'on ne sait pas lequel est le clic.
+    boutons = [c for c in components if c.type == "button" and c.inferred]
+    sel = ""
+    if len(boutons) == 1:
+        bouton = boutons[0]
+        sig = bouton.pin("A") or (bouton.pins[0] if bouton.pins else None)
+        if sig is not None and sig.net:
+            sel = sig.net
+            components.remove(bouton)
+
+    components.remove(second)
+    _mutate_component(
+        components, premier, "joystick",
+        [Pin("GND", "GND"), Pin("SEL", sel), Pin("HORZ", horz),
+         Pin("VERT", vert), Pin("VCC", "5V")],
+    )
+    premier.attributes["presumed_from_description"] = "true"
+
+
+def _refine_sounder_from_prompt(components: list, prompt: str,
+                                context: str) -> None:
+    """Un `tone()` peut piloter un buzzer OU un haut-parleur (TODO #94).
+
+    Meme raisonnement que pour l'ultrason ci-dessus, et c'est ce qui donne le
+    droit d'agir : `tone()` est un PROTOCOLE -- un signal carre sur une broche
+    -- que le buzzer piezo et le haut-parleur partagent. Le code ne dit donc
+    pas laquelle des deux pieces est branchee ; le prompt peut le preciser
+    sans rien contredire. (A l'inverse, `#include <MHZ19.h>` nommerait une
+    piece, et le prompt n'aurait pas ce droit.)
+
+    Le cablage est IDENTIQUE : `+` vers la broche, `-` a la masse, et la meme
+    resistance serie de 100 Ω -- indispensable ici, un haut-parleur 8 Ω
+    branche nu tirant environ 600 mA quand une broche en fournit 20. Seul le
+    nom change, et c'est tout ce qu'on sait de plus.
+
+    ⛔ Silencieux des qu'il y a un doute : plusieurs buzzers, ou un prompt qui
+    nomme les DEUX pieces. Se taire vaut mieux que tirer au sort.
+    """
+    cibles = [c for c in components if c.type == "buzzer"]
+    if len(cibles) != 1:
+        return
+    texte = f"{prompt or ''}\n{context or ''}"
+    if not _has_keyword(texte, _SPEAKER_KEYWORDS):
+        return
+    if _has_keyword(texte, _BUZZER_KEYWORDS):
+        return   # le prompt nomme les deux : on ne tranche pas
+    cible = cibles[0]
+    _mutate_component(components, cible, "speaker", list(cible.pins))
+
+
 def _disambiguate_with_prompt(components: list[Component],
                                 prompt: str, context: str,
                                 prompts_by_fn: dict[str, str] | None = None,
@@ -3933,6 +4592,15 @@ def _disambiguate_with_prompt(components: list[Component],
             c.attributes = {"_confidence": "high"}
             n_buzzer += 1
             c.ref = f"B{n_buzzer}"
+        elif target_type == "speaker":
+            # Meme cablage que le buzzer : + vers la broche, - a la masse, et
+            # la resistance serie que pose `_apply_speaker_series_resistors`.
+            # Elle n'est pas cosmetique ici -- un haut-parleur 8 Ω branche nu
+            # tirerait ~600 mA quand une broche en donne 20.
+            _mutate_component(
+                components, c, "speaker",
+                [Pin("+", a_pin.net), Pin("-", "GND")],
+            )
         elif target_type == "relay":
             _mutate_component(
                 components, c, "relay",
@@ -4019,6 +4687,8 @@ def _disambiguate_with_prompt(components: list[Component],
     # Ultrason que le prompt precise : le protocole trig/echo ne
     # distingue pas les pieces qui le partagent.
     _refine_ultrasonic_from_reference(components, prompt, context)
+    # Buzzer ou haut-parleur : `tone()` ne dit pas lequel, le prompt peut.
+    _refine_sounder_from_prompt(components, prompt, context)
 
     # Digital-input loop: the fallback classifies an input as a button by
     # default. A specific code/prompt clue (PIR) mutates it.
@@ -4041,6 +4711,38 @@ def _disambiguate_with_prompt(components: list[Component],
             )
             if presume:
                 c.attributes["presumed_from_description"] = "true"
+        elif subtype in ("reed_switch", "tilt_switch", "slide_switch"):
+            # Deux bornes, exactement comme le bouton dont ils heritent : la
+            # broche et la masse. Les pins ne bougent donc PAS -- on renomme
+            # le composant, on ne re-cable rien.
+            _mutate_component(components, c, subtype, list(c.pins))
+            if presume:
+                c.attributes["presumed_from_description"] = "true"
+        elif subtype == "toggle_switch":
+            # Inverseur (SPDT) : trois bornes physiques. Le commun va a la
+            # broche, une voie a la masse -- et la SECONDE VOIE reste sans
+            # fil, parce que rien dans le code ne dit a quoi elle sert. Une
+            # broche dessinee sans fil est le cas normal ; en inventer un
+            # serait presenter une devinette comme une lecture.
+            autre = c.pin("B")
+            _mutate_component(
+                components, c, "toggle_switch",
+                [Pin("L1", autre.net if autre else "GND"),
+                 Pin("COM", sig_pin.net), Pin("L2", "")],
+            )
+            if presume:
+                c.attributes["presumed_from_description"] = "true"
+        elif subtype in ("touch_sensor", "hall_sensor", "ir_receiver"):
+            # Modules a trois fils utiles, comme le PIR. Le capteur Hall
+            # (A3144, KY-003) sort en tout-ou-rien : c'est bien une entree
+            # DIGITALE, d'ou sa place dans cette boucle et non parmi les
+            # sous-types du potentiometre.
+            _mutate_component(
+                components, c, subtype,
+                [Pin("VCC", "5V"), Pin("OUT", sig_pin.net), Pin("GND", "GND")],
+            )
+            if presume:
+                c.attributes["presumed_from_description"] = "true"
         elif subtype == "rcwl0516":
             # Radar Doppler : trois fils utiles, comme le PIR. Le module
             # porte aussi 3V3 et CDS, que rien ne relie ici -- on ne cable
@@ -4051,6 +4753,13 @@ def _disambiguate_with_prompt(components: list[Component],
             )
             if presume:
                 c.attributes["presumed_from_description"] = "true"
+
+    # Joystick : regroupe DEUX entrees analogiques et, si elle existe, une
+    # entree digitale. Il tourne apres les DEUX boucles ci-dessus, et pas
+    # avant : il consomme un bouton, qui doit d'abord avoir eu sa chance de
+    # devenir un PIR ou un interrupteur -- sinon un « detecteur de mouvement »
+    # cite dans le meme prompt se ferait avaler comme clic de manche.
+    _group_joystick_from_prompt(components, prompt, context)
 
 
 # ─── Complete pipeline ─────────────────────────────────────────────────────
@@ -4065,7 +4774,33 @@ WIRING_DETECTOR_MODE = "python"
 # types deduced from a bare pin: intrinsically ambiguous, never code-certain
 _BARE_PIN_TYPES = {"led", "buzzer", "relay", "button", "potentiometer",
                    "ldr", "ky018", "thermistor", "microphone", "pir",
-                   "rcwl0516", "module_generic"}
+                   "rcwl0516", "module_generic",
+                   # TODO #94, trouve en QA AK2.1 (2026-09-07) : les onze
+                   # types ajoutes naissent tous d'une broche NUE que le
+                   # PROMPT requalifie -- exactement comme la LDR ou le
+                   # bouton juste au-dessus. Sans eux, `_is_signature_detected`
+                   # rendait True : l'app affirmait les avoir LUS DANS LE CODE.
+                   # Mesure : `tmp36` et `reed_switch` sortaient certains.
+                   "tmp36", "soil_moisture", "force_sensor", "flex_sensor",
+                   "speaker", "reed_switch", "tilt_switch", "slide_switch",
+                   "toggle_switch", "touch_sensor", "joystick",
+                   # TODO #98, meme raison : nes d'une broche nue que le
+                   # prompt requalifie, donc jamais « lus dans le code ».
+                   "flame_sensor", "rain_sensor", "hall_sensor",
+                   "guva_s12sd", "ina169", "acs712",
+                   "ir_reflective_sensor",
+                   # ⚠️ Les Sharp naissent de DEUX chemins : une
+                   # signature (`#include <SharpIR.h>`) et une broche
+                   # analogique nue que le prompt requalifie. Le
+                   # drapeau est porte par le TYPE, pas par
+                   # l'instance -- il ne sait pas dire « certain par
+                   # un chemin, presume par l'autre ». On tranche du
+                   # cote SUR : sous-estimer laisse l'engrenage
+                   # ouvert et ne coute rien, surestimer
+                   # presenterait une devinette comme une lecture.
+                   "gp2y0a21", "gp2y0a41", "gp2y0a02",
+                   "gp2y0a51", "gp2y0a60", "gp2y0a710",
+                   "ir_receiver"}
 
 
 def _is_signature_detected(c: "Component") -> bool:
@@ -4324,6 +5059,11 @@ def extract_netlist(code: str, board_id: str,
     # `_strip_suppressed_includes`). Applique au code DETECTE seulement —
     # `code_original` (mode legacy ai_markers) n'est pas touche.
     code = _strip_suppressed_includes(code, suppressed_headers)
+    # ⛔ Meme discipline que `strip_comments` juste au-dessus : on normalise
+    # UNE FOIS a l'entree, donc toute la detection voit le meme texte. Une
+    # regle posee a un seul endroit de la cascade laisserait des trous.
+    prompt = _canonicalize_sharp_models(prompt)
+    context = _canonicalize_sharp_models(context)
 
     nl = Netlist(board_id=board_id, metadata={"source": "static"})
 
@@ -4462,6 +5202,28 @@ def extract_netlist(code: str, board_id: str,
                 refs=[c.ref],
                 params={"pin": pin_net},
             )
+        elif c.type in _SERIES_MEASUREMENT_TERMINALS:
+            # TODO #98. Deux bornes du composant ne vont PAS a la carte :
+            # elles se coupent en serie dans le circuit dont on mesure le
+            # courant, que l'app ne modelise pas. Elles sont dessinees et
+            # sans fil -- ce qui, sans ce message, ressemble a un oubli.
+            # `pins` est joint par « / », neutre dans les quatre langues :
+            # un « et » code en dur ici ressortirait tel quel en anglais.
+            piece, terminaux = _SERIES_MEASUREMENT_TERMINALS[c.type]
+            bornes = " / ".join(terminaux)
+            nl.add_warning(
+                code="current_sensor_series_terminals",
+                severity=SEVERITY_INFO,
+                message=(f"« {piece} » : les bornes {bornes} se coupent en "
+                         f"série dans le circuit mesuré."),
+                refs=[c.ref],
+                # TODO #111 : les deux bornes partent AUSSI separement. Le
+                # message ne dit plus << en serie >> en comptant sur le mot,
+                # il decrit le GESTE (« un bout sur X, l'autre sur Y »), ce
+                # qui demande de les nommer une par une.
+                params={"name": piece, "pins": bornes,
+                        "pin1": terminaux[0], "pin2": terminaux[1]},
+            )
     # Composant que le rendu ne saura PAS dessiner (aucun SVG pour ce nombre de
     # broches) : il disparaissait du schéma sans la moindre trace côté layout.
     # On le dit ici, au niveau qui porte les warnings.
@@ -4502,6 +5264,8 @@ def _ref_prefix_for(ctype: str) -> str:
         "button":        "S",
         "potentiometer": "P",
         "buzzer":        "BZ",
+        "speaker":       "LS",
+        "joystick":      "J",
         "servo":         "SV",
         # M comme Motor -- le designateur normalise, et deja celui que
         # `inference` donne au NEMA17 qu'il ajoute. Un `dc_motor` retombait

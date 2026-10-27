@@ -45,6 +45,13 @@ class NudgeBanner(QFrame):
         # RichText : les messages contiennent du <b> pour mettre en gras certains
         # mots (« Astuce », le nom du mode).
         self._lbl.setTextFormat(Qt.TextFormat.RichText)
+        # TODO #95 : c'est CE texte que l'utilisateur ne pouvait pas copier
+        # pendant la QA du 2026-09-07 (« je ne peux pas te copier-coller le
+        # texte de la bannière »). Il porte des noms de bibliothèque et des
+        # messages d'erreur de fournisseur — exactement ce qu'on veut coller
+        # dans une recherche ou dans un signalement.
+        from .selectable_text import make_selectable
+        make_selectable(self._lbl)
         lay.addWidget(self._lbl, 1)
 
         self._btn = QPushButton("")

@@ -575,15 +575,15 @@ def test_le_clic_montre_la_meme_chose_que_le_survol():
             self._netlist = netlist
             self._mode = "avance"
 
+    # ⚠️ `_info_box` et non `QMessageBox.information` : la commodite statique
+    # a disparu du dialogue (TODO #111), faute de pouvoir y rendre le texte
+    # selectionnable.
     seen = []
-    original = QMessageBox.information
-    QMessageBox.information = staticmethod(lambda *a, **k: seen.append(a))
-    try:
-        _Stub(nl)._show_warning_info("U1")
-    finally:
-        QMessageBox.information = original
+    stub = _Stub(nl)
+    stub._info_box = lambda titre, corps: seen.append((titre, corps))
+    stub._show_warning_info("U1")
     assert seen, "le clic n'a rien ouvert"
-    title, body = seen[0][1], seen[0][2]
+    title, body = seen[0]
     assert "constructeur" in body, body
     assert "plusieurs composants" not in body, body
     assert title != _t("info_title_generic", "fr"), title

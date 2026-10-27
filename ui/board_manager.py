@@ -29,6 +29,30 @@ BOARDS: dict[str, dict] = {
     },
 }
 
+# Libellé AFFICHÉ, quand il diffère de l'identifiant.
+#
+# ⚠️ Les chaînes de `BOARDS[...]["models"]` sont des IDENTIFIANTS, pas des
+# libellés : elles servent de clé à `FQBN`, à `_KNOWN_DEVICES`, et surtout
+# ÉCRITES DANS LES PROJETS (`board_model` dans le `.promptuino.json`). Renommer
+# « Uno » en « Uno R3 » casserait donc tout projet déjà enregistré — c'est la
+# même distinction que `pin_labels` / `pin_display_labels` au catalogue de
+# câblage : l'id dure, le libellé se lit.
+#
+# « Uno » nu est ambigu depuis que la liste porte aussi « Uno R4 Minima » et
+# « Uno R4 WiFi » (signalé en QA le 2026-09-08). Son FQBN `arduino:avr:uno`
+# désigne la famille AVR classique, dont la R3 est la révision que tout le
+# monde a en main et celle que le schéma dessine (`uno_r3.svg`).
+MODEL_LABELS: dict[tuple[str, str], str] = {
+    ("arduino", "Uno"): "Uno R3",
+}
+
+
+def model_label(env_id: str, model: str) -> str:
+    """Nom AFFICHABLE d'un modèle. Retombe sur l'identifiant, qui fait libellé
+    dans l'immense majorité des cas."""
+    return MODEL_LABELS.get((env_id, model), model)
+
+
 # FQBN (Fully Qualified Board Name) for arduino-cli
 FQBN: dict[tuple[str, str], str] = {
     ("arduino", "Uno"):               "arduino:avr:uno",

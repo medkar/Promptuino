@@ -2239,6 +2239,125 @@ _DIALOG_LABELS: dict[str, dict[str, str]] = {
               "(0,05 V) finché non tiene.</i>",
     },
 
+    # _BuzzerSeriesValueDialog -- variante HAUT-PARLEUR.
+    # ⚠️ Ce n'est PAS un simple changement de mot : la physique differe d'un
+    # ordre de grandeur. Un buzzer passif tire 20-30 mA, un haut-parleur de
+    # 8 Ω branche nu en tirerait ~600 mA (5 V / 8 Ω) -- trente fois la limite
+    # de 20 mA par broche. Sur un buzzer la resistance est un reglage de
+    # confort ; sur un haut-parleur c'est elle qui rend le montage viable.
+    # Signale en QA AK2.1 (2026-09-07) : la modale parlait de « buzzer
+    # passif » devant un haut-parleur.
+    "speaker_series_title": {
+        "fr": "Résistance série du haut-parleur {ref}",
+        "en": "Speaker {ref} series resistor",
+        "es": "Resistencia serie del altavoz {ref}",
+        "it": "Resistenza in serie dell'altoparlante {ref}",
+    },
+    "speaker_series_choice_none": {
+        "fr": "Sans résistance — à proscrire, ~600 mA sur un 8 Ω",
+        "en": "No resistor — never on a speaker, ~600 mA into 8 Ω",
+        "es": "Sin resistencia — a evitar, ~600 mA en 8 Ω",
+        "it": "Senza resistenza — da evitare, ~600 mA su 8 Ω",
+    },
+    "speaker_series_choice_100": {
+        "fr": "100 Ω — ~46 mA, ce que fait l'exemple officiel",
+        "en": "100 Ω — ~46 mA, what the official example does",
+        "es": "100 Ω — ~46 mA, lo que hace el ejemplo oficial",
+        "it": "100 Ω — ~46 mA, come l'esempio ufficiale",
+    },
+    "speaker_series_choice_220": {
+        "fr": "220 Ω — ~22 mA, le choix sûr en usage continu",
+        "en": "220 Ω — ~22 mA, the safe choice for continuous use",
+        "es": "220 Ω — ~22 mA, la opción segura en uso continuo",
+        "it": "220 Ω — ~22 mA, la scelta sicura in uso continuo",
+    },
+    "speaker_series_explainer": {
+        "fr": "Un haut-parleur de <b>8 Ω</b> branché directement sur une "
+              "broche tirerait environ <b>600 mA</b> — trente fois la limite "
+              "Arduino de <b>20 mA par broche</b>. Ici la résistance série "
+              "n'est pas un réglage de confort : c'est elle qui rend le "
+              "montage viable."
+              "<br><br>"
+              "Elle limite le courant et baisse le volume <b>sans changer la "
+              "fréquence</b> : la note reste juste, elle est seulement moins "
+              "forte."
+              "<br><br>"
+              "&bull; <b>Sans R</b> : à proscrire. La broche est en "
+              "surintensité immédiate.<br>"
+              "&bull; <b>100 Ω</b> : environ 46 mA — au-dessus des 20 mA "
+              "recommandés, sous le maximum absolu de 40 mA. C'est ce que "
+              "fait l'exemple officiel <code>toneMelody</code> : acceptable "
+              "pour une mélodie brève.<br>"
+              "&bull; <b>220 Ω</b> : environ 22 mA, dans les clous. Le choix "
+              "sûr si le son doit durer.<br>"
+              "<br>"
+              "ℹ️ Pour du volume sans compromis il faut un <b>transistor</b> "
+              "ou un petit amplificateur : la broche commande alors le "
+              "transistor, elle n'alimente plus le haut-parleur.",
+        "en": "An <b>8 Ω</b> speaker wired straight to a pin would draw about "
+              "<b>600 mA</b> — thirty times the Arduino's <b>20 mA per pin</b> "
+              "limit. Here the series resistor is not a comfort setting: it "
+              "is what makes the circuit viable."
+              "<br><br>"
+              "It limits the current and lowers the volume <b>without "
+              "changing the frequency</b>: the note stays in tune, it is only "
+              "quieter."
+              "<br><br>"
+              "&bull; <b>No R</b>: never. The pin is instantly over current."
+              "<br>"
+              "&bull; <b>100 Ω</b>: about 46 mA — above the recommended "
+              "20 mA, below the 40 mA absolute maximum. This is what the "
+              "official <code>toneMelody</code> example does: fine for a "
+              "short melody.<br>"
+              "&bull; <b>220 Ω</b>: about 22 mA, within spec. The safe choice "
+              "if the sound has to last.<br>"
+              "<br>"
+              "ℹ️ For volume without compromise you need a <b>transistor</b> "
+              "or a small amplifier: the pin then drives the transistor, it "
+              "no longer powers the speaker.",
+        "es": "Un altavoz de <b>8 Ω</b> conectado directamente a un pin "
+              "consumiría unos <b>600 mA</b> — treinta veces el límite de "
+              "Arduino de <b>20 mA por pin</b>. Aquí la resistencia serie no "
+              "es un ajuste de confort: es lo que hace viable el montaje."
+              "<br><br>"
+              "Limita la corriente y baja el volumen <b>sin cambiar la "
+              "frecuencia</b>: la nota sigue afinada, solo suena menos."
+              "<br><br>"
+              "&bull; <b>Sin R</b>: a evitar. El pin queda en sobrecorriente "
+              "inmediata.<br>"
+              "&bull; <b>100 Ω</b>: unos 46 mA — por encima de los 20 mA "
+              "recomendados, por debajo del máximo absoluto de 40 mA. Es lo "
+              "que hace el ejemplo oficial <code>toneMelody</code>: "
+              "aceptable para una melodía breve.<br>"
+              "&bull; <b>220 Ω</b>: unos 22 mA, dentro de norma. La opción "
+              "segura si el sonido debe durar.<br>"
+              "<br>"
+              "ℹ️ Para volumen sin compromiso hace falta un "
+              "<b>transistor</b> o un pequeño amplificador: el pin controla "
+              "el transistor, ya no alimenta el altavoz.",
+        "it": "Un altoparlante da <b>8 Ω</b> collegato direttamente a un pin "
+              "assorbirebbe circa <b>600 mA</b> — trenta volte il limite "
+              "Arduino di <b>20 mA per pin</b>. Qui la resistenza in serie "
+              "non è una regolazione di comodo: è ciò che rende il montaggio "
+              "praticabile."
+              "<br><br>"
+              "Limita la corrente e abbassa il volume <b>senza cambiare la "
+              "frequenza</b>: la nota resta intonata, è solo meno forte."
+              "<br><br>"
+              "&bull; <b>Senza R</b>: da evitare. Il pin va subito in "
+              "sovracorrente.<br>"
+              "&bull; <b>100 Ω</b>: circa 46 mA — sopra i 20 mA consigliati, "
+              "sotto il massimo assoluto di 40 mA. È quello che fa "
+              "l'esempio ufficiale <code>toneMelody</code>: accettabile per "
+              "una melodia breve.<br>"
+              "&bull; <b>220 Ω</b>: circa 22 mA, nei limiti. La scelta "
+              "sicura se il suono deve durare.<br>"
+              "<br>"
+              "ℹ️ Per il volume senza compromessi serve un "
+              "<b>transistor</b> o un piccolo amplificatore: il pin comanda "
+              "il transistor, non alimenta più l'altoparlante.",
+    },
+
     # _BuzzerSeriesValueDialog
     "buzzer_series_choice_none": {
         "fr": "Sans résistance — son maximum, courant ~20-30 mA",
@@ -2602,6 +2721,10 @@ _INFO_TITLE_BY_CODE = {
     "presumed_analog_component":      "info_title_presumed",
     "presumed_from_description":       "info_title_presumed",
     "declared_unconnected_pins":      "info_title_presumed",
+    # TODO #98. Ce n'est PAS une presomption : l'app sait parfaitement ou
+    # vont ces deux bornes, elle sait seulement qu'elles ne vont pas a la
+    # carte. Meme titre que les autres infos non conflictuelles.
+    "current_sensor_series_terminals": "info_title_presumed",
     # Confrontation code/fiche (TODO #45) : un constat, pas une presomption.
     "declared_pins_diverge_from_code": "info_title_conflict",
     "declared_pin_already_claimed":    "info_title_conflict",
@@ -4197,6 +4320,30 @@ class WiringDiagramDialog(QDialog):
         box.setStandardButtons(QMessageBox.StandardButton.Ok)
         box.exec()
 
+    def _info_box(self, titre: str, corps: str) -> None:
+        """Modale d'information dont le texte se COPIE (TODO #111).
+
+        ⛔ `QMessageBox.information(...)` est une commodite STATIQUE : elle
+        construit la boite et l'execute d'un bloc, sans jamais rendre la main.
+        Impossible d'y appliquer `make_selectable` -- c'est precisement
+        pourquoi le TODO #95, qui a rendu copiable le texte informatif des
+        modales, n'avait pas pu couvrir celles-ci. On construit donc la boite
+        a la main pour la rendre selectionnable avant de l'ouvrir.
+
+        ⚠️ L'icone reste `Information` : la retirer changerait l'apparence de
+        trois popups que personne n'a demande de retoucher (le silence de
+        `_on_help_clicked` a sa propre raison, documentee la-bas).
+        """
+        from PyQt6.QtWidgets import QMessageBox
+        from ..selectable_text import make_selectable
+        box = QMessageBox(self)
+        box.setIcon(QMessageBox.Icon.Information)
+        box.setWindowTitle(titre)
+        box.setText(corps)
+        box.setStandardButtons(QMessageBox.StandardButton.Ok)
+        make_selectable(box)
+        box.exec()
+
     def _on_info_clicked(self, ref: str) -> None:
         """Attention icon click: opens the read-only info modal dedicated
         to the component. Dispatched by type."""
@@ -4209,33 +4356,38 @@ class WiringDiagramDialog(QDialog):
         if target is None:
             return
         if target.attributes.get("unrecognized"):
-            from PyQt6.QtWidgets import QMessageBox
             lang = lang_manager.lang
             header = target.attributes.get("header", target.type)
             name = header[:-2] if header.lower().endswith(".h") else header
-            QMessageBox.information(
-                self,
+            self._info_box(
                 _t("placeholder_info_title", lang),
                 _t("placeholder_info_body", lang).format(name=name),
             )
             return
+        # TODO #95 : ces modales sont faites pour etre LUES -- prescriptions
+        # de cavaliers, calcul de Vref, tension a viser au multimetre. Leur
+        # texte doit pouvoir se surligner et se copier (dans une recherche,
+        # dans un message a un enseignant). Un seul point de passage plutot
+        # que dix classes a modifier.
+        from ..selectable_text import make_selectable
         if target.type == "l298n":
             dlg = _L298nJumperInfoDialog(self, ref=ref, l298n_component=target)
+            make_selectable(dlg)
             dlg.exec()
         elif target.type == "l293d_module":
             dlg = _L293dModuleJumperInfoDialog(
                 self, ref=ref, l293d_component=target,
             )
+            make_selectable(dlg)
             dlg.exec()
         elif target.type == "a4988":
             dlg = _A4988VrefInfoDialog(self, ref=ref)
+            make_selectable(dlg)
             dlg.exec()
         elif target.attributes.get("unwired_pins"):
-            from PyQt6.QtWidgets import QMessageBox
             lang = lang_manager.lang
             pins = ", ".join(target.attributes["unwired_pins"])
-            QMessageBox.information(
-                self,
+            self._info_box(
                 _t("unwired_pins_info_title", lang),
                 _t("unwired_pins_info_body", lang).format(pins=pins),
             )
@@ -4259,7 +4411,6 @@ class WiringDiagramDialog(QDialog):
         """
         if self._netlist is None:
             return
-        from PyQt6.QtWidgets import QMessageBox
         from .instructions import _render_warning_message
         lang = lang_manager.lang
         # ⚠️ **UNE SEULE SOURCE avec l'infobulle**, et c'est la lecon de deux
@@ -4290,7 +4441,7 @@ class WiringDiagramDialog(QDialog):
             # moins bien.
             corps = "\n\n".join(f"{i}. {t}"
                                  for i, t in enumerate(textes, start=1))
-        QMessageBox.information(self, titre, corps)
+        self._info_box(titre, corps)
 
     def _on_gear_clicked(self, ref: str) -> None:
         """Gear click: opens a dropdown menu listing the component's
@@ -4392,6 +4543,7 @@ class WiringDiagramDialog(QDialog):
         elif act.id == "buzzer_series_value":
             dlg = _BuzzerSeriesValueDialog(
                 self, ref=ref, current_value=str(act.value or "100"),
+                comp_type=target.type,
             )
         elif act.id == "ds18b20_pullup_value":
             dlg = _Ds18b20PullupDialog(
@@ -4404,6 +4556,12 @@ class WiringDiagramDialog(QDialog):
             )
         else:
             return
+        # TODO #95 : ces modales-la demandent un choix, mais l'essentiel de
+        # leur surface est une EXPLICATION (loi d'Ohm, courants, tableau des
+        # micro-pas). Les boutons radio ne sont pas des QLabel, donc les
+        # rendre selectionnables ne capte aucun clic destine a un controle.
+        from ..selectable_text import make_selectable
+        make_selectable(dlg)
         if dlg.exec() != QDialog.DialogCode.Accepted:
             return
         chosen = dlg.chosen_value
@@ -5583,16 +5741,41 @@ class _BuzzerSeriesValueDialog(QDialog):
     buzzer has no Vf like a LED — the R just serves to limit the
     instantaneous peak).
     """
-    _CHOICES = [
-        ("none", "buzzer_series_choice_none"),
-        ("100", "buzzer_series_choice_100"),
-        ("220", "buzzer_series_choice_220"),
-    ]
+    # ⚠️ Cles ECRITES EN TOUTES LETTRES, pas construites par f-string : le
+    # controle « toute cle i18n ajoutee est reellement appelee »
+    # (`test_every_new_key_is_really_used`) lit le source, et des cles
+    # assemblees a l'execution lui seraient invisibles. Il les a d'ailleurs
+    # signalees comme mortes quand elles l'etaient (2026-09-07).
+    _TEXTES = {
+        "buzzer": (
+            "buzzer_series_title", "buzzer_series_explainer",
+            ("buzzer_series_choice_none", "buzzer_series_choice_100",
+             "buzzer_series_choice_220"),
+        ),
+        "speaker": (
+            "speaker_series_title", "speaker_series_explainer",
+            ("speaker_series_choice_none", "speaker_series_choice_100",
+             "speaker_series_choice_220"),
+        ),
+    }
+    _VALEURS = ("none", "100", "220")
 
-    def __init__(self, parent, *, ref: str, current_value: str):
+    def __init__(self, parent, *, ref: str, current_value: str,
+                 comp_type: str = "buzzer"):
         super().__init__(parent)
         lang = lang_manager.lang
-        self.setWindowTitle(_t("buzzer_series_title", lang).format(ref=ref))
+        # Le haut-parleur recoit la MEME resistance que le buzzer depuis le
+        # #94, mais pas la meme explication : 8 Ω contre plusieurs centaines,
+        # donc ~600 mA contre 20-30 mA. Dire « buzzer passif » devant un
+        # haut-parleur etait faux deux fois -- le nom ET la physique (QA
+        # AK2.1, 2026-09-07). `_CHOICES` est redefini par INSTANCE : le nom
+        # reste celui qu'attend la boucle plus bas, partagee avec les autres
+        # modales de ce fichier.
+        cle_titre, cle_explication, cles_choix = self._TEXTES.get(
+            comp_type, self._TEXTES["buzzer"])
+        self._cle_explication = cle_explication
+        self._CHOICES = list(zip(self._VALEURS, cles_choix))
+        self.setWindowTitle(_t(cle_titre, lang).format(ref=ref))
         self.setModal(True)
         self.setMinimumSize(540, 400)
         self.chosen_value: str = current_value
@@ -5602,7 +5785,7 @@ class _BuzzerSeriesValueDialog(QDialog):
         root.setSpacing(10)
 
         root.addWidget(QLabel(_t("buzzer_series_why_title", lang)))
-        explainer = QLabel(_t("buzzer_series_explainer", lang))
+        explainer = QLabel(_t(self._cle_explication, lang))
         explainer.setWordWrap(True)
         root.addWidget(explainer)
 

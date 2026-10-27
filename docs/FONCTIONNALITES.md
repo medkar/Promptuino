@@ -1,7 +1,14 @@
 # PromptuinoUI — Fonctionnalités
 
-Document de référence décrivant le fonctionnement du logiciel et l'ensemble
-des fonctionnalités implémentées.
+Document de référence décrivant le fonctionnement du logiciel.
+
+> ⚠️ **Ce document est PARTIEL, et il le dit plutôt que de le laisser croire.**
+> Relu et corrigé le **2026-10-27** ; il décrivait jusque-là l'application de
+> juin 2026. Ce qui y est écrit est désormais vérifié contre le code, mais
+> **trois chantiers majeurs n'y sont pas encore décrits** : le **schéma de
+> câblage** déduit du code, l'**assistant conversationnel** ancré sur le
+> projet, et l'onglet **Composants**. Les deux premiers sont pourtant mis en
+> avant par le README. Pour ces sujets, le code et les tests font foi.
 
 ---
 
@@ -37,8 +44,8 @@ Le sélecteur de mode se trouve au centre de la barre supérieure.
 
 L'interface est entièrement traduite en **français, anglais, espagnol et
 italien**. Le changement de langue est instantané (Affichage → Langue ou
-Paramètres → Langue). Au démarrage, l'app revient toujours sur le
-français — la langue n'est pas persistée entre sessions.
+Paramètres → Langue), et le choix est **conservé d'une session à l'autre**
+(`session.json`).
 
 ### Thèmes
 
@@ -66,10 +73,15 @@ la barre supérieure ou Ctrl+Shift+T. Le thème est appliqué en temps réel
 Cinq onglets, dans l'ordre :
 
 1. **Studio** — l'éditeur principal (icône terminal).
-2. **Projets** — la bibliothèque de projets utilisateur (icône dossier).
-3. **Librairies** — la gestion des libs Arduino (icône pile de livres).
+2. **Composants** — la bibliothèque de composants : ceux que l'application
+   connaît, et ceux que l'utilisateur a décrits lui-même.
+3. **Projets** — la bibliothèque de projets utilisateur (icône dossier).
 4. **Carte** — la sélection de carte/port (icône CPU).
 5. **Modèle IA** — le choix du backend IA (icône étincelles).
+
+> L'onglet **Librairies** a disparu de la sidebar : la gestion des
+> bibliothèques Arduino vit désormais dans **Paramètres → Bibliothèques**
+> (cf. § 9).
 
 Cliquer sur le bouton de pli réduit la sidebar à 52 px (icônes seules).
 
@@ -222,9 +234,15 @@ le code **par fonctionnalités**. Chaque génération IA crée une ou
 plusieurs fonctionnalités, et les générations suivantes s'y ajoutent
 sans tout remplacer.
 
-### Marqueurs IA
+### Marqueurs IA — mécanisme HÉRITÉ
 
-Pendant le round-trip avec l'IA, le code est parsemé de commentaires
+> ⚠️ **Ce n'est plus la voie normale.** Une fonctionnalité est aujourd'hui
+> décrite par **cinq seaux** (`includes` / `globals` / `setup_lines` /
+> `loop_lines` / `functions`) que l'assembleur concatène ; le découpage se
+> fait en analysant le croquis produit, sans demander de balises au modèle.
+> Les marqueurs ci-dessous subsistent pour les projets anciens.
+
+Pendant le round-trip avec l'IA, le code pouvait être parsemé de commentaires
 spéciaux (parsés ensuite par l'app) :
 
 ```c
@@ -273,44 +291,41 @@ Un **Ctrl+Z** dédié annule la dernière opération sur une fonctionnalité.
 
 ---
 
-## 7. Outils IA (mode avancé)
+## 7. Outils du code
 
-Le menu **Outils** du Studio ouvre cinq dialogs spécialisés. Chacun lance
-une opération IA en background dans un thread dédié et présente le
-résultat dans une fenêtre séparée — l'éditeur principal n'est jamais
-modifié sans accord explicite.
+Le bouton **Outils**, au-dessus du code, ouvre un menu de **quatre** entrées.
+Les trois premières lancent une opération IA en arrière-plan et présentent le
+résultat dans une fenêtre séparée — l'éditeur n'est jamais modifié sans
+accord explicite.
 
-### 7.1 Expliquer le code
+### 7.1 Expliquer les lignes
 
 Sélectionnez des lignes, cliquez sur **Expliquer** — l'IA produit une
 explication pédagogique en markdown (avec coloration des blocs de code
-inline). Boutons **Relancer** et **Fermer**.
+inline).
 
-### 7.2 Détecter les antipatterns
-
-Lance automatiquement un **lint** orienté embarqué : `delay()` bloquant,
-classe `String` dynamique sur Uno, `pinMode` manquant, conflit avec la
-LED de la pin 13, `int` au lieu de `unsigned long` pour `millis()`, etc.
-Présente une liste d'avertissements avec sévérité et explication.
-
-### 7.3 Ajouter des commentaires pédagogiques
+### 7.2 Ajouter des commentaires pédagogiques
 
 Affiche le code original à gauche et la version commentée à droite. Le
-bouton **Appliquer** remplace le code dans le Studio (le surlignage par
-fonctionnalité est conservé tant que les marqueurs n'ont pas bougé).
+bouton **Appliquer** remplace le code dans le Studio.
 
-### 7.4 Réparer le code
+### 7.3 Analyser / Réparer
 
-Lance une réparation IA (différente de la boucle automatique de
-compilation) en mode interactif. Affiche un **diff** ligne à ligne entre
-le code original et le code réparé, plus une explication des
-modifications. **Appliquer** pour valider.
+⚠️ **Fusion de deux anciens outils** : l'audit d'antipatterns (`delay()`
+bloquant, `String` dynamique sur Uno, `pinMode` manquant, conflit avec la
+LED de la broche 13, `int` au lieu de `unsigned long` pour `millis()`…) et la
+réparation. L'outil analyse, propose un correctif, et l'applique si
+l'utilisateur valide.
 
-### 7.5 Simulation pas à pas
+### 7.4 Formater le code
 
-L'IA déroule mentalement `setup()` puis N itérations de `loop()` et
-produit une **trace d'exécution** en markdown — utile pour comprendre le
-flux sans matériel.
+⛔ **Sans IA.** Ré-indentation **déterministe** du croquis. Si une accolade
+fermante manque ET que l'indentation permet de la situer, elle est ajoutée.
+
+> **Disparu** : l'outil « Simulation pas à pas », qui demandait à l'IA de
+> dérouler `setup()` puis N itérations de `loop()`. Pour éprouver ce qu'un
+> croquis FAIT sans matériel, le dépôt porte `scripts/simulate_sketch.py`,
+> qui l'exécute réellement sur le PC.
 
 ---
 
@@ -345,13 +360,17 @@ supprimer en lot.
 
 ---
 
-## 9. Vue Librairies
+## 9. Gestion des librairies (Paramètres → Bibliothèques)
 
-L'onglet **Librairies** est une interface graphique pour `arduino-cli
-lib`. Il permet d'installer, rechercher et supprimer les librairies par
-plateforme **sans toucher à l'installation Arduino IDE de l'utilisateur**
-— chaque plateforme a son propre `arduino-cli.yaml` qui isole le dossier
-`libraries/`.
+> ⚠️ **Ce n'est plus un onglet de la sidebar.** Cet écran a été déplacé dans
+> **Paramètres → Bibliothèques** ; la place qu'il occupait revient à l'onglet
+> **Composants**. L'interface décrite ci-dessous est la même, à son
+> emplacement près.
+
+C'est une interface graphique pour `arduino-cli lib`. Elle permet
+d'installer, rechercher et supprimer les librairies par plateforme **sans
+toucher à l'installation Arduino IDE de l'utilisateur** — chaque plateforme a
+son propre `arduino-cli.yaml` qui isole le dossier `libraries/`.
 
 ### Liste des librairies installées
 
@@ -382,15 +401,27 @@ s'affiche en haut de la vue.
 
 ## 10. Modèle IA et backends
 
-L'onglet **Modèle IA** permet de choisir le moteur de génération. Quatre
-backends sont disponibles, sélectionnables en un clic :
+L'onglet **Modèle IA** permet de choisir le moteur de génération. Deux
+backends ont leur propre implémentation, et tous les autres passent par une
+couche **OpenAI-compatible** :
 
-| Backend            | Description                                              | Clé API |
-| ------------------ | -------------------------------------------------------- | ------- |
-| **Claude Code**    | utilise le CLI `claude` installé localement              | non     |
-| **Anthropic API**  | appel direct API Anthropic (Claude Sonnet)               | oui     |
-| **Gemini**         | appel API Google Gemini                                  | oui     |
-| **Ollama**         | serveur local Ollama (`localhost:11434`), modèle au choix | non     |
+| Backend                | Description                                               | Clé API |
+| ---------------------- | --------------------------------------------------------- | ------- |
+| **Ollama**             | serveur local (`localhost:11434`), modèle au choix        | non     |
+| **Claude Code**        | utilise le CLI `claude` installé localement               | non     |
+| **Fournisseur cloud**  | couche OpenAI-compatible, 8 préréglages                   | oui     |
+
+Les huit préréglages cloud : **Gemini**, **OpenAI**, **Anthropic**,
+**Mistral**, **DeepSeek**, **Qwen Coder**, **Groq**, **OpenRouter** — plus
+n'importe quelle URL compatible saisie à la main.
+
+⚠️ **Aucun modèle par défaut** : l'utilisateur choisit le sien, et
+l'application le **vérifie** par un appel réel et minimal au lieu de le
+filtrer sur une liste. Un listing de fournisseur ne dit pas ce qui est
+réellement accessible — `gemini-2.5-flash` figure dans celui de Google,
+annonce `generateContent`, et répond 404 à l'usage. La pastille reste
+**grise** tant que rien n'a été vérifié : elle n'affirme jamais ce qu'elle
+n'a pas constaté.
 
 ### Stockage des clés API
 
@@ -427,22 +458,30 @@ d'API (`Wire.read()` qui n'existe pas, `Servo.set()` au lieu de
 
 ### Pipeline
 
-1. **Corpus** : `assets/rag/corpus.json` contient ~38 entrées (Tier 1+2+3
-   livrés) couvrant les composants courants : capteurs (DHT22, BME280,
-   MQ-135, CCS811, MH-Z19, PIR, MFRC522), afficheurs (LCD HD44780,
-   LCD I2C, OLED SSD1306, ILI9341), drivers moteurs (L298N, L293D, DRV8833,
-   TB6612FNG), GPS (TinyGPS++), claviers (Keypad), LoRa, etc.
-   Chaque entrée a une description, des mots-clés multilingues
-   (FR/EN/ES/IT) et un exemple de code.
+1. **Corpus** : `assets/rag/corpus.json` contient **157 entrées** couvrant
+   les composants courants : capteurs (DHT22, BME280, MQ-135, CCS811,
+   MH-Z19, PIR, MFRC522), afficheurs (LCD HD44780, LCD I2C, OLED SSD1306,
+   ILI9341), drivers moteurs (L298N, L293D, DRV8833, TB6612FNG), GPS
+   (TinyGPS++), claviers (Keypad), LoRa, etc. Chaque entrée a une
+   description, des mots-clés multilingues (FR/EN/ES/IT) et un exemple de
+   code. ⚠️ Treize de ces entrées n'ont **aucune** bibliothèque : un
+   document décrit un composant, pas forcément une lib.
 2. **Embeddings** : modèle `paraphrase-multilingual-MiniLM-L12-v2`
-   exporté en ONNX **fp32** (449 Mo, livré avec l'app — pas d'appel
-   réseau). Inférence via `onnxruntime` + `tokenizers`. Pas de PyTorch
-   en production.
+   exporté en ONNX **fp32** (~449 Mo). ⚠️ **Il n'est plus livré dans
+   l'installeur** (décision du 2026-08-28) : il est téléchargé depuis Hugging
+   Face **pendant l'installation**, URL épinglée sur une révision fixe et
+   empreinte SHA-256 vérifiée. Sans lui, la recherche de bibliothèques est
+   désactivée — et l'application le dit. Une fois le fichier en place,
+   l'inférence est **locale** (`onnxruntime` + `tokenizers`), sans appel
+   réseau et sans PyTorch.
 3. **Indexation** : `assets/rag/embeddings.npy` (matrice float32 L2-
    normalisée, alignée sur l'ordre du corpus).
-4. **Retrieval** : à chaque génération, `retrieve_libs(prompt, k=3,
-   threshold=0.25)` calcule la similarité cosinus du prompt avec toutes
-   les entrées et retourne les top-K au-dessus du seuil.
+4. **Retrieval** : à chaque génération, `retrieve_libs(prompt, k=3)`
+   calcule la similarité cosinus du prompt avec toutes les entrées et
+   retourne les meilleures au-dessus d'un **plancher de 0,50**, resserré par
+   une **porte relative** (0,85 du meilleur score) qui tranche en pratique
+   avant que `k` ne compte. Un **boost lexical** fait remonter une entrée
+   dont le prompt cite la référence.
 5. **Augmentation (sandwich light)** : le prompt envoyé à l'IA prend la
    forme :
 
@@ -482,7 +521,9 @@ contexte enrichi.
 
 ## 12. Moniteur série
 
-Intégré au bas du Studio (visible en mode intermédiaire et avancé). Il
+Intégré au bas du Studio. ⚠️ **Une seule console sert les trois modes**
+depuis le 2026-09-08 : changer de mode ne coupe plus le port et ne change
+plus de journal. Elle
 permet de lire et écrire sur le port série de la carte connectée sans
 quitter l'app.
 
@@ -502,18 +543,40 @@ quitter l'app.
 
 ## 13. Paramètres et personnalisation
 
-**Fichier → Paramètres** ouvre un dialog avec deux catégories :
+**Fichier → Paramètres** ouvre un dialog à **six** pages : Langue, Thème,
+Stockage, Bibliothèques, Confidentialité et Coulisses du prompt.
+
+### Langue
+
+Quatre choix (FR/EN/ES/IT). Changement instantané : toutes les chaînes sont
+mises à jour en temps réel via le signal `lang_manager.changed`, et le choix
+est conservé d'une session à l'autre.
+
+### Thème
+
+Sombre / clair, appliqué en temps réel à tous les widgets.
 
 ### Stockage
 
 - Chemin du **workspace** (parcourir → QFileDialog).
 - Validation → émet `session.workspace_root_changed` ; toutes les vues
-  (Projets, Librairies, WorkspaceManager) se rafraîchissent.
+  (Projets, WorkspaceManager) se rafraîchissent.
 
-### Langue
+### Bibliothèques
 
-Quatre boutons radio (FR/EN/ES/IT). Changement instantané : toutes les
-chaînes sont mises à jour en temps réel via le signal `lang_manager.changed`.
+L'écran décrit au § 9 — installer, chercher, supprimer les librairies
+Arduino.
+
+### Confidentialité
+
+Ce que l'application conserve et où. ⚠️ Les clés d'API vivent dans le
+trousseau du système et **survivent à la désinstallation** : l'installeur
+propose de les effacer, la case étant **décochée** par défaut.
+
+### Coulisses du prompt
+
+Montre le prompt final tel qu'il partira au modèle, et permet de l'envoyer
+ou d'annuler.
 
 ---
 
@@ -521,13 +584,17 @@ chaînes sont mises à jour en temps réel via le signal `lang_manager.changed`.
 
 | Fichier                             | Contenu                                              |
 | ----------------------------------- | ---------------------------------------------------- |
-| `~/Documents/Promptuino/session.json`  | Workspace root, dernier projet ouvert.            |
-| `~/Documents/Promptuino/config.json`   | Backend IA actif, modèle Ollama choisi.           |
+| `~/Documents/Promptuino/data/session.json` | Workspace, dernier projet, langue, thème, compteurs de progression. |
+| `~/Documents/Promptuino/data/config.json` | Backend IA actif et modèle choisi par fournisseur. |
+| `~/Documents/Promptuino/data/components.json` | Composants décrits par l'utilisateur (nom, broches, librairie) — partagés entre projets. |
+| `~/Documents/Promptuino/data/component-libs.json` | Bibliothèque choisie à la main pour un composant non déclaré. Créé au premier choix. |
+| `~/Documents/Promptuino/data/registry-cache.json` | Cache des recherches au registre Arduino. Supprimable sans rien perdre. |
+| `~/Documents/Promptuino/data/model/model.onnx` | Modèle d'embeddings téléchargé à l'installation. |
 | `<workspace>/<plat>/projects/<projet>/<projet>.ino` | Code source.                       |
 | `<workspace>/<plat>/projects/<projet>/<projet>.promptuino.json` | Métadonnées projet.    |
 | `<workspace>/<plat>/libraries/`     | Librairies arduino-cli (par plateforme).             |
 | `<workspace>/<plat>/arduino-cli.yaml` | Config arduino-cli isolée (redirige `directories.user`). |
-| **Keyring système**                 | Clés API Anthropic et Gemini (jamais sur disque).    |
+| **Keyring système**                 | Clés d'API des fournisseurs cloud (jamais sur disque). |
 
 ---
 

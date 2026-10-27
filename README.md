@@ -22,7 +22,7 @@ why isn't it lighting up"*.
 - **A wiring diagram deduced from the code**: components are recognised in the
   sketch, placed on a breadboard and connected by a wire router, with
   pin-by-pin wiring instructions.
-- **Guided library selection**: 155 documented corpus entries and 200+
+- **Guided library selection**: 157 documented corpus entries and 200+
   identified components; for everything else, a search in the official Arduino
   library registry.
 - **A conversational assistant** anchored on the current project — it sees the
@@ -118,7 +118,7 @@ things deserve to be said plainly:
   with lexical and semantic selection, no network call
 - **Static analysis of the sketch** for component recognition, then breadboard
   placement and A\* wire routing
-- **241 test scripts**, runnable in one command:
+- **261 test scripts**, runnable in one command:
   ```bash
   python scripts/run_all_tests.py -j 6
   ```
@@ -164,7 +164,7 @@ autodidactes — là où le premier obstacle n'est pas l'algorithme mais
 - **Schéma de câblage déduit du code** : les composants sont reconnus dans le
   sketch, placés sur une breadboard et reliés par un routeur de fils, avec les
   instructions de branchement broche par broche.
-- **Choix de la bibliothèque guidé** : 155 entrées de corpus documentées et
+- **Choix de la bibliothèque guidé** : 157 entrées de corpus documentées et
   plus de 200 composants identifiés ; pour tout le reste, une recherche dans
   le registre officiel Arduino.
 - **Assistant conversationnel** ancré sur le projet en cours — il voit le code
@@ -265,7 +265,7 @@ quotidien. Deux choses méritent d'être dites franchement :
   avec sélection lexicale et sémantique, sans appel réseau
 - **Analyse statique du sketch** pour la reconnaissance des composants, puis
   placement sur breadboard et routage A\* des fils
-- **241 scripts de test** exécutables d'un coup :
+- **261 scripts de test** exécutables d'un coup :
   ```bash
   python scripts/run_all_tests.py -j 6
   ```

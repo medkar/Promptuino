@@ -42,6 +42,7 @@ class Strings:
     chat_help_error_button:   str
     registry_ask_chat:        str
     chat_help_prefix_unknown: str
+    chat_help_prefix_sharp_variant: str
     chat_help_prefix_motor:   str
     chat_help_prefix_technique: str
     chat_help_prefix_code:    str
@@ -259,6 +260,8 @@ class Strings:
     update_download:            str
     ia_ollama_not_installed:    str
     ia_ollama_not_running:      str
+    ia_ollama_server_asleep:    str
+    ia_ollama_starting:         str
     ia_ollama_model_missing:    str
     ia_ollama_model_label:      str
     ia_ollama_model_placeholder: str
@@ -428,6 +431,8 @@ TRANSLATIONS: dict[str, Strings] = {
         update_download             = "Télécharger",
         ia_ollama_not_installed    = "Ollama n'est pas installé — <a href=\"https://ollama.com\">le télécharger</a>, puis l'ouvrir et revenir ici",
         ia_ollama_not_running       = "Ollama n'est pas lancé — ouvrez l'application Ollama, puis revenez ici",
+        ia_ollama_server_asleep     = "Ollama est ouvert, mais son serveur ne répond pas — <a href=\"promptuino:start-ollama\">démarrer le serveur</a>",
+        ia_ollama_starting          = "Démarrage du serveur Ollama…",
         ia_ollama_model_missing     = "Modèle non téléchargé — exécutez : ollama pull",
         ia_ollama_model_label       = "Modèle",
         ia_ollama_model_placeholder = "ex. gemma4:e2b",
@@ -475,7 +480,7 @@ TRANSLATIONS: dict[str, Strings] = {
             "Astuce : utilise « Voir le schéma » pour vérifier ton câblage avant d'uploader",
             "Astuce : si le code ne compile pas, l'outil Réparer peut corriger les erreurs",
             "Astuce : passe en mode Avancé pour voir et éditer le code à la main",
-            "Astuce : en mode Avancé, le code s'ouvre en 2 fenêtres — celui généré par l'IA et ton code stable, que l'IA ne modifie jamais. Pratique pour tester des choses sans casser du code fonctionnel",
+            "Astuce : en mode Avancé, le code s'ouvre en 2 fenêtres — celui de l'IA et ton code stable, qu'elle ne touche jamais",
             "Astuce : précise une valeur si besoin — « clignote toutes les 200 ms »",
         ),
         studio_code_label         = "Code généré",
@@ -639,6 +644,10 @@ TRANSLATIONS: dict[str, Strings] = {
         chat_help_prefix_unknown = (
             "Mon programme utilise des composants que l'application ne "
             "connaît pas : {parts}. Comment m'y prendre ?"),
+        chat_help_prefix_sharp_variant = (
+            "Mon capteur Sharp {model} n'est pas géré par la "
+            "bibliothèque. Comment le reconnaître sur le boîtier, et "
+            "comment faire fonctionner mon programme ?"),
         chat_help_prefix_motor = (
             "Mes broches {pins} forment peut-être un seul moteur, ou bien "
             "ce sont des sorties séparées (LED, buzzer, servo…). Aide-moi "
@@ -777,6 +786,8 @@ TRANSLATIONS: dict[str, Strings] = {
         update_download             = "Download",
         ia_ollama_not_installed     = "Ollama is not installed — <a href=\"https://ollama.com\">download it</a>, then open it and come back here",
         ia_ollama_not_running       = "Ollama is not running — open the Ollama application, then come back here",
+        ia_ollama_server_asleep     = "Ollama is open, but its server is not responding — <a href=\"promptuino:start-ollama\">start the server</a>",
+        ia_ollama_starting          = "Starting the Ollama server…",
         ia_ollama_model_missing     = "Model not downloaded — run: ollama pull",
         ia_ollama_model_label       = "Model",
         ia_ollama_model_placeholder = "e.g. gemma4:e2b",
@@ -824,7 +835,7 @@ TRANSLATIONS: dict[str, Strings] = {
             "Tip: use \"View diagram\" to check your wiring before uploading",
             "Tip: if the code doesn't compile, the Repair tool can fix errors",
             "Tip: switch to Advanced mode to see and edit the code by hand",
-            "Tip: in Advanced mode the code opens as 2 windows — the AI-generated one and your stable code, which the AI never changes. Handy for trying things out without breaking working code",
+            "Tip: in Advanced mode the code opens as 2 windows — the AI's and your stable code, which it never touches",
             "Tip: give a value when needed — \"blink every 200 ms\"",
         ),
         studio_code_label         = "Generated code",
@@ -988,6 +999,10 @@ TRANSLATIONS: dict[str, Strings] = {
         chat_help_prefix_unknown = (
             "My program uses components the app does not know: {parts}. "
             "How should I go about it?"),
+        chat_help_prefix_sharp_variant = (
+            "My Sharp {model} sensor is not handled by the library. How "
+            "do I identify it on the case, and how do I get my program "
+            "working?"),
         chat_help_prefix_motor = (
             "My pins {pins} might form a single motor, or they could be "
             "separate outputs (LED, buzzer, servo…). Help me understand "
@@ -1125,6 +1140,8 @@ TRANSLATIONS: dict[str, Strings] = {
         update_download             = "Descargar",
         ia_ollama_not_installed     = "Ollama no está instalado — <a href=\"https://ollama.com\">descargarlo</a>, luego ábrelo y vuelve aquí",
         ia_ollama_not_running       = "Ollama no está en ejecución — abre la aplicación Ollama y vuelve aquí",
+        ia_ollama_server_asleep     = "Ollama está abierto, pero su servidor no responde — <a href=\"promptuino:start-ollama\">iniciar el servidor</a>",
+        ia_ollama_starting          = "Iniciando el servidor Ollama…",
         ia_ollama_model_missing     = "Modelo no descargado — ejecuta: ollama pull",
         ia_ollama_model_label       = "Modelo",
         ia_ollama_model_placeholder = "ej. gemma4:e2b",
@@ -1172,7 +1189,7 @@ TRANSLATIONS: dict[str, Strings] = {
             "Consejo: usa «Ver el esquema» para revisar el cableado antes de subir",
             "Consejo: si el código no compila, la herramienta Reparar puede corregir errores",
             "Consejo: cambia a modo Avanzado para ver y editar el código a mano",
-            "Consejo: en modo Avanzado el código se abre en 2 ventanas — el generado por la IA y tu código estable, que la IA nunca modifica. Práctico para probar cosas sin romper código que funciona",
+            "Consejo: en modo Avanzado el código se abre en 2 ventanas — el de la IA y tu código estable, que nunca toca",
             "Consejo: indica un valor si hace falta — «parpadea cada 200 ms»",
         ),
         studio_code_label         = "Código generado",
@@ -1337,6 +1354,10 @@ TRANSLATIONS: dict[str, Strings] = {
         chat_help_prefix_unknown = (
             "Mi programa usa componentes que la aplicación no conoce: "
             "{parts}. ¿Cómo debo proceder?"),
+        chat_help_prefix_sharp_variant = (
+            "Mi sensor Sharp {model} no está soportado por la biblioteca. "
+            "¿Cómo lo identifico en la carcasa y cómo hago funcionar mi "
+            "programa?"),
         chat_help_prefix_motor = (
             "Mis pines {pins} podrían formar un solo motor, o ser salidas "
             "separadas (LED, zumbador, servo…). Ayúdame a entender la "
@@ -1475,6 +1496,8 @@ TRANSLATIONS: dict[str, Strings] = {
         update_download             = "Scarica",
         ia_ollama_not_installed     = "Ollama non è installato — <a href=\"https://ollama.com\">scaricarlo</a>, poi aprilo e torna qui",
         ia_ollama_not_running       = "Ollama non è in esecuzione — apri l'applicazione Ollama, poi torna qui",
+        ia_ollama_server_asleep     = "Ollama è aperto, ma il suo server non risponde — <a href=\"promptuino:start-ollama\">avvia il server</a>",
+        ia_ollama_starting          = "Avvio del server Ollama…",
         ia_ollama_model_missing     = "Modello non scaricato — esegui: ollama pull",
         ia_ollama_model_label       = "Modello",
         ia_ollama_model_placeholder = "es. gemma4:e2b",
@@ -1522,7 +1545,7 @@ TRANSLATIONS: dict[str, Strings] = {
             "Consiglio: usa «Vedi lo schema» per controllare il cablaggio prima di caricare",
             "Consiglio: se il codice non compila, lo strumento Ripara può correggere gli errori",
             "Consiglio: passa alla modalità Avanzata per vedere e modificare il codice a mano",
-            "Consiglio: in modalità Avanzata il codice si apre in 2 finestre — quello generato dall'IA e il tuo codice stabile, che l'IA non modifica mai. Comodo per provare cose senza rompere codice funzionante",
+            "Consiglio: in modalità Avanzata il codice si apre in 2 finestre — quello dell'IA e il tuo codice stabile, che non tocca mai",
             "Consiglio: indica un valore se serve — «lampeggia ogni 200 ms»",
         ),
         studio_code_label         = "Codice generato",
@@ -1686,6 +1709,10 @@ TRANSLATIONS: dict[str, Strings] = {
         chat_help_prefix_unknown = (
             "Il mio programma usa componenti che l'applicazione non "
             "conosce: {parts}. Come devo procedere?"),
+        chat_help_prefix_sharp_variant = (
+            "Il mio sensore Sharp {model} non è gestito dalla libreria. "
+            "Come lo riconosco sull'involucro e come faccio funzionare il "
+            "mio programma?"),
         chat_help_prefix_motor = (
             "I miei pin {pins} potrebbero formare un solo motore, oppure "
             "essere uscite separate (LED, buzzer, servo…). Aiutami a "
@@ -2019,6 +2046,10 @@ _EXTRA_STRINGS: dict[str, dict[str, str]] = {
         "registry_lib_not_found":      "Composant « {part} » inconnu : code généré sans référence, le code risque de ne pas être fonctionnel. Joindre une documentation (.md/.txt) peut aider.",
         "registry_install_failed":     "Composant « {part} » : la librairie « {lib} » existe bien au registre Arduino, mais elle n'a pas pu être téléchargée. Vérifie ta connexion internet, puis relance la génération.",
         "registry_change_lib":         "Changer de librairie",
+        # ⛔ NE PAS reutiliser « aucun composant reconnu » ci-dessus : ici
+        # l'app a parfaitement RECONNU le composant, c'est la bibliotheque
+        # qui ne couvre pas cette variante. Le confondre serait un mensonge.
+        "rag_sharp_variant_unsupported": "Ton capteur <b>{model}</b> est bien reconnu, mais la bibliothèque disponible ne gère <b>pas ce modèle</b> — elle n'en convertit que trois. Aucune bibliothèque n'a été imposée au modèle : le code produit risque d'être incomplet.",
         "rag_guess_by_resemblance":    "Aucun composant reconnu dans ta demande — une librairie a été proposée au modèle <b>par ressemblance</b>. Donne la référence exacte de ton composant (ex. « BMP280 ») pour un résultat sûr.",
         "lib_choice_title":            "Choisir la librairie",
         "lib_choice_body":             "Pour <b>{part}</b>, l'app utilise « <b>{lib}</b> ». Choisis celle qui correspond au matériel que tu as.",
@@ -2298,20 +2329,27 @@ _EXTRA_STRINGS: dict[str, dict[str, str]] = {
         "ia_cloud_provider_subtitle": "Utilise ta propre clé API chez un fournisseur compatible OpenAI.",
         "ia_provider_label":   "Fournisseur",
         "ia_model_label":      "Modèle",
-        "ia_model_placeholder": "Laisser vide pour le modèle par défaut",
+        "ia_model_placeholder": "Choisissez un modèle dans la liste",
+        "ia_model_placeholder_no_key": "Enregistre d'abord ta clé d'API",
         "ia_base_url_label":   "URL de base",
         "ia_get_key_link":     "Obtenir une clé",
         "ia_model_disclaimer": "Certains modèles offrent un palier d'API gratuit — vérifie sur le site du fournisseur.",
         "ia_models_loading":       "Chargement des modèles…",
         "ia_models_none":          "Aucun modèle récupéré — saisis-le manuellement.",
         "ia_models_unsupported":   "Ce fournisseur n'expose pas la liste — saisis le modèle à la main.",
+        "ia_model_none_chosen":    "Aucun modèle choisi — sélectionne-en un dans la liste.",
+        "ia_model_none_no_key":    "Aucun modèle choisi — enregistre d'abord ta clé d'API.",
+        "ia_saved":                "Enregistré",
+        "ia_model_checking":       "Vérification du modèle…",
+        "ia_model_ok":             "Ce modèle a répondu.",
+        "ia_model_ko":             "Ce modèle n'a pas répondu — {detail}",
         # ── Components tab ──
         "nav_composants":                  "Composants",
         "components_search_placeholder":   "Rechercher un composant…",
         "components_filter_all":           "Tous",
         "components_filter_declared":      "Perso",
         "components_filter_with_library":  "Avec librairie",
-        "components_filter_drawable":      "Dessinables",
+        "components_filter_without_library": "Sans librairie",
         "components_declare_button":       "Créer un composant",
         "components_lib_unknown":          "lib à déterminer",
         "components_wiring_unknown":       "dessin générique",
@@ -2373,6 +2411,7 @@ _EXTRA_STRINGS: dict[str, dict[str, str]] = {
         "registry_lib_not_found":      "Component “{part}” unknown: code generated without a reference, it may well not work. Attaching a documentation file (.md/.txt) may help.",
         "registry_install_failed":     "Component “{part}”: the “{lib}” library does exist in the Arduino registry, but it could not be downloaded. Check your internet connection, then generate again.",
         "registry_change_lib":         "Change library",
+        "rag_sharp_variant_unsupported": "Your <b>{model}</b> sensor is recognised, but the available library does <b>not</b> handle this model — it converts only three. No library was forced on the model: the generated code may be incomplete.",
         "rag_guess_by_resemblance":    "No component recognised in your request — a library was offered to the model <b>by resemblance</b>. Give your component's exact reference (e.g. “BMP280”) for a reliable result.",
         "lib_choice_title":            "Choose the library",
         "lib_choice_body":             "For <b>{part}</b>, the app uses “<b>{lib}</b>”. Pick the one matching the hardware you own.",
@@ -2647,20 +2686,27 @@ _EXTRA_STRINGS: dict[str, dict[str, str]] = {
         "ia_cloud_provider_subtitle": "Use your own API key with an OpenAI-compatible provider.",
         "ia_provider_label":   "Provider",
         "ia_model_label":      "Model",
-        "ia_model_placeholder": "Leave empty for the default model",
+        "ia_model_placeholder": "Pick a model from the list",
+        "ia_model_placeholder_no_key": "Save your API key first",
         "ia_base_url_label":   "Base URL",
         "ia_get_key_link":     "Get a key",
         "ia_model_disclaimer": "Some models offer a free API tier — check the provider's website.",
         "ia_models_loading":       "Loading models…",
         "ia_models_none":          "No models fetched — type it manually.",
         "ia_models_unsupported":   "This provider doesn't expose a model list — type the model manually.",
+        "ia_model_none_chosen":    "No model chosen — pick one from the list.",
+        "ia_model_none_no_key":    "No model chosen — save your API key first.",
+        "ia_saved":                "Saved",
+        "ia_model_checking":       "Checking the model…",
+        "ia_model_ok":             "This model answered.",
+        "ia_model_ko":             "This model did not answer — {detail}",
         # ── Components tab ──
         "nav_composants":                  "Components",
         "components_search_placeholder":   "Search a component…",
         "components_filter_all":           "All",
         "components_filter_declared":      "Custom",
         "components_filter_with_library":  "With a library",
-        "components_filter_drawable":      "Drawable",
+        "components_filter_without_library": "Without a library",
         "components_declare_button":       "Create a component",
         "components_lib_unknown":          "library to determine",
         "components_wiring_unknown":       "generic drawing",
@@ -2716,6 +2762,7 @@ _EXTRA_STRINGS: dict[str, dict[str, str]] = {
         "registry_lib_not_found":      "Componente «{part}» desconocido: código generado sin referencia, puede que no funcione. Adjuntar una documentación (.md/.txt) puede ayudar.",
         "registry_install_failed":     "Componente «{part}»: la librería «{lib}» sí existe en el registro de Arduino, pero no se pudo descargar. Comprueba tu conexión a internet y vuelve a generar.",
         "registry_change_lib":         "Cambiar de librería",
+        "rag_sharp_variant_unsupported": "Tu sensor <b>{model}</b> sí se reconoce, pero la biblioteca disponible <b>no</b> gestiona este modelo — solo convierte tres. No se impuso ninguna biblioteca al modelo: el código puede quedar incompleto.",
         "rag_guess_by_resemblance":    "Ningún componente reconocido en tu petición — se propuso una biblioteca al modelo <b>por parecido</b>. Indica la referencia exacta de tu componente (p. ej. «BMP280») para un resultado fiable.",
         "lib_choice_title":            "Elegir la librería",
         "lib_choice_body":             "Para <b>{part}</b>, la app usa «<b>{lib}</b>». Elige la que corresponde al material que tienes.",
@@ -2990,20 +3037,27 @@ _EXTRA_STRINGS: dict[str, dict[str, str]] = {
         "ia_cloud_provider_subtitle": "Usa tu propia clave API con un proveedor compatible con OpenAI.",
         "ia_provider_label":   "Proveedor",
         "ia_model_label":      "Modelo",
-        "ia_model_placeholder": "Dejar vacío para el modelo por defecto",
+        "ia_model_placeholder": "Elige un modelo de la lista",
+        "ia_model_placeholder_no_key": "Guarda antes tu clave de API",
         "ia_base_url_label":   "URL base",
         "ia_get_key_link":     "Obtener una clave",
         "ia_model_disclaimer": "Algunos modelos ofrecen un nivel de API gratuito — comprueba el sitio del proveedor.",
         "ia_models_loading":       "Cargando modelos…",
         "ia_models_none":          "No se obtuvieron modelos — escríbelo manualmente.",
         "ia_models_unsupported":   "Este proveedor no expone la lista — escribe el modelo manualmente.",
+        "ia_model_none_chosen":    "Ningún modelo elegido — selecciona uno de la lista.",
+        "ia_model_none_no_key":    "Ningún modelo elegido — guarda antes tu clave de API.",
+        "ia_saved":                "Guardado",
+        "ia_model_checking":       "Comprobando el modelo…",
+        "ia_model_ok":             "Este modelo respondió.",
+        "ia_model_ko":             "Este modelo no respondió — {detail}",
         # ── Components tab ──
         "nav_composants":                  "Componentes",
         "components_search_placeholder":   "Buscar un componente…",
         "components_filter_all":           "Todos",
         "components_filter_declared":      "Propios",
         "components_filter_with_library":  "Con librería",
-        "components_filter_drawable":      "Dibujables",
+        "components_filter_without_library": "Sin librería",
         "components_declare_button":       "Crear un componente",
         "components_lib_unknown":          "librería por determinar",
         "components_wiring_unknown":       "dibujo genérico",
@@ -3059,6 +3113,7 @@ _EXTRA_STRINGS: dict[str, dict[str, str]] = {
         "registry_lib_not_found":      "Componente «{part}» sconosciuto: codice generato senza riferimento, potrebbe non funzionare. Allegare una documentazione (.md/.txt) può aiutare.",
         "registry_install_failed":     "Componente «{part}»: la libreria «{lib}» esiste nel registro Arduino, ma non è stato possibile scaricarla. Controlla la connessione a internet, poi rigenera.",
         "registry_change_lib":         "Cambia libreria",
+        "rag_sharp_variant_unsupported": "Il tuo sensore <b>{model}</b> è riconosciuto, ma la libreria disponibile <b>non</b> gestisce questo modello — ne converte solo tre. Nessuna libreria è stata imposta al modello: il codice potrebbe essere incompleto.",
         "rag_guess_by_resemblance":    "Nessun componente riconosciuto nella tua richiesta — una libreria è stata proposta al modello <b>per somiglianza</b>. Indica il riferimento esatto del tuo componente (es. «BMP280») per un risultato affidabile.",
         "lib_choice_title":            "Scegliere la libreria",
         "lib_choice_body":             "Per <b>{part}</b>, l'app usa «<b>{lib}</b>». Scegli quella che corrisponde al materiale che hai.",
@@ -3333,20 +3388,27 @@ _EXTRA_STRINGS: dict[str, dict[str, str]] = {
         "ia_cloud_provider_subtitle": "Usa la tua chiave API con un provider compatibile con OpenAI.",
         "ia_provider_label":   "Provider",
         "ia_model_label":      "Modello",
-        "ia_model_placeholder": "Lascia vuoto per il modello predefinito",
+        "ia_model_placeholder": "Scegli un modello dall'elenco",
+        "ia_model_placeholder_no_key": "Salva prima la tua chiave API",
         "ia_base_url_label":   "URL di base",
         "ia_get_key_link":     "Ottieni una chiave",
         "ia_model_disclaimer": "Alcuni modelli offrono un piano API gratuito — controlla il sito del provider.",
         "ia_models_loading":       "Caricamento modelli…",
         "ia_models_none":          "Nessun modello recuperato — inseriscilo manualmente.",
         "ia_models_unsupported":   "Questo provider non espone l'elenco — inserisci il modello manualmente.",
+        "ia_model_none_chosen":    "Nessun modello scelto — selezionane uno dall'elenco.",
+        "ia_model_none_no_key":    "Nessun modello scelto — salva prima la tua chiave API.",
+        "ia_saved":                "Salvato",
+        "ia_model_checking":       "Verifica del modello…",
+        "ia_model_ok":             "Questo modello ha risposto.",
+        "ia_model_ko":             "Questo modello non ha risposto — {detail}",
         # ── Components tab ──
         "nav_composants":                  "Componenti",
         "components_search_placeholder":   "Cerca un componente…",
         "components_filter_all":           "Tutti",
         "components_filter_declared":      "Personali",
         "components_filter_with_library":  "Con libreria",
-        "components_filter_drawable":      "Disegnabili",
+        "components_filter_without_library": "Senza libreria",
         "components_declare_button":       "Crea un componente",
         "components_lib_unknown":          "libreria da determinare",
         "components_wiring_unknown":       "disegno generico",

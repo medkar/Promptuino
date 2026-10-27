@@ -27,6 +27,22 @@ _CORPUS = ROOT / "assets" / "rag" / "corpus.json"
 _AMBIGUOUS_CATEGORIES = {"Display", "Sensors", "Sensor"}
 
 
+
+def _premiere_famille(prompt: str):
+    """1re famille A CLARIFIER, ou None.
+
+    ⚠️ Remplace `rag.detect_lib_ambiguity` (SINGULIER), supprimee le
+    2026-09-10 avec le TODO #102 : sa docstring disait elle-meme qu'elle
+    existait « for callers that handle only one choice (TESTS) », et la
+    mesure l'a confirmee -- ZERO appelant en production, quatre ici. Un
+    enrobage maintenu pour ses propres tests n'est pas une API, c'est une
+    dette qui se lit comme une API. Le contrat teste, lui, ne change pas.
+    """
+    from ui.rag import detect_lib_ambiguities
+    a_clarifier, _ = detect_lib_ambiguities(prompt)
+    return a_clarifier[0] if a_clarifier else None
+
+
 def _corpus_ids() -> set[str]:
     corpus = json.load(_CORPUS.open(encoding="utf-8"))
     return {e["id"] for e in corpus if e.get("id")}
@@ -92,7 +108,7 @@ def test_basic_no_lib_guard():
 
     La garde _prompt_is_basic_component doit intercepter avant le filet auto
     (étape 2) — indépendamment de la disponibilité du modèle ONNX."""
-    from ui.rag import _prompt_is_basic_component, detect_lib_ambiguity
+    from ui.rag import _prompt_is_basic_component
 
     # Positive cases: components without a lib → active guard → detect returns None.
     basic = [
@@ -110,8 +126,8 @@ def test_basic_no_lib_guard():
     for prompt in basic:
         assert _prompt_is_basic_component(prompt), \
             f"{prompt!r} → garde inactive (attendu True)"
-        assert detect_lib_ambiguity(prompt) is None, \
-            f"{prompt!r} → detect_lib_ambiguity != None (attendu None)"
+        assert _premiere_famille(prompt) is None, \
+            f"{prompt!r} → 1re famille != None (attendu None)"
 
     # Negative cases: complex variants -> guard inactive.
     complex_ = [
@@ -144,7 +160,7 @@ def test_match_all_groups_multifamily():
 def test_detect_lib_ambiguities_multifamily():
     """detect_lib_ambiguities clarifie 2 familles distinctes (température + écran)
     mais une seule pour un concept à mots-clés chevauchants (co2 ⊂ air_quality)."""
-    from ui.rag import detect_lib_ambiguities, detect_lib_ambiguity
+    from ui.rag import detect_lib_ambiguities
 
     # 2 DISJOINT families -> 2 clarifications, none auto-forced.
     to_clarify, auto = detect_lib_ambiguities("mesure la température et affiche sur un oled")
@@ -160,10 +176,10 @@ def test_detect_lib_ambiguities_multifamily():
     assert len(co2_clarify) == 1, f"co2 = 1 seule famille (pas de re-clarif), obtenu {len(co2_clarify)}"
 
     # Compat: the singular returns the 1st family to clarify.
-    first = detect_lib_ambiguity("mesure la température et affiche sur un oled")
+    first = _premiere_famille("mesure la température et affiche sur un oled")
     assert first is not None and (
         {c.get('id') for c in first} & {"dht-sensor-library", "dallas-temperature"}), \
-        "detect_lib_ambiguity = 1re famille (température)"
+        "1re famille a clarifier = temperature"
     print("  OK — multi-familles : température+écran=2, co2=1, singulier=1re")
 
 
@@ -190,12 +206,12 @@ def test_named_chip_resolves_family_keeps_others():
 
 def test_named_chip_not_falsely_grouped():
     """Une puce nommée ne doit pas déclencher la modale (garde lexicale)."""
-    # match_group can match the generic word, but detect_lib_ambiguity cuts
+    # match_group can match the generic word, but the clarification cuts
     # AVANT via prompt_names_a_chip. On teste ce comportement de bout en bout.
-    from ui.rag import detect_lib_ambiguity
-    assert detect_lib_ambiguity("utilise un capteur ssd1306") is None, \
+    from ui.rag import detect_lib_ambiguities
+    assert _premiere_famille("utilise un capteur ssd1306") is None, \
         "ssd1306 nommé -> pas de modale"
-    assert detect_lib_ambiguity("capteur dht22") is None, "dht22 nommé -> pas de modale"
+    assert _premiere_famille("capteur dht22") is None, "dht22 nommé -> pas de modale"
     print("  OK — puce nommée (ssd1306/dht22) -> pas de clarification")
 
 
@@ -241,7 +257,59 @@ def test_functional_taxonomy_helpers():
     print(f"  OK - taxonomie fonctionnelle (bme280 -> {sorted(fbme)})")
 
 
+
+def test_no_dead_display_key_comes_back():
+    """⛔ LA garde du TODO #102, et elle porte sur l'EFFET, pas sur le texte.
+
+    `_curated_entries` posait `_display_label` et `_svg_type` sur chaque
+    entree forcee. Mesure du 2026-09-10 : ZERO lecteur, en production comme
+    dans les tests -- ces deux cles alimentaient la modale de clarification
+    pre-generation, supprimee le 2026-07-29.
+
+    Ce n'etait pas seulement du poids mort. Un champ nomme « libelle
+    d'AFFICHAGE », rempli avec du francais redige pour un humain, SE LIT
+    COMME UN ECRAN VIVANT : il m'a fait decrire a l'utilisateur, en seance,
+    une fenetre qui n'existe plus. Du code mort dont les NOMS decrivent une
+    interface enseigne le faux a qui lit le depot.
+
+    ⚠️ On verifie ce que la fonction PRODUIT, pas ce que le fichier CONTIENT :
+    une garde textuelle passerait au vert le jour ou quelqu'un ecrit la meme
+    chose sous un autre nom.
+    """
+    from ui.rag import _curated_entries
+    from ui.clarification_groups import CLARIFY_GROUPS
+    interdits = {"_display_label", "_svg_type"}
+    for g in CLARIFY_GROUPS:
+        for entree in _curated_entries(g):
+            revenues = interdits & set(entree)
+            assert not revenues, (
+                f"groupe '{g.key}' : {sorted(revenues)} sont de nouveau "
+                f"posees alors que rien ne les lit (TODO #102)")
+    # Et ce qui DOIT rester : le score force, seul enrichissement vivant.
+    groupe = next(g for g in CLARIFY_GROUPS if _curated_entries(g))
+    assert all(e.get("_score") == 1.0 for e in _curated_entries(groupe))
+
+
+def test_the_singular_wrapper_is_gone():
+    """`rag.detect_lib_ambiguity` (SINGULIER) est supprimee (TODO #102).
+
+    Sa docstring disait elle-meme qu'elle existait « for callers that handle
+    only one choice (TESTS) », et la mesure l'a confirmee : ZERO appelant en
+    production, quatre dans ce fichier. Un enrobage maintenu pour ses propres
+    tests n'est pas une API -- c'est une dette qui se lit comme une API.
+
+    Le PLURIEL reste, evidemment : c'est lui que la generation utilise.
+    """
+    import ui.rag as rag
+    assert not hasattr(rag, "detect_lib_ambiguity"), (
+        "l'enrobage de compatibilite est revenu ; s'il a un vrai appelant de "
+        "production cette fois, mettre a jour ce test ET dire lequel")
+    assert hasattr(rag, "detect_lib_ambiguities")
+
+
 TESTS = [
+    test_no_dead_display_key_comes_back,
+    test_the_singular_wrapper_is_gone,
     test_all_candidate_ids_exist_in_corpus,
     test_groups_wellformed,
     test_match_group_routing,

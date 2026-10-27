@@ -1063,6 +1063,18 @@
     ],
     "description": "Arduino library to send and receive IR (infrared) remote-control signals. Supports many consumer protocols: NEC, Sony SIRC, RC5/RC6, Samsung, Panasonic/Kaseikyo, JVC, LG, Denon/Sharp, Bang & Olufsen, plus a generic raw mode. On the receive side, decode() fills IrReceiver.decodedIRData with protocol/address/command. On the send side, IrSender.sendNEC()/sendSony()/etc. transmit a frame. Note: include IRremote.hpp (header-only, with implementation) exactly once. Typical use cases: replicating a TV/AC remote, building a universal remote, IR-based robot control, classroom electronics demos, replacing physical buttons with a hand-held remote.",
     "keywords": [
+      "recepteur infrarouge",
+      "récepteur infrarouge",
+      "infrared receiver",
+      "receptor infrarrojo",
+      "ricevitore infrarosso",
+      "telecommande",
+      "télécommande",
+      "mando a distancia",
+      "telecomando",
+      "remote control",
+      "TSOP4838",
+      "VS1838B",
       "IR",
       "infrared",
       "remote",
@@ -7336,5 +7348,101 @@
     "example_code": "// JSN-SR04T : impulsion de 10 us sur TRIG, mesure sur ECHO.\nconst int TRIG_PIN = 9;\nconst int ECHO_PIN = 10;\n\nvoid setup() {\n  Serial.begin(9600);\n  pinMode(TRIG_PIN, OUTPUT);\n  pinMode(ECHO_PIN, INPUT);\n}\n\nvoid loop() {\n  digitalWrite(TRIG_PIN, LOW);\n  delayMicroseconds(2);\n  digitalWrite(TRIG_PIN, HIGH);\n  delayMicroseconds(10);\n  digitalWrite(TRIG_PIN, LOW);\n  long duree = pulseIn(ECHO_PIN, HIGH);\n  float cm = duree * 0.0343 / 2.0;\n  Serial.print(\"Distance: \"); Serial.print(cm, 1);\n  Serial.println(\" cm\");\n  delay(500);\n}\n",
     "github": null,
     "api_signatures": {}
+  },
+  {
+    "id": "sharpir",
+    "name": "SharpIR",
+    "arduino_lib_name": "SharpIR",
+    "author": "Giuseppe Masino (qub1750ul)",
+    "boards": [
+      "arduino",
+      "esp32",
+      "esp8266"
+    ],
+    "category": "Sensor",
+    "headers": [
+      "SharpIR.h"
+    ],
+    "keywords": [
+      "GP2Y0A21",
+      "2Y0A21",
+      "GP2Y0A21YK0F",
+      "GP2Y0A41",
+      "2Y0A41",
+      "GP2Y0A41SK0F",
+      "GP2Y0A02",
+      "2Y0A02",
+      "GP2Y0A02YK0F",
+      "Sharp IR",
+      "SharpIR",
+      "capteur de distance Sharp",
+      "telemetre infrarouge",
+      "distance infrarouge",
+      "IR distance sensor",
+      "infrared distance sensor",
+      "sensor de distancia infrarrojo",
+      "sensore di distanza infrarosso"
+    ],
+    "description": "Telemetre infrarouge analogique Sharp GP2Y0A : une sortie de tension lue a l'analogRead, dont la relation avec la distance est NON LINEAIRE. Le modele est un parametre du constructeur et choisit la courbe de conversion : GP2Y0A41SK0F 4-30 cm, GP2Y0A21YK0F 10-80 cm, GP2Y0A02YK0F 20-150 cm. Se tromper de modele rend des distances fausses qui compilent. Trois fils : Vcc au 5V, GND, sortie sur une broche analogique.",
+    "example_code": "#include <SharpIR.h>\n\n// Le MODELE est un parametre du constructeur : c'est lui qui choisit la\n// courbe de conversion tension -> distance. Trois modeles existent dans la\n// bibliotheque, avec des portees differentes.\n//   SharpIR::GP2Y0A41SK0F    4 a  30 cm\n//   SharpIR::GP2Y0A21YK0F   10 a  80 cm\n//   SharpIR::GP2Y0A02YK0F   20 a 150 cm\nSharpIR capteur(SharpIR::GP2Y0A21YK0F, A0);\n\nvoid setup() {\n  Serial.begin(9600);\n}\n\nvoid loop() {\n  int distance = capteur.getDistance();   // en centimetres\n  Serial.println(distance);\n  delay(200);\n}\n",
+    "github": "https://github.com/qub1750ul/Arduino_SharpIR",
+    "api_signatures": {
+      "SharpIR": [
+        "SharpIR(sensorCode _sensorType, uint8_t _sensorPin)",
+        "uint8_t getDistance(bool avoidBurstRead = true)",
+        "static sensorCode GP2Y0A41SK0F",
+        "static sensorCode GP2Y0A21YK0F",
+        "static sensorCode GP2Y0A02YK0F"
+      ]
+    }
+  },
+  {
+    "id": "sharpdistsensor",
+    "name": "SharpDistSensor",
+    "arduino_lib_name": "SharpDistSensor",
+    "author": "Julien de la Bruere-Terreault",
+    "boards": [
+      "arduino",
+      "esp32",
+      "esp8266"
+    ],
+    "category": "Sensor",
+    "headers": [
+      "SharpDistSensor.h"
+    ],
+    "keywords": [
+      "GP2Y0A51",
+      "2Y0A51",
+      "GP2Y0A51SK0F",
+      "GP2Y0A60",
+      "2Y0A60",
+      "GP2Y0A60SZLF",
+      "GP2Y0A710",
+      "2Y0A710",
+      "GP2Y0A710K0F",
+      "SharpDistSensor",
+      "filtre median distance",
+      "telemetre courte portee",
+      "mesure de distance analogique",
+      "analog distance ranging"
+    ],
+    "description": "Mesure de DISTANCE par capteur analogique Sharp GP2Y0A : une sortie de tension non lineaire, avec calibration par MODELE et filtre median integre. Couvre GP2Y0A51SK0F 2-15 cm, GP2Y0A41SK0F 4-30 cm, GP2Y0A21F 10-80 cm, GP2Y0A60SZLF 10-150 cm et GP2Y0A710K0F 100-500 cm. Le modele se choisit par setModel ; la distance sort en MILLIMETRES. Technologie infrarouge, mais ce capteur ne recoit AUCUN signal de telecommande.",
+    "example_code": "#include <SharpDistSensor.h>\n\nconst byte brochecapteur = A0;\n// Fenetre du filtre median (nombre IMPAIR ; 1 = aucun filtrage).\nconst byte fenetreFiltre = 5;\n\nSharpDistSensor capteur(brochecapteur, fenetreFiltre);\n\nvoid setup() {\n  Serial.begin(9600);\n  // C'est CETTE ligne qui choisit la courbe de conversion du modele.\n  // Modeles disponibles :\n  //   SharpDistSensor::GP2Y0A51SK0F_5V_DS     2 a  15 cm\n  //   SharpDistSensor::GP2Y0A41SK0F_5V_DS     4 a  30 cm\n  //   SharpDistSensor::GP2Y0A21F_5V_DS       10 a  80 cm\n  //   SharpDistSensor::GP2Y0A60SZLF_5V       10 a 150 cm\n  //   SharpDistSensor::GP2Y0A710K0F_5V_DS   100 a 500 cm\n  capteur.setModel(SharpDistSensor::GP2Y0A51SK0F_5V_DS);\n}\n\nvoid loop() {\n  unsigned int distance_mm = capteur.getDist();   // en millimetres\n  Serial.print(distance_mm);\n  Serial.println(\" mm\");\n  delay(100);\n}\n",
+    "github": "https://github.com/DrGFreeman/SharpDistSensor",
+    "api_signatures": {
+      "SharpDistSensor": [
+        "SharpDistSensor(const byte pin, const byte size = 1)",
+        "uint16_t getDist()",
+        "void setModel(const models model)",
+        "void setPolyFitCoeffs(const byte nbCoeffs, const float* coeffs, const uint16_t valMin, const uint16_t valMax)",
+        "void setPowerFitCoeffs(const float C, const float P, const uint16_t valMin, const uint16_t valMax)",
+        "void setValMinMax(const uint16_t valMin, const uint16_t valMax)",
+        "static models GP2Y0A51SK0F_5V_DS",
+        "static models GP2Y0A41SK0F_5V_DS",
+        "static models GP2Y0A21F_5V_DS",
+        "static models GP2Y0A60SZLF_5V",
+        "static models GP2Y0A710K0F_5V_DS"
+      ]
+    }
   }
 ]

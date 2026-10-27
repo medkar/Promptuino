@@ -307,8 +307,12 @@ def test_filter_by_kind():
     assert all(c.editable for c in filter_components(components, kind="declared"))
     assert all(c.library == "known"
                for c in filter_components(components, kind="with_library"))
-    assert all(c.wiring == "known"
-               for c in filter_components(components, kind="drawable"))
+    # ⚠️ « Sans librairie » = `none` (le composant n'en a besoin d'AUCUNE),
+    # jamais `unknown` (« a determiner ») : les deux cards se ressemblent,
+    # elles disent le contraire.
+    sans = filter_components(components, kind="without_library")
+    assert all(c.library == "none" for c in sans)
+    assert not any(c.library == "unknown" for c in sans)
     assert len(filter_components(components, kind="all")) == len(components)
 
 
@@ -368,7 +372,7 @@ def test_nav_and_view_labels_exist_in_all_languages():
     from ui.i18n import lang_manager
     keys = ("nav_composants", "components_search_placeholder",
             "components_filter_all", "components_filter_declared",
-            "components_filter_with_library", "components_filter_drawable",
+            "components_filter_with_library", "components_filter_without_library",
             "components_declare_button", "components_lib_unknown",
             "components_wiring_unknown", "components_wiring_none",
             "components_library_none",

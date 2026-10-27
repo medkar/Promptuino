@@ -50,7 +50,12 @@ INFRASTRUCTURE = {
 # A l'utilisateur, mais sans pair d'echange dans le catalogue.
 SANS_PAIR = {
     "led_matrix", "tm1637", "tm1638", "hx711", "sr74hc595",
-    "adxl335", "dotstar", "ir_reflective_sensor",
+    "adxl335", "dotstar",
+    # ⚠️ `ir_reflective_sensor` est SORTI de cette liste le 2026-09-08
+    # (TODO #98) : il y etait parce que la fiche importee decrivait la PUCE
+    # NUE (A/C/E/K, deux composants optiques dans un boitier). Le catalogue
+    # decrit desormais le MODULE a trois fils, qui a des pairs comme
+    # n'importe quel capteur analogique.
 }
 
 

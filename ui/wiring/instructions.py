@@ -490,6 +490,34 @@ _TYPE_LABEL: dict[str, dict[str, str]] = {
                  "en": 'capacitive touch sensor',
                  "es": 'sensor táctil capacitivo',
                  "it": 'sensore tattile capacitivo'},
+    "gp2y0a21": {"fr": 'télémètre infrarouge Sharp GP2Y0A21 (10-80 cm)',
+                 "en": 'Sharp GP2Y0A21 infrared distance sensor (10-80 cm)',
+                 "es": 'sensor de distancia infrarrojo Sharp GP2Y0A21 (10-80 cm)',
+                 "it": 'sensore di distanza a infrarossi Sharp GP2Y0A21 (10-80 cm)'},
+    "gp2y0a41": {"fr": 'télémètre infrarouge Sharp GP2Y0A41 (4-30 cm)',
+                 "en": 'Sharp GP2Y0A41 infrared distance sensor (4-30 cm)',
+                 "es": 'sensor de distancia infrarrojo Sharp GP2Y0A41 (4-30 cm)',
+                 "it": 'sensore di distanza a infrarossi Sharp GP2Y0A41 (4-30 cm)'},
+    "gp2y0a02": {"fr": 'télémètre infrarouge Sharp GP2Y0A02 (20-150 cm)',
+                 "en": 'Sharp GP2Y0A02 infrared distance sensor (20-150 cm)',
+                 "es": 'sensor de distancia infrarrojo Sharp GP2Y0A02 (20-150 cm)',
+                 "it": 'sensore di distanza a infrarossi Sharp GP2Y0A02 (20-150 cm)'},
+    "gp2y0a51": {"fr": 'télémètre infrarouge Sharp GP2Y0A51 (2 à 15 cm)',
+                 "en": 'Sharp GP2Y0A51 infrared distance sensor (2-15 cm)',
+                 "es": 'sensor de distancia infrarrojo Sharp GP2Y0A51 (2-15 cm)',
+                 "it": 'sensore di distanza a infrarossi Sharp GP2Y0A51 (2-15 cm)'},
+    "gp2y0a60": {"fr": 'télémètre infrarouge Sharp GP2Y0A60 (10 à 150 cm)',
+                 "en": 'Sharp GP2Y0A60 infrared distance sensor (10-150 cm)',
+                 "es": 'sensor de distancia infrarrojo Sharp GP2Y0A60 (10-150 cm)',
+                 "it": 'sensore di distanza a infrarossi Sharp GP2Y0A60 (10-150 cm)'},
+    "gp2y0a710": {"fr": 'télémètre infrarouge Sharp GP2Y0A710 (100 à 500 cm)',
+                 "en": 'Sharp GP2Y0A710 infrared distance sensor (100-500 cm)',
+                 "es": 'sensor de distancia infrarrojo Sharp GP2Y0A710 (100-500 cm)',
+                 "it": 'sensore di distanza a infrarossi Sharp GP2Y0A710 (100-500 cm)'},
+    "hall_sensor": {"fr": 'capteur à effet Hall',
+                 "en": 'Hall effect sensor',
+                 "es": 'sensor de efecto Hall',
+                 "it": 'sensore a effetto Hall'},
     "ir_reflective_sensor": {"fr": 'capteur réflectif infrarouge (QRE1113)',
                  "en": 'infrared reflective sensor (QRE1113)',
                  "es": 'sensor reflectivo infrarrojo (QRE1113)',
@@ -958,12 +986,14 @@ _WARNING_TEMPLATES: dict[str, dict[str, str]] = {
         "it": "Pull-up {value}Ω aggiunta su DATA del {sensor_ref}.",
     },
     "buzzer_series_resistor": {
-        "fr": "Résistance série {value}Ω ajoutée pour le buzzer {buzzer_ref}.",
-        "en": "Series resistor {value}Ω added for buzzer {buzzer_ref}.",
-        "es": "Resistencia en serie {value}Ω añadida para el zumbador "
+        "fr": "Résistance série {value}Ω ajoutée pour {article}{component_type} "
               "{buzzer_ref}.",
-        "it": "Resistenza in serie {value}Ω aggiunta per il buzzer "
+        "en": "Series resistor {value}Ω added for {article}{component_type} "
               "{buzzer_ref}.",
+        "es": "Resistencia en serie {value}Ω añadida para {article}"
+              "{component_type} {buzzer_ref}.",
+        "it": "Resistenza in serie {value}Ω aggiunta per {article}"
+              "{component_type} {buzzer_ref}.",
     },
     "pin_double_use": {
         "fr": "Pin {pin} utilisée par plusieurs composants : {refs_csv}.",
@@ -1105,6 +1135,42 @@ _WARNING_TEMPLATES: dict[str, dict[str, str]] = {
               "schema disegna il modulo e la sua alimentazione, ma **non** i "
               "fili di comando — il tuo codice non dice su quali pin vanno. "
               "Verificali nella documentazione della tua scheda.",
+    },
+    # TODO #98. Ces deux bornes ne vont PAS a la carte : sans ce message,
+    # le schema montre deux broches libres qui passent pour un oubli.
+    # ⚠️ Le message dit ce qu'IL FAUT FAIRE, pas seulement ce qui manque --
+    # c'est la difference entre avouer une limite et laisser l'utilisateur
+    # devant un dessin incomplet.
+    # ⚠️ TODO #111 : reecrit en GESTES. La version d'avant disait « elles se
+    # coupent **en série** dans le fil du circuit » et supposait qu'on sache
+    # ce que « couper en série » veut dire -- un debutant, non (retour QA AP6).
+    # Le mot reste, mais APRES le geste et comme une definition, pas comme
+    # une condition pour comprendre la phrase.
+    "current_sensor_series_terminals": {
+        "fr": "**{name}** : les bornes {pins} ne se branchent **pas** sur la "
+              "carte — elles se posent **dans** le circuit à mesurer. Coupe "
+              "le fil de ce circuit, branche un bout sur **{pin1}**, l'autre "
+              "sur **{pin2}** : tout le courant passe alors par le capteur. "
+              "C'est ce qu'on appelle un montage **en série**. Le schéma les "
+              "dessine sans fil, c'est voulu.",
+        "en": "**{name}**: the {pins} terminals do **not** connect to the "
+              "board — they sit **inside** the circuit you are measuring. "
+              "Cut that circuit's wire, connect one end to **{pin1}** and "
+              "the other to **{pin2}**: all the current then flows through "
+              "the sensor. That is what wiring **in series** means. The "
+              "schematic draws them without a wire, as intended.",
+        "es": "**{name}**: los bornes {pins} **no** se conectan a la placa — "
+              "se colocan **dentro** del circuito que mides. Corta el cable "
+              "de ese circuito, conecta un extremo a **{pin1}** y el otro a "
+              "**{pin2}**: toda la corriente pasa entonces por el sensor. "
+              "Eso es un montaje **en serie**. El esquema los dibuja sin "
+              "cable, es intencionado.",
+        "it": "**{name}**: i morsetti {pins} **non** si collegano alla "
+              "scheda — si inseriscono **dentro** il circuito da misurare. "
+              "Taglia il filo di quel circuito, collega un capo a **{pin1}** "
+              "e l'altro a **{pin2}**: tutta la corrente passa allora "
+              "attraverso il sensore. È questo che si chiama collegamento "
+              "**in serie**. Lo schema li disegna senza filo, è voluto.",
     },
     "presumed_analog_component": {
         "fr": "Composant **présumé** sur {pin} : ton code lit une valeur "
@@ -1380,7 +1446,12 @@ def _role(role: str, lang: str) -> str:
 # Volontairement une table et non une regle sur le nom du parametre : la
 # plupart des `{name}` du fichier portent deja un texte humain (le nom d'une
 # bibliotheque, celui d'une fiche declaree), et les traduire les casserait.
-_WARNING_PARAMS_TO_LABEL = {"presumed_from_description": "name"}
+_WARNING_PARAMS_TO_LABEL = {
+    "presumed_from_description": "name",
+    # La regle de resistance serie couvre le buzzer ET le haut-parleur depuis
+    # le #94 : le message doit nommer celui qui est reellement la.
+    "buzzer_series_resistor": "component_type",
+}
 
 
 def _render_warning_message(w, lang: str) -> str:
@@ -1400,6 +1471,18 @@ def _render_warning_message(w, lang: str) -> str:
     if w.code in _WARNING_PARAMS_TO_LABEL:
         cle = _WARNING_PARAMS_TO_LABEL[w.code]
         if params.get(cle):
+            # L'article AVANT la traduction du libelle : `_article` prend l'id
+            # du type, pas son nom. Il porte deja son espace (ou pas, apres
+            # une elision) -- meme convention que `_render_step`, ou « l' » se
+            # colle au mot et « le » ne se colle pas.
+            # L'anglais n'a qu'un article defini et `_article` rend "" pour
+            # lui -- mais le gabarit doit quand meme porter le trou
+            # `{article}`, sinon les quatre langues n'ont plus les memes
+            # variables et `test_no_template_lost_a_placeholder_along_the_way`
+            # rougit. Elle a raison : une traduction qui perd un trou perd
+            # aussi l'information qu'il portait.
+            art = "the" if lang == "en" else _article(str(params[cle]), lang)
+            params["article"] = art if art.endswith("'") else (art + " " if art else "")
             params[cle] = _label(str(params[cle]), lang)
     try:
         return template.format(**params)
@@ -1546,6 +1629,11 @@ _TYPE_ARTICLE: dict[str, dict[str, str]] = {
     "neopixel":         {"fr": "la", "es": "la", "it": "la"},
     "ili9341":          {"fr": "l'", "es": "la", "it": "lo"},
     "encoder":          {"fr": "l'", "es": "el", "it": "l'"},
+    # « altoparlante » commence par une voyelle -> elision en italien. En
+    # francais « haut-parleur » garde « le » (h aspire) et en espagnol
+    # « altavoz » garde « el » : seuls les cas qui SORTENT du defaut vivent
+    # dans cette table (TODO #94, QA AK2.1).
+    "speaker":          {"fr": "le", "es": "el", "it": "l'"},
 }
 
 

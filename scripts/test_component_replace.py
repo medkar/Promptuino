@@ -89,26 +89,30 @@ def test_sibling_removal_scoped_to_signal_net_not_gnd():
 
 
 def test_replace_to_non_cataloged_type_keeps_pins():
-    # 'hall_sensor' is categorized as analog_in (via the replacement_catalog
-    # merge) but absent from the static CATALOG (rendered generic).
+    # 'mq135' is categorized as analog_in but absent from the static CATALOG
+    # (rendered generic).
     # Replacement must preserve pins, not yield 0-pin. (Used to be checked
     # with 'relay', which joined the catalogue with TODO #41 part 2 -- no
     # single_output type is left outside it. Then with 'microphone', which
     # joined analog_in too in the 2026-08-19 Fritzing batch, TODO #57 -- by
     # then EVERY prior candidate in this category had a catalog entry except
-    # 'hall_sensor' and 'mq135'. Picking a category member is not enough on
+    # 'hall_sensor' and 'mq135'. Then 'hall_sensor' itself joined CATALOG
+    # with TODO #98 (2026-09-08) AND moved to digital_in, which broke both
+    # halves of the setup at once. Picking a category member is not enough on
     # its own: it must ALSO be absent from CATALOG, and that combination is
     # what makes this test mean something -- verify both before reusing a
-    # type here again.)
+    # type here again. As of 2026-09-08, 'mq135' is the LAST analog_in type
+    # outside CATALOG; the day it joins too, this test needs a real
+    # non-catalogued type or it stops testing anything.)
     pot = Component(ref="P1", type="potentiometer",
                     pins=[Pin("A", "5V"), Pin("W", "A0"), Pin("B", "GND")],
                     attributes={"category": "analog_in",
                                 "signature_detected": False})
     nl = Netlist(board_id="", components=[pot])
-    res = cr.replace_component(nl, "P1", "hall_sensor")
+    res = cr.replace_component(nl, "P1", "mq135")
     assert res.ok
     comp = next(c for c in res.netlist.components if c.ref == "P1")
-    assert comp.type == "hall_sensor"
+    assert comp.type == "mq135"
     assert len(comp.pins) == 3
     assert "A0" in {p.net for p in comp.pins}
 

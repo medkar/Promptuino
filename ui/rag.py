@@ -613,6 +613,12 @@ def _build_lib_context(prompt: str, k: int = 3, threshold: float | None = None,
     """
     if threshold is None:
         threshold = _CODEGEN_MIN_SCORE
+    # ⛔ Normalise UNE FOIS a l'entree, comme `strip_comments` cote cablage :
+    # tout ce qui suit -- `prompt_names_a_chip`, le boost lexical, la garde
+    # « composant de base » -- voit le meme texte. Une regle posee a un seul
+    # de ces endroits laisserait les autres en desaccord, ce qui est
+    # exactement le defaut trouve en QA AR1.
+    prompt = _canonicalize_sharp_models(prompt)
     # Le SEUL texte qui porte l'indice. Tout le reste de cette fonction lit
     # `prompt` — cf. la docstring, c'est la raison d'etre du parametre.
     ranked_on = prompt
@@ -679,7 +685,21 @@ def _build_lib_context(prompt: str, k: int = 3, threshold: float | None = None,
         except Exception as e:
             _log(f"[RAG] retrieve_libs failed: {e}")
             return "", False
+    # ── Variante Sharp que la bibliothèque ne sait PAS convertir ──────────
+    # Porte UNIQUE, comme celle des bans juste au-dessus : quelle que soit la
+    # branche qui a rempli `libs`, une variante non supportée fait tomber
+    # `sharpir`. Le mécanisme est celui du TODO #37 (`forced_libs=[]` coupe le
+    # retrieval) appliqué à un cas qu'on n'avait pas classé comme « inconnu ».
+    variante = unsupported_sharp_model(prompt)
+    if variante:
+        libs = [lib for lib in libs if (lib.get("id") or "") != "sharpir"]
+        _log(f"[RAG] modèle Sharp {variante} hors des trois que SharpIR sait "
+             f"convertir : bibliothèque SUPPRIMÉE, consigne à la place")
     if not libs:
+        if variante:
+            # Rien d'autre à injecter : la consigne EST le contexte. On
+            # préfère un sketch nu et annoncé à un sketch faux et muet.
+            return _unsupported_sharp_directive(variante), False
         _log(f"[RAG] no libs retrieved for prompt: {prompt[:80]!r}")
         return "", False
     lines = ["[RAG] retrieved:"]
@@ -763,6 +783,14 @@ def _build_lib_context(prompt: str, k: int = 3, threshold: float | None = None,
             extra_blocks = [_render_lib_block(lib) for lib in extra_libs]
             result += ("\n\n" + _HEDGED_HEADER + "\n\n"
                       + "\n\n".join(extra_blocks))
+    if variante:
+        # ⚠️ La consigne s'ajoute à TOUT ce qui reste, et en DERNIER.
+        # Mesuré le 2026-09-09 : filtrer `sharpir` ne suffisait pas — sur
+        # « un capteur GP2Y0A51SK sur A0 », le retrieval remontait encore un
+        # ALTIMÈTRE (MPL3115A2) à la place, donc `libs` n'était pas vide et
+        # la consigne ne partait jamais. On aurait remplacé une mauvaise
+        # bibliothèque par une autre, en silence.
+        result += "\n\n" + _unsupported_sharp_directive(variante)
     return result, plain_retrieval and not authoritative
 
 
@@ -1323,6 +1351,20 @@ def _signature_tokens(entry: dict) -> set[str]:
     generic words (``sensor``/``motor``/``library``) and cause false boosts."""
     text = (entry.get("name", "") + " " + " ".join(entry.get("keywords", []))).lower()
     toks = re.findall(r"[a-z0-9]+", text)
+    # ⛔ LES FORMES TIRETEES SONT AUSSI JOINTES (« NEO-6M » -> `neo6m`), et
+    # cette ligne repare une DIVERGENCE, pas un manque : deux fonctions du
+    # projet lisent des references, et une seule joignait les tirets.
+    # `registry_lookup.detect_unknown_part_tokens` le fait depuis toujours
+    # (« ZXQ-9000 » -> `zxq9000`) ; celle-ci ne le faisait pas.
+    #
+    # Consequence mesuree (QA AP1, 2026-09-10) : `NEO-6M` figure EN TOUTES
+    # LETTRES dans les mots-cles de `tinygps-plus`, et pourtant
+    # `prompt_names_a_chip("... NEO-6M ...")` rendait False -- le decoupage
+    # donnait `neo` (pas de chiffre) et `6m` (trop court), jamais `neo6m`.
+    # Le prompt etait donc servi sous en-tete HEDGE alors que l'utilisateur
+    # avait nomme sa puce, ET le token partait au registre Arduino comme
+    # reference inconnue pour un composant que le corpus documente.
+    toks += [m.replace("-", "") for m in re.findall(r"[a-z0-9]+(?:-[a-z0-9]+)+", text)]
     sig = {t for t in toks if len(t) >= 4 and any(c.isdigit() for c in t)}
     cid = (entry.get("id") or "").lower()
     if re.fullmatch(r"[a-z][a-z0-9]{3,}", cid):
@@ -1611,16 +1653,31 @@ def retrieve_libs(
 
 def _curated_entries(group) -> list[dict]:
     """Turn the curated candidates of a `ClarifyGroup` into real corpus
-    entries (forceable via `forced_libs`), enriched with `_display_label` +
-    `_svg_type`, in the declared order. Ids absent from the corpus are ignored
-    (not forceable) — hence the value of the `test_clarification_groups` test guard."""
+    entries (forceable via `forced_libs`), in the declared order. Ids absent
+    from the corpus are ignored (not forceable) — hence the value of the
+    `test_clarification_groups` test guard.
+
+    ⛔ CETTE FONCTION POSAIT DEUX CLES QUE PERSONNE NE LISAIT (TODO #102,
+    supprimees le 2026-09-10) : `_display_label` et `_svg_type`. Elles
+    alimentaient la modale de clarification pre-generation, supprimee le
+    2026-07-29 (`ui/lib_clarification_dialog.py`).
+
+    Ce n'etait pas seulement du poids mort. Un champ nomme « libelle
+    d'AFFICHAGE », rempli avec 78 chaines redigees en francais et ponctuees
+    d'explications (« HC-SR04 (ultrason) », « LDR (photoresistance) »), SE LIT
+    COMME UN ECRAN VIVANT -- au point de m'avoir fait decrire a l'utilisateur
+    une fenetre qui n'existe plus. Du code mort dont les NOMS decrivent une
+    interface n'occupe pas seulement des lignes : il enseigne le faux a qui
+    lit le depot.
+
+    Garde : `test_no_dead_display_key_comes_back`
+    (`scripts/test_clarification_groups.py`).
+    """
     out: list[dict] = []
     for cand in group.candidates:
         entry = corpus_entry(cand.corpus_id)
         if entry is None:
             continue
-        entry["_display_label"] = cand.label
-        entry["_svg_type"] = cand.svg_type
         entry["_score"] = 1.0  # forced choice (not a similarity score)
         out.append(entry)
     return out
@@ -1656,6 +1713,168 @@ _BASIC_NO_LIB_KEYWORDS: dict[str, frozenset[str]] = {
     "resistor":    frozenset(),
     "resistencia": frozenset(),
     "resistenza":  frozenset(),
+
+    # ── TODO #97 (2026-09-07) : les composants du #94, tous SANS lib ────────
+    # Trouve en QA (AJ4.1) : « lis une thermistance sur A0 » faisait injecter
+    # `DallasTemperature` a 0.543, et le modele ecrivait du code DS18B20 pour
+    # une thermistance -- qui se lit avec `analogRead` et un pont diviseur,
+    # sans la moindre bibliotheque. Le schema etait fidele au code ; c'est le
+    # contexte qui etait faux. Autres degats mesures le meme jour :
+    # « capteur TMP36 » -> MFRC522 (un lecteur RFID) a 0.519, « capteur de
+    # force FSR » -> Encoder a 0.527. Du bruit qui passe le plancher de 0.50.
+    #
+    # ⛔ AUCUN mot generique ici, et c'est la regle qui rend l'ajout sur.
+    # « temperature » / « capteur de temperature » DOIVENT rester dehors : un
+    # prompt generique de temperature a besoin d'une lib (DS18B20, DHT...), et
+    # les mettre ici l'en priverait -- on corrigerait un cas en en cassant un
+    # autre. Meme discipline que la separation LDR / KY-018 : seuls les mots
+    # qui designent LE composant sans lib entrent.
+    #
+    # ⚠️ Ces mots sont un SOUS-ENSEMBLE des lexiques de `ui/wiring/markers.py`.
+    # La copie est assumee (rag.py ne doit pas dependre du paquet cablage) mais
+    # surveillee : `test_the_copied_words_still_exist_in_their_markers_lexicon`
+    # (`scripts/test_basic_component_no_lib.py`) echoue si l'un d'eux
+    # disparait de son lexique d'origine. ⚠️ Ce commentaire nommait jusqu'au
+    # 2026-09-09 un `test_basic_component_words_exist_in_markers` qui n'a
+    # jamais existe -- un renvoi vers un test introuvable fait croire a une
+    # garde qu'on n'a pas.
+    # Thermistance -- surtout PAS « temperature », cf. ci-dessus.
+    "thermistance":  frozenset(),
+    "thermistances": frozenset(),
+    "thermistor":    frozenset(),
+    "termistor":     frozenset(),
+    "termistore":    frozenset(),
+    "ntc":           frozenset(),
+    # TMP36 : capteur de temperature ANALOGIQUE, lu sans lib.
+    "tmp36":         frozenset(),
+    # Capteur de force / de flexion (resistifs).
+    "fsr":                  frozenset(),
+    "capteur de force":     frozenset(),
+    "force sensor":         frozenset(),
+    "sensor de fuerza":     frozenset(),
+    "sensore di forza":     frozenset(),
+    "capteur de flexion":   frozenset(),
+    "flex sensor":          frozenset(),
+    "sensor de flexión":    frozenset(),
+    "sensor de flexion":    frozenset(),
+    "sensore di flessione": frozenset(),
+    # Humidite du SOL (celle de l'AIR, c'est le DHT, qui a une lib).
+    "humidité du sol":  frozenset(),
+    "humidite du sol":  frozenset(),
+    "soil moisture":    frozenset(),
+    "humedad del suelo": frozenset(),
+    "umidità del suolo": frozenset(),
+    "umidita del suolo": frozenset(),
+    # Interrupteurs et contacts : deux bornes, aucune bibliotheque.
+    "interrupteur reed":       frozenset(),
+    "reed switch":             frozenset(),
+    "interruptor reed":        frozenset(),
+    "interruttore reed":       frozenset(),
+    "capteur d'inclinaison":   frozenset(),
+    "tilt switch":             frozenset(),
+    "interrupteur à glissière": frozenset(),
+    "interrupteur a glissiere": frozenset(),
+    "slide switch":            frozenset(),
+    "interrupteur à bascule":  frozenset(),
+    "interrupteur a bascule":  frozenset(),
+    "toggle switch":           frozenset(),
+    "capteur tactile":         frozenset(),
+    "touch sensor":            frozenset(),
+
+    # ── 2e lot (2026-09-07) : le reste des composants a broche nue ──────────
+    # Le 1er lot ne couvrait que les dix types du #94. Le balayage de TOUS les
+    # composants dont l'interface est une broche nue en a trouve sept autres
+    # qui recevaient du bruit, dont ces trois-la, mesures :
+    #   « un detecteur de son sur A0 »   -> Buzzer (un emetteur pour un capteur)
+    #   « un capteur de flamme sur A0 »  -> MQ-306A (un capteur de gaz)
+    #   « un capteur de courant... »     -> ADXL335 (un accelerometre)
+    "detecteur de son":   frozenset(),
+    "détecteur de son":   frozenset(),
+    "sound detector":     frozenset(),
+    "detector de sonido": frozenset(),
+    "rilevatore di suono": frozenset(),
+    "capteur de flamme":  frozenset(),
+    "flame sensor":       frozenset(),
+    "sensor de llama":    frozenset(),
+    "sensore di fiamma":  frozenset(),
+    "capteur de pluie":   frozenset(),
+    "rain sensor":        frozenset(),
+    "sensor de lluvia":   frozenset(),
+    "sensore di pioggia": frozenset(),
+    "capteur uv":         frozenset(),
+    "uv sensor":          frozenset(),
+    "guva-s12sd":         frozenset(),
+    "guva":               frozenset(),
+    "capteur réflectif":  frozenset(),
+    "capteur reflectif":  frozenset(),
+    "reflective sensor":  frozenset(),
+    "qre1113":            frozenset(),
+    # ── 3e lot (2026-09-09) : le suiveur de ligne, TROU LAISSE PAR LE #98 ──
+    # Le #98 (lot 3) a ajoute ces expressions au lexique de `markers` pour
+    # DESSINER le composant, sans les recopier ici. Resultat mesure : sept
+    # formulations sur onze injectaient une bibliotheque sans rapport --
+    # « un capteur suiveur de ligne sur A0 » recevait un DS3502 (un
+    # potentiometre numerique I2C) et deux capteurs de CO2 ; « un TCRT5000
+    # sur A0 » recevait un multiplexeur I2C TCA9548A. Exactement le defaut
+    # que le #97 existe pour supprimer, re-ouvert par une moitie de
+    # checklist.
+    #
+    # ⚠️ « ligne » NU reste dehors, evidemment : c'est un mot de la langue
+    # courante. N'entrent que les expressions ou « ligne » est QUALIFIEE.
+    "suiveur de ligne":         frozenset(),
+    "capteur de ligne":         frozenset(),
+    "detecteur de ligne":       frozenset(),
+    "détecteur de ligne":       frozenset(),
+    "line follower":            frozenset(),
+    "line sensor":              frozenset(),
+    "line tracking sensor":     frozenset(),
+    "sensor seguidor de linea": frozenset(),
+    "sensor seguidor de línea": frozenset(),
+    "sensor de linea":          frozenset(),
+    "sensore segui linea":      frozenset(),
+    "sensore di linea":         frozenset(),
+    "tcrt5000":                 frozenset(),
+    "ky-018":             frozenset(),
+    "ky018":              frozenset(),
+    # ⛔ Capteurs de courant : SEULEMENT les formes specifiques. « capteur de
+    # courant » nu est le piege exact de « temperature » -- un ACS712 se lit
+    # avec `analogRead`, mais un INA219 est en I2C et a bien une bibliotheque
+    # au corpus. Le mot generique casserait l'INA219 pour reparer l'ACS712.
+    "acs712":                        frozenset(),
+    "ina169":                        frozenset(),
+    "capteur de courant analogique": frozenset(),
+    "analog current sensor":         frozenset(),
+
+    # ── Muets par CHANCE, rendus muets par REGLE (2026-09-07) ──────────────
+    # Ces huit-la n'injectent rien aujourd'hui, mais parce que rien ne passe le
+    # plancher de 0.50 -- pas parce qu'une regle le garantit. Un ajout au
+    # corpus les ferait basculer sans prevenir, et le relais est un composant
+    # de kit debutant. Aucun changement de comportement le jour de l'ajout ;
+    # c'est la DEPENDANCE AU HASARD qu'on supprime.
+    "relais":        frozenset(),
+    "relay":         frozenset(),
+    "relé":          frozenset(),
+    "relè":          frozenset(),
+    "haut-parleur":  frozenset(),
+    "haut parleur":  frozenset(),
+    "speaker":       frozenset(),
+    "altavoz":       frozenset(),
+    "altoparlante":  frozenset(),
+    "joystick":      frozenset(),
+    "manette":       frozenset(),
+    "microphone":    frozenset(),
+    "micrófono":     frozenset(),
+    "microfono":     frozenset(),
+    "capteur à effet hall": frozenset(),
+    "capteur a effet hall": frozenset(),
+    "effet hall":    frozenset(),
+    "hall sensor":   frozenset(),
+    "solénoïde":     frozenset(),
+    "solenoide":     frozenset(),
+    "solenoid":      frozenset(),
+    "électrovanne":  frozenset(),
+    "electrovanne":  frozenset(),
+    "dip switch":    frozenset(),
 }
 
 
@@ -1697,6 +1916,126 @@ def _prompt_is_i2c_scan(prompt: str) -> bool:
     t = prompt.lower()
     return (any(c in t for c in _I2C_SCAN_I2C_CUES)
             and any(s in t for s in _I2C_SCAN_VERB_CUES))
+
+
+# ── Variante Sharp non couverte par la bibliothèque (2026-09-09) ─────────
+# Spec : docs/superpowers/specs/2026-09-09-variante-sharp-non-supportee-design.md
+#
+# ⛔ Ces trois modèles sont LUS dans `SharpIR.h` (v2.0.1, qub1750ul), pas
+# supposés — et il n'y en a pas d'autre :
+#     static sensorCode GP2Y0A41SK0F = 0 ;    //  4 à  30 cm
+#     static sensorCode GP2Y0A21YK0F = 1 ;    // 10 à  80 cm
+#     static sensorCode GP2Y0A02YK0F = 3 ;    // 20 à 150 cm
+#
+# ⚠️ ET `getDistance()` N'A AUCUN `default`, sur une variable NON INITIALISÉE.
+# Un modèle hors des trois ne produit donc pas une erreur : il produit une
+# valeur indéterminée, en silence. C'est précisément ce qu'on refuse.
+#
+# Les modèles COURANTS ne sont pas ceux de la bibliothèque : l'utilisateur
+# (2026-09-09) cite GP2Y0A21, GP2Y0A41SK et **GP2Y0A51SK** — ce dernier n'a
+# aucune constante. Recouvrement : deux sur trois.
+# ⚠️ RENOMME LE 2026-09-09 : la question n'est plus « que gere `SharpIR` ? »
+# mais « que l'application sait-elle piloter ? ». DEUX bibliotheques sont au
+# corpus et ne couvrent pas les memes modeles :
+#   SharpIR (qub1750ul)          : A21, A41, A02
+#   SharpDistSensor (DrGFreeman) : A51, A41, A21  (+ A60 et A710, sans type)
+# L'union fait QUATRE modeles pilotables. Le mecanisme qui les relie existait
+# deja : `Component.documents` est un tuple ORDONNE dont le premier porte le
+# defaut -- comme `ds18b20` (dallas-temperature, onewire).
+#
+# ⛔ Ma mesure du 2026-09-09 disait « AUCUNE bibliotheque ne gere le A51,
+# index entier balaye, zero ». Elle etait FAUSSE, et l'erreur etait de
+# METHODE : j'avais balaye les METADONNEES du registre (nom, description),
+# alors que la liste des modeles vit dans l'EN-TETE des sources. Il fallait
+# installer et lire.
+_SUPPORTED_SHARP_MODELS = frozenset({"21", "41", "02", "51", "60", "710"})
+# Même motif que `markers._SHARP_MODEL_RE`, et la copie est ASSUMÉE : `rag.py`
+# ne doit pas dépendre du paquet câblage. `test_the_two_sharp_patterns_agree`
+# échoue si les deux divergent.
+_SHARP_MODEL_RE = re.compile(r"\b(?:GP)?2Y0A(\d{2,3})[A-Z0-9]*\b", re.IGNORECASE)
+_SHARP_KNOWN_NUMBERS = frozenset({"21", "41", "02", "51", "60", "710", "700"})
+
+
+def _sharp_number(brut: str) -> str:
+    """Miroir de `markers._sharp_number` : 2 ou 3 chiffres, les DONNEES
+    tranchant l'ambiguite plutot que la gourmandise de la regex."""
+    if (len(brut) == 3 and brut not in _SHARP_KNOWN_NUMBERS
+            and brut[:2] in _SHARP_KNOWN_NUMBERS):
+        return brut[:2]
+    return brut
+
+
+def _canonicalize_sharp_models(text: str) -> str:
+    """Ramene toute ecriture d'un telemetre Sharp a sa forme canonique.
+
+    Miroir de `markers._canonicalize_sharp_models`, et la copie est ASSUMEE
+    (`rag` ne doit pas dependre du paquet cablage) mais surveillee :
+    `test_the_two_sharp_patterns_agree` compare les deux motifs.
+
+    ⛔ TROUVE EN QA (AR1, 2026-09-09). Sans ca, « 2Y0A21F81 » -- la
+    serigraphie recopiee telle quelle, code de date COLLE -- ne comptait pas
+    comme une puce nommee : en-tete hedge, et surtout la banniere « aucun
+    composant reconnu », alors que l'utilisateur avait recopie mot pour mot
+    ce qui est ecrit sur son capteur. La forme tiretee et la forme espacee
+    passaient, celle-la non : trois ecritures du meme objet, trois
+    comportements.
+    """
+    if not text:
+        return text
+    return _SHARP_MODEL_RE.sub(
+        lambda m: f"2Y0A{_sharp_number(m.group(1))}", text)
+
+
+def unsupported_sharp_model(prompt: str) -> str:
+    """Le modèle Sharp NOMMÉ que `SharpIR` ne sait pas convertir, ou "".
+
+    ⛔ CATÉGORIEL, jamais un score : les trois constantes sont lues dans
+    l'en-tête de la bibliothèque. La question n'est pas « le modèle est-il
+    nommé ? » mais « est-il l'un des trois ? ».
+
+    Un prompt qui ne nomme AUCUN modèle rend "" — et c'est voulu : l'exemple
+    officiel montre les trois constantes et rend le choix VISIBLE dans le
+    code généré. Supprimer l'injection là punirait le cas courant.
+
+    Pure, sans état : lue par `_build_lib_context` pour supprimer la
+    bibliothèque, et par `studio_view` pour poser la bannière — une seule
+    source de vérité, deux consommateurs.
+    """
+    if not prompt:
+        return ""
+    for m in _SHARP_MODEL_RE.finditer(prompt):
+        if _sharp_number(m.group(1)) not in _SUPPORTED_SHARP_MODELS:
+            return f"GP2Y0A{_sharp_number(m.group(1))}"
+    return ""
+
+
+def _unsupported_sharp_directive(modele: str) -> str:
+    """Consigne qui REMPLACE la bibliothèque pour une variante non couverte.
+
+    ⚠️ Elle dit la FORME de la solution sans inventer de coefficient. On ne
+    connaît pas la courbe de ce modèle ; donner une formule qui aurait l'air
+    juste serait exactement le défaut qu'on corrige. Même esprit que la
+    consigne `UNKNOWN COMPONENT` du TODO #37.
+    """
+    return (
+        f"# Unsupported sensor variant\n"
+        f"The user named a **{modele}**, a Sharp GP2Y0A analog infrared "
+        f"rangefinder. Neither library available here carries a curve for it: "
+        f"`SharpIR` covers GP2Y0A41SK0F, GP2Y0A21YK0F and GP2Y0A02YK0F; "
+        f"`SharpDistSensor` covers GP2Y0A51SK0F, GP2Y0A41SK0F, "
+        f"GP2Y0A21F, GP2Y0A60SZLF and GP2Y0A710K0F. And "
+        f"`SharpIR::getDistance()` has no default case on an "
+        f"uninitialised variable: a neighbouring constant returns an "
+        f"UNDEFINED value.\n"
+        f"So do NOT use either library, and do NOT substitute another model's "
+        f"constant. Write a plain sketch that reads the raw `analogRead()` "
+        f"value on the pin, prints it, and states in a comment that the "
+        f"voltage-to-distance relation of this sensor is NON-LINEAR and must "
+        f"be calibrated for this exact model. Do NOT invent conversion "
+        f"coefficients or a formula: none is known here.\n"
+        f"Wiring is unchanged and identical for every GP2Y0A: Vcc to 5V, GND "
+        f"to GND, output to an analog pin.\n"
+    )
 
 
 # Canonical `Wire` (core I2C library) reference, injected DETERMINISTICALLY for
@@ -1948,11 +2287,3 @@ def detect_lib_ambiguities(
     return [libs], []
 
 
-def detect_lib_ambiguity(prompt: str, k: int = 3,
-                         threshold: float = 0.25) -> list[dict] | None:
-    """Compat: FIRST family TO CLARIFY in the prompt (or None). Preserves
-    the old single-family contract for callers that handle only one choice
-    (tests). See `detect_lib_ambiguities` for the multi-family +
-    auto-forcing version used by generation."""
-    to_clarify, _ = detect_lib_ambiguities(prompt, k=k, threshold=threshold)
-    return to_clarify[0] if to_clarify else None

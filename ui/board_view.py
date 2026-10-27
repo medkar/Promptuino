@@ -19,6 +19,7 @@ from .theme import (
 from .i18n import lang_manager, Strings
 from .board_manager import (
     BOARDS, BoardState, board_manager, COMING_SOON_ENVS, detect_board,
+    model_label,
 )
 from . import icons as IC
 
@@ -319,7 +320,7 @@ class BoardView(QWidget):
             s = lang_manager.current
             self._auto_status.setText(
                 f'<span style="color:{theme_manager.current.signal_ok};">&#9679;</span>'
-                f' {s.board_connected} : {env_label} — {model}'
+                f' {s.board_connected} : {env_label} — {model_label(env, model)}'
             )
         elif state == BoardState.MANUAL and env and model:
             self._radio_manual.setChecked(True)
@@ -337,7 +338,7 @@ class BoardView(QWidget):
             env_label = BOARDS.get(env, {}).get("label", env)
             self._manual_status.setText(
                 f'<span style="color:{theme_manager.current.signal_warn};">&#9679;</span>'
-                f' {s.board_manual_confirmed} : {env_label} — {model}'
+                f' {s.board_manual_confirmed} : {env_label} — {model_label(env, model)}'
             )
 
         self._update_model_visibility()
@@ -356,7 +357,7 @@ class BoardView(QWidget):
             env_label = BOARDS.get(env, {}).get("label", env)
             self._auto_status.setText(
                 f'<span style="color:{theme_manager.current.signal_ok};">&#9679;</span>'
-                f' {s.board_connected} : {env_label} — {model}'
+                f' {s.board_connected} : {env_label} — {model_label(env, model)}'
             )
 
         elif state == BoardState.NONE:
@@ -380,7 +381,8 @@ class BoardView(QWidget):
 
     def _on_validate(self):
         env  = self._current_env()
-        model = self._combo.currentText()
+        # L'identifiant, pas le libellé affiché — cf. `_populate_combo`.
+        model = self._combo.currentData() or self._combo.currentText()
         if not env or not model:
             return
         board_manager.set_board_manual(env, model)
@@ -391,7 +393,7 @@ class BoardView(QWidget):
         suffix = f" — {port}" if port else ""
         self._manual_status.setText(
             f'<span style="color:{theme_manager.current.signal_warn};">&#9679;</span>'
-            f' {s.board_manual_confirmed} : {env_label} — {model}{suffix}'
+            f' {s.board_manual_confirmed} : {env_label} — {model_label(env, model)}{suffix}'
         )
 
     # ── Helpers ───────────────────────────────────────────────
@@ -403,10 +405,18 @@ class BoardView(QWidget):
         return ""
 
     def _populate_combo(self, env_id: str):
+        """Remplit la liste : le LIBELLÉ est affiché, l'IDENTIFIANT est en
+        `userData`.
+
+        ⚠️ Sans `userData`, lire `currentText()` rendrait « Uno R3 » — un
+        libellé, pas une clé — et `FQBN` comme les projets enregistrés ne le
+        reconnaîtraient pas (TODO du 2026-09-08).
+        """
         models = BOARDS.get(env_id, {}).get("models", [])
         self._combo.blockSignals(True)
         self._combo.clear()
-        self._combo.addItems(models)
+        for m in models:
+            self._combo.addItem(model_label(env_id, m), userData=m)
         self._combo.blockSignals(False)
 
     def _refresh_ports(self):

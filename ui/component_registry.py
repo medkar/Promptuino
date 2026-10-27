@@ -339,7 +339,7 @@ REGISTRY: tuple[Component, ...] = (
               keywords=("fsr", "capteur de force", "force sensor",
                         "sensor de fuerza", "sensore di forza")),
     Component(id="hall_sensor", function="sensor", mounting="breadboard",
-              wiring="unknown",
+              wiring="known",   # TODO #98 : entree catalogue 3 broches
               description="Capteur à effet Hall, détecte un champ magnétique.",
               keywords=("hall", "effet hall", "hall sensor",
                         "sensor hall", "sensore hall")),
@@ -826,11 +826,11 @@ REGISTRY: tuple[Component, ...] = (
               keywords=('drv8825', 'driver pas a pas drv8825', 'driver moteur pas a pas',
                         'drv8825 stepper driver', 'controlador paso a paso drv8825',
                         'driver passo passo drv8825')),
-    Component(id="flame_sensor", function="sensor", mounting="breadboard", wiring="unknown",
+    Component(id="flame_sensor", function="sensor", mounting="breadboard", wiring="known",
               description="Capteur de flamme infrarouge, sortie numérique et/ou analogique — pas de bibliothèque, lecture directe.",
               keywords=('capteur de flamme', 'detecteur de flamme', "detecteur d'incendie", 'flame sensor',
                         'fire sensor', 'sensor de llama', 'sensor de fuego', 'sensore di fiamma')),
-    Component(id="rain_sensor", function="sensor", mounting="breadboard", wiring="unknown",
+    Component(id="rain_sensor", function="sensor", mounting="breadboard", wiring="known",
               description="Capteur de pluie résistif (plaque + comparateur), sortie numérique et/ou analogique — pas de bibliothèque, lecture directe.",
               keywords=('capteur de pluie', 'detecteur de pluie', 'rain sensor', 'rain detector',
                         'sensor de lluvia', 'sensore di pioggia')),
@@ -961,9 +961,43 @@ REGISTRY: tuple[Component, ...] = (
     # totalité de core/ recoupe déjà le registre ou vise des puces gyro/accel
     # obsolètes (2008-2012, supplantées par mpu6050/bno055 déjà au registre) —
     # celui-ci est le seul candidat clairement neuf et non redondant trouvé.
+    # ── Telemetres Sharp GP2Y0A (2026-09-09) ─────────────────────────
+    # UNE FICHE PAR MODELE, meme regle que dht11/dht22 : meme cablage,
+    # MEME document corpus, deux entrees -- parce que ce sont deux
+    # objets differents, avec des PORTEES differentes. Un utilisateur
+    # cherche le numero imprime sur son boitier ; il doit le trouver.
+    Component(id="gp2y0a21", function="sensor", mounting="breadboard", wiring="known",
+              documents=("sharpir", "sharpdistsensor"),
+              description="Télémètre infrarouge analogique Sharp GP2Y0A21, portée 10 à 80 cm. Sortie de tension NON LINÉAIRE ; la bibliothèque la convertit via la constante GP2Y0A21YK0F.",
+              keywords=('gp2y0a21', '2y0a21', 'gp2y0a21yk0f', 'sharp gp2y0a21', 'telemetre infrarouge 2y0a21', 'gp2y0a21 distance sensor')),
+    Component(id="gp2y0a41", function="sensor", mounting="breadboard", wiring="known",
+              documents=("sharpir", "sharpdistsensor"),
+              description="Télémètre infrarouge analogique Sharp GP2Y0A41, portée 4 à 30 cm. Sortie de tension NON LINÉAIRE ; la bibliothèque la convertit via la constante GP2Y0A41SK0F.",
+              keywords=('gp2y0a41', '2y0a41', 'gp2y0a41sk0f', 'sharp gp2y0a41', 'telemetre infrarouge 2y0a41', 'gp2y0a41 distance sensor')),
+    Component(id="gp2y0a02", function="sensor", mounting="breadboard", wiring="known",
+              documents=("sharpir", "sharpdistsensor"),
+              description="Télémètre infrarouge analogique Sharp GP2Y0A02, portée 20 à 150 cm. Sortie de tension NON LINÉAIRE ; la bibliothèque la convertit via la constante GP2Y0A02YK0F.",
+              keywords=('gp2y0a02', '2y0a02', 'gp2y0a02yk0f', 'sharp gp2y0a02', 'telemetre infrarouge 2y0a02', 'gp2y0a02 distance sensor')),
+    # ⚠️ Le A51 n'a PAS de `sharpir` : cette bibliotheque ne le connait pas.
+    # Il n'a qu'un document, et c'est l'autre. Les trois ci-dessus en ont
+    # DEUX, `sharpir` en tete -- l'ordre porte le defaut (`default_document`),
+    # mecanisme deja utilise par `ds18b20` et `stepper_motor`.
+    Component(id="gp2y0a51", function="sensor", mounting="breadboard", wiring="known",
+              documents=("sharpdistsensor",),
+              description="Télémètre infrarouge analogique Sharp GP2Y0A51, portée 2 à 15 cm. Sortie de tension NON LINÉAIRE ; seule SharpDistSensor porte sa calibration (constante GP2Y0A51SK0F_5V_DS).",
+              keywords=('gp2y0a51', '2y0a51', 'gp2y0a51sk0f', 'sharp gp2y0a51',
+                        'telemetre infrarouge 2y0a51', 'gp2y0a51 distance sensor')),
+    Component(id="gp2y0a60", function="sensor", mounting="breadboard", wiring="known",
+              documents=("sharpdistsensor",),
+              description="Télémètre infrarouge analogique Sharp GP2Y0A60, portée 10 à 150 cm. Sortie de tension NON LINÉAIRE ; seule SharpDistSensor porte sa calibration (constante GP2Y0A60SZLF_5V).",
+              keywords=('gp2y0a60', '2y0a60', 'gp2y0a60szlf', 'sharp gp2y0a60', 'telemetre infrarouge 2y0a60', 'gp2y0a60 distance sensor')),
+    Component(id="gp2y0a710", function="sensor", mounting="breadboard", wiring="known",
+              documents=("sharpdistsensor",),
+              description="Télémètre infrarouge analogique Sharp GP2Y0A710, portée 100 à 500 cm. Sortie de tension NON LINÉAIRE ; seule SharpDistSensor porte sa calibration (constante GP2Y0A710K0F_5V_DS).",
+              keywords=('gp2y0a710', '2y0a710', 'gp2y0a710k0f', 'sharp gp2y0a710', 'telemetre infrarouge 2y0a710', 'gp2y0a710 distance sensor')),
     Component(id="ir_reflective_sensor", function="sensor", mounting="breadboard", wiring="known",
               description="Capteur réflectif infrarouge (émetteur IR + phototransistor), détecte une surface proche ou une ligne au sol — type QRE1113/QRD1114.",
-              keywords=('qre1113', 'qrd1114', 'capteur reflectif infrarouge', 'detecteur de ligne',
+              keywords=('qre1113', 'qrd1114', 'tcrt5000', 'capteur reflectif infrarouge', 'detecteur de ligne',
                         'capteur suiveur de ligne', 'infrared reflective sensor', 'line follower sensor',
                         'ir reflective sensor', 'sensor reflectivo infrarrojo', 'sensor seguidor de linea',
                         'sensore riflettente infrarosso', 'sensore segui linea')),

@@ -138,7 +138,10 @@ def test_spot_tier2_bare_pin_categories():
     """Spot-check Tier-2 bare pin + mpr121 recategorized as I2C fix."""
     from ui.wiring import categories as cat
     assert cat.category_of("solenoid") == cat.SINGLE_OUTPUT
-    assert cat.category_of("hall_sensor") == cat.ANALOG_IN
+    # TODO #98 : `digital_in` depuis le 2026-09-08. Il etait analogique a
+    # une epoque ou aucun de ces types n'etait emis par `markers.py` ; il
+    # l'est desormais, et en tout-ou-rien (A3144, KY-003).
+    assert cat.category_of("hall_sensor") == cat.DIGITAL_IN
     assert cat.category_of("tilt_switch") == cat.DIGITAL_IN
     # scrape fix: mpr121 is a tactile I2C controller, not digital_in
     assert cat.category_of("mpr121") == cat.I2C

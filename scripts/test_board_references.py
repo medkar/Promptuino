@@ -145,10 +145,24 @@ def test_the_corpus_still_has_the_same_number_of_entries():
     premieres lignes de la matrice sont inchangees, les deux neuves sont en
     position 137 et 138, exactement la ou le corpus les met. C'est cette
     verification-la qui garantit l'alignement, pas le compte de lignes de
-    `test_rag_corpus_sync`."""
+    `test_rag_corpus_sync`.
+
+    156 -> 157 le meme jour : `sharpdistsensor`, la SECONDE bibliotheque
+    Sharp -- elle couvre le GP2Y0A51 que `SharpIR` ignore. Deux
+    bibliotheques pour une meme famille n'a rien d'exceptionnel :
+    `Component.documents` est un tuple ORDONNE dont le premier porte le
+    defaut, comme `ds18b20` (dallas-temperature, onewire).
+
+    155 -> 156 le 2026-09-09 : `sharpir`, le telemetre infrarouge analogique
+    Sharp GP2Y0A. Mecanisme 2 (vraie nouvelle entree), donc embeddings
+    RECONSTRUITS -- et le prefixe VERIFIE bit a bit : les 155 premieres
+    lignes de la matrice sont identiques a l'ancienne, la neuve est en
+    position 155. Insertion textuelle en fin de fichier, jamais un
+    `json.load` + `json.dump` : re-serialiser reformate tout le fichier et
+    le diff cesse d'etre une insertion."""
     corpus = json.loads((ROOT / "assets" / "rag" / "corpus.json")
                         .read_text(encoding="utf-8"))
-    assert len(corpus) == 155, len(corpus)
+    assert len(corpus) == 157, len(corpus)
 
 
 TESTS = [

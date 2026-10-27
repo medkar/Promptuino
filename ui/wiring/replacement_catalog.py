@@ -77,7 +77,6 @@ REPLACEMENT_CATALOG: list[tuple[str, str, str]] = [
     # --- ANALOG_IN (8) ---
     ("light_sensor", "analog_in", "Capteur de lumière (TEMT6000)"),
     ("soil_moisture", "analog_in", "Capteur d'humidité du sol"),
-    ("hall_sensor", "analog_in", "Capteur à effet Hall"),
     ("load_cell", "analog_in", "Cellule de charge (jauge)"),
     ("joystick", "analog_in", "Joystick analogique"),
     ("acs712", "analog_in", "Capteur de courant ACS712"),
@@ -91,6 +90,12 @@ REPLACEMENT_CATALOG: list[tuple[str, str, str]] = [
     ("dip_switch", "digital_in", "Interrupteur DIP"),
     ("buttonpad", "digital_in", "Pavé de boutons"),
     ("touch_sensor", "digital_in", "Capteur tactile capacitif"),
+    # TODO #98 (2026-09-08) : passe de `analog_in` a `digital_in`. Il
+    # etait range parmi les analogiques a une epoque ou AUCUN de ces
+    # types n'etait emis par `markers.py` -- la categorie satisfaisait
+    # un garde-fou, elle ne decrivait pas un usage. Il est emis depuis
+    # ce ticket, et il l'est en tout-ou-rien (A3144, KY-003).
+    ("hall_sensor", "digital_in", "Capteur à effet Hall"),
 ]
 
 _LABEL_BY_TYPE: dict[str, str] = {t: lbl for t, _c, lbl in REPLACEMENT_CATALOG}

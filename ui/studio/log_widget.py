@@ -71,15 +71,14 @@ class LogWidget(QWidget):
 
         # "Demander de l'aide sur cette erreur" button — hidden by default,
         # revealed only when set_done(False, message) is called.
-        # Placed at the top of the widget to stay visible even if the output
-        # scrolls at the bottom.
+        # ⚠️ Il est AJOUTÉ PLUS BAS, sous la zone de texte (TODO #112) : il
+        # proposait d'expliquer une erreur qu'on n'avait pas encore lue.
         self._help_btn = QPushButton(
             lang_manager.current.chat_help_error_button
         )
         self._help_btn.setVisible(False)
         self._help_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._help_btn.clicked.connect(self._on_help_clicked)
-        layout.addWidget(self._help_btn)
 
         # « voir les corrections automatiques » button — hidden by default,
         # revealed after a compilation that triggered auto repairs.
@@ -99,6 +98,14 @@ class LogWidget(QWidget):
         )
         layout.addWidget(self._text, stretch=1)
 
+        # TODO #112 : APRÈS le journal, et pas avant. L'ordre de lecture est
+        # « je lis l'erreur, puis je demande de l'aide » ; au-dessus, le
+        # bouton proposait d'expliquer quelque chose qui n'était pas encore à
+        # l'écran. Il reste au-dessus d'une éventuelle barre de contrôle
+        # (`set_bottom_bar` ajoute à la fin) : cette barre est du mobilier
+        # permanent — moniteur série —, pas une suite de la transcription.
+        layout.addWidget(self._help_btn)
+
     # ── Fixed control strip (bottom of the log, outside scrolling) ─
 
     def set_bottom_bar(self, widget):
@@ -107,6 +114,17 @@ class LogWidget(QWidget):
         above scrolls. The log frame (border carried by the widget)
         encloses the text AND the strip -> the log stays bottom-aligned with
         the editor, but the scroll covers only the text."""
+        # TODO #99 : la barre peut etre RETIREE, pas seulement posee -- une
+        # seule console sert desormais les trois modes, et le debutant place
+        # ses controles serie ailleurs (dans sa ligne de titre). Sans ce
+        # chemin de retrait, changer d'habit demanderait de changer d'objet,
+        # ce qui est exactement ce que le ticket corrige.
+        if widget is None:
+            if self._bottom_overlay is not None:
+                self.layout().removeWidget(self._bottom_overlay)
+                self._bottom_overlay.setParent(None)
+                self._bottom_overlay = None
+            return
         self._bottom_overlay = widget
         if widget.layout() is not None:
             # Reduced margins to leave max room for the serial controls
@@ -115,6 +133,16 @@ class LogWidget(QWidget):
         self.layout().addWidget(widget)
 
     # ── Public API ──────────────────────────────────────────
+
+    def is_empty(self) -> bool:
+        """True si le journal ne contient encore aucune ligne.
+
+        TODO #99 : le journal est partagé par les trois modes. Le changement
+        de mode ne doit plus le VIDER pour y réécrire la ligne d'état — il
+        effacerait la transcription commune. Il se contente de l'écrire quand
+        il n'y a rien, ce qui couvre le démarrage sans jamais empiler.
+        """
+        return self._text.document().isEmpty()
 
     def clear(self):
         self._text.clear()
@@ -327,11 +355,16 @@ class LogWidget(QWidget):
                 font-size: 10pt;
             }}
         """)
-        # Log action buttons (« voir les corrections », « demander de l'aide »):
-        # styled by theme.log_action_button_qss via the `logAction` variant, so
-        # the theme change is handled by the application sheet.
-        for b in (self._repairs_btn, self._help_btn):
-            b.setProperty("variant", "logAction")
+        # « voir les corrections » : bloc clair dans la console
+        # (theme.log_action_button_qss), via la variante `logAction` -- la
+        # feuille de l'application suit donc les changements de theme.
+        self._repairs_btn.setProperty("variant", "logAction")
+        # TODO #112 : « demander de l'aide » prend le style de bouton
+        # PRINCIPAL (demande de l'utilisateur), comme « Générer » ou
+        # « Uploader ». Il se fondait dans le fond du journal, donc il
+        # existait sans se voir. La propriété est posée AVANT le premier
+        # affichage, comme la feuille l'exige.
+        self._help_btn.setProperty("variant", "primary")
 
     # ── Helpers ───────────────────────────────────────────────
 

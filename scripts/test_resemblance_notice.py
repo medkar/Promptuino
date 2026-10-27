@@ -429,11 +429,50 @@ class _FakeBanner:
         self.visible = bool(value)
 
 
+class _FakeJournal:
+    """Zone de sortie minimale : on ne verifie que le fait d'avoir ete videe."""
+
+    def __init__(self):
+        self.cleared = False
+
+    def clear(self):
+        self.cleared = True
+
+
 def _bare_studio_view():
     from ui import studio_view
     view = studio_view.StudioView.__new__(studio_view.StudioView)
     view._registry_banner = _FakeBanner()
+    # ⚠️ Depuis le #96, `load_project` et `_begin_inline_new_project` passent
+    # tous deux par `_clear_previous_project_screen`, qui touche aussi les
+    # journaux et l'historique de reparation. Sans ces attributs, PyQt masque
+    # l'AttributeError derriere « super-class __init__() was never called » --
+    # un message qui n'aide pas du tout a trouver la cause.
+    view._beg_output_area = _FakeJournal()
+    view._output_area = _FakeJournal()
+    view._last_repair_steps = [{"avant": "x", "apres": "y"}]
+    # ⚠️ Même mécanisme que ci-dessus, une occurrence de plus (2026-09-09) :
+    # `_maybe_resemblance_banner` teste désormais d'abord la variante Sharp
+    # non supportée, qui a son PROPRE message — « aucun composant reconnu »
+    # y serait faux, l'app a parfaitement reconnu le composant. Vide ici :
+    # ce fichier ne parle que du cas ressemblance.
+    view._sharp_variant = ""
+    # ⚠️ Troisieme occurrence du meme mecanisme (2026-09-10) : depuis que la
+    # deconnexion du moniteur serie a rejoint `_clear_previous_project_screen`,
+    # le double doit porter les deux moniteurs. Sans eux, PyQt masque
+    # l'AttributeError derriere « super-class __init__() was never called ».
+    view._serial_monitor = view._serial_monitor_beg = _FakeSerial()
     return view
+
+
+class _FakeSerial:
+    """Moniteur serie minimal : on ne verifie que l'APPEL a `close_port`."""
+
+    def __init__(self):
+        self.closed = 0
+
+    def close_port(self):
+        self.closed += 1
 
 
 def test_a_guessed_generation_shows_the_translated_message():
@@ -576,6 +615,142 @@ def test_opening_another_project_hides_the_banner():
         "le test doit atteindre load_code pour que sa conclusion vaille"
     assert view._registry_banner.visible is False, \
         "changer de projet doit masquer la banniere de l'ancien"
+    # Depuis le #96, le meme point de passage vide aussi les journaux.
+    assert view._beg_output_area.cleared and view._output_area.cleared, \
+        "les deux journaux du projet precedent doivent etre vides"
+    assert view._last_repair_steps == [], \
+        "« voir les corrections » ne doit pas pointer sur l'ancien projet"
+
+
+def test_creating_a_new_project_clears_the_screen_too():
+    """LE defaut du #96 : « nouveau projet » ne nettoyait RIEN.
+
+    Signale en QA le 2026-09-07 (« les bannieres ambre ne disparaissent pas a
+    la creation d'un nouveau projet, et le journal non plus »). Ce chemin ne
+    passe pas par `load_project` mais par `_begin_inline_new_project`, une
+    remise a zero PARALLELE qui reinitialisait l'etat du projet et aucun des
+    affichages. Un nouveau projet s'ouvrait donc sous la banniere ambre et le
+    journal du precedent -- « Aucun composant reconnu dans ta demande » dans
+    un projet ou l'on n'a rien demande.
+
+    Meme methode d'observation que le test ci-dessus : une bombe posee juste
+    apres le point observe, pour garantir qu'il est bien atteint.
+    """
+    from ui import studio_view
+
+    class _Boom(Exception):
+        pass
+
+    view = _bare_studio_view()
+    view._registry_banner.visible = True
+    view._registry_banner.body = "message perime du projet precedent"
+    view._dirty = False
+    view._current_project = None
+
+    class _Bombe:
+        def stop(self):
+            raise _Boom()
+
+    view._auto_save_timer = _Bombe()
+
+    raised = False
+    try:
+        studio_view.StudioView._begin_inline_new_project(view)
+    except _Boom:
+        raised = True
+    assert raised, (
+        "le test doit atteindre l'arret du minuteur pour que sa conclusion "
+        "vaille -- sinon il passerait meme si le nettoyage disparaissait")
+    assert view._registry_banner.visible is False, \
+        "un nouveau projet ne doit pas heriter de la banniere du precedent"
+    assert view._beg_output_area.cleared and view._output_area.cleared, \
+        "les deux journaux doivent etre vides"
+    assert view._last_repair_steps == []
+
+
+def test_the_two_resets_share_one_passage():
+    """La FORME du correctif, pas seulement son effet.
+
+    Le #96 ne venait pas d'une ligne oubliee mais de deux remises a zero
+    paralleles qui avaient diverge. Recopier les lignes dans la seconde les
+    aurait laissees libres de diverger a nouveau -- ce test exige le point de
+    passage partage, et rougit si quelqu'un « simplifie » en re-inlinant.
+    """
+    import ast
+    import inspect
+    from ui import studio_view
+
+    arbre = ast.parse(inspect.getsource(studio_view.StudioView).lstrip())
+    corps = {n.name: n for n in ast.walk(arbre)
+             if isinstance(n, ast.FunctionDef)}
+    for nom in ("load_project", "_begin_inline_new_project"):
+        appels = [n for n in ast.walk(corps[nom])
+                  if isinstance(n, ast.Call)
+                  and getattr(n.func, "attr", "")
+                  == "_clear_previous_project_screen"]
+        assert appels, f"{nom} n'appelle plus le nettoyage partage"
+
+
+def test_the_shared_reset_also_closes_the_serial_port():
+    """⛔ LE MEME DEFAUT QUE LE #96, dans la MEME paire de methodes, sur une
+    autre ligne -- signale en QA le 2026-09-10.
+
+    `load_project` fermait le moniteur serie du projet precedent ;
+    `_begin_inline_new_project` ne le fermait PAS. Creer un nouveau projet
+    laissait donc le port ouvert, et il continuait de deverser dans le
+    journal du projet neuf.
+
+    J'avais cree le point de passage partage pour la banniere, les journaux
+    et l'historique de reparation, et laisse la deconnexion dehors. Deux
+    remises a zero paralleles rediverguent toujours par la ligne qu'on a
+    oublie de deplacer.
+
+    ⚠️ On exige que la fermeture soit DANS le passage partage et NULLE PART
+    ailleurs dans les deux appelants : la recopier laisserait les deux libres
+    de diverger a nouveau, ce qui est exactement le defaut d'origine.
+    """
+    import ast
+    import inspect
+    from ui import studio_view
+
+    arbre = ast.parse(inspect.getsource(studio_view.StudioView).lstrip())
+    corps = {n.name: n for n in ast.walk(arbre)
+             if isinstance(n, ast.FunctionDef)}
+
+    def _fermetures(nom):
+        return [n for n in ast.walk(corps[nom])
+                if isinstance(n, ast.Call)
+                and getattr(n.func, "attr", "") == "close_port"]
+
+    assert len(_fermetures("_clear_previous_project_screen")) == 2, (
+        "le passage partage doit fermer les DEUX moniteurs")
+    for nom in ("load_project", "_begin_inline_new_project"):
+        assert not _fermetures(nom), (
+            f"{nom} ferme le port lui-meme : recopier au lieu de deplacer "
+            f"laisse les deux chemins rediverger (defaut du #96)")
+
+
+def test_the_progression_nudge_is_deliberately_left_alone():
+    """Le seul bandeau qu'on NE masque pas, et pourquoi.
+
+    `_nudge_banner` porte les nudges de progression : app-wide
+    (`session.nudge_seen`) et a usage unique -- `mark_nudge_seen` est appele
+    au moment ou le bandeau s'AFFICHE. Le masquer sur un changement de projet
+    le CONSOMMERAIT sans que l'utilisateur l'ait lu, et il ne reviendrait
+    jamais. Son message parle de l'utilisateur, pas du projet.
+    """
+    import ast
+    import inspect
+    from ui import studio_view
+
+    arbre = ast.parse(inspect.getsource(
+        studio_view.StudioView._clear_previous_project_screen).lstrip())
+    # Sur l'AST : le commentaire qui EXPLIQUE l'exclusion a le droit de nommer
+    # `_nudge_banner`, une ligne de code non.
+    noms = {n.attr for n in ast.walk(arbre) if isinstance(n, ast.Attribute)}
+    assert "_nudge_banner" not in noms, (
+        "le nudge de progression ne doit pas etre masque : il serait consomme "
+        "sans avoir ete lu")
 
 
 TESTS = [
@@ -615,6 +790,10 @@ TESTS = [
     test_the_banner_is_shown_only_after_the_backstage_cancel_check,
     test_the_beginner_path_hides_a_stale_banner_before_the_registry_results,
     test_opening_another_project_hides_the_banner,
+    test_creating_a_new_project_clears_the_screen_too,
+    test_the_two_resets_share_one_passage,
+    test_the_shared_reset_also_closes_the_serial_port,
+    test_the_progression_nudge_is_deliberately_left_alone,
 ]
 
 

@@ -43,7 +43,7 @@ from .project_manager import (
     Project, ProjectType, ProjectManager, project_manager,
     TYPE_LABELS, is_name_valid, Function,
 )
-from .board_manager import COMING_SOON_ENVS
+from .board_manager import COMING_SOON_ENVS, model_label
 # Color palette for features: moved to theme.py (shared with the Studio
 # feature chips bar).
 from .theme import FUNCTION_PALETTE
@@ -431,7 +431,11 @@ class ProjectCard(QFrame):
     def _subtitle(self) -> str:
         s = lang_manager.current
         parts: list[str] = []
-        board = self._project.board_model or self._project.board_env
+        # `board_model` est l'identifiant ENREGISTRÉ dans le projet ; la
+        # card en affiche le libellé (TODO du 2026-09-08).
+        board = (model_label(self._project.board_env,
+                             self._project.board_model)
+                 if self._project.board_model else self._project.board_env)
         parts.append(board if board else s.projects_board_unknown)
         if self._project.updated_at:
             parts.append(f"{s.projects_last_modified} {self._project.updated_at[:10]}")

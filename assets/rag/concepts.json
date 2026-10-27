@@ -1962,7 +1962,7 @@
     "id": "wiz820io-is-a-w5200",
     "name": "WIZ820io runs a W5200, which the old Ethernet library cannot drive",
     "category": "hardware_trap",
-    "summary": "Bought as the compact stand-in for the classic Ethernet shield, this module carries a different controller with a different register layout. Every stock example compiles, and the begin call fails without saying why on any library older than 2.0.",
+    "summary": "Bought as the compact stand-in for the classic Ethernet shield, this module carries a different controller with a different register layout. Every stock example compiles, and the begin call fails silently on any library older than 2.0.",
     "aliases": [
       "wiz820io",
       "w5200",
@@ -1976,11 +1976,11 @@
       "module ethernet 3.3 volts"
     ],
     "facts": [
-      "The controller inside is a W5200, not the W5100 of the classic shield, and the vendor lists the module as not recommended for new design with support ended",
-      "The check that settles which controller is present: the W5200 has a version register at 0x001F reading 0x03. The W5100 has no version register at all, and the W5500 keeps its at 0x0039 reading 0x04",
+      "The controller inside: a W5200, where the classic shield has a W5100. The vendor lists the module as end-of-life, with support ended",
+      "The check that settles which controller sits there: W5200 exposes a version register at 0x001F reading 0x03. W5100 exposes none at all, and W5500 keeps its at 0x0039 reading 0x04",
       "The Arduino library only gained automatic detection of the three controllers in version 2.0.0, so anything older drives the W5100 exclusively: check the library version before re-checking the wiring",
-      "The module is 3.3 volt only, with no regulator or level translation on board, so both power and the serial bus must be handled at that level",
-      "The successor in the same footprint carries a W5500, so migrating is a controller and library change rather than a re-layout"
+      "The module runs 3.3 volt only, with no regulator or level translation on board, so both power and the serial bus must be handled at that level",
+      "The successor in the same footprint carries a W5500, so migrating means a controller and library change rather than a re-layout"
     ]
   },
   {
@@ -2251,6 +2251,62 @@
       "Consequence, and it is total: an MCP23S17 answers NOTHING on I2C. The scan finds an empty bus, which looks exactly like a missing pull-up or a swapped SDA and SCL pair",
       "Diagnostic that settles it in ten seconds: read the marking printed on the chip itself. An S between 23 and 17 means the SPI variant, and rewiring I2C will never help",
       "Three address straps give 0x20 through 0x27 on the I2C part, so an empty scan across that WHOLE block points at the chip rather than at one address"
+    ]
+  },
+  {
+    "id": "sharp-gp2y0a-variantes",
+    "name": "Sharp GP2Y0A: reading the silkscreen, and which library covers which model",
+    "category": "hardware_trap",
+    "aliases": [
+      "gp2y0a21",
+      "2y0a21",
+      "gp2y0a41",
+      "2y0a41",
+      "gp2y0a02",
+      "2y0a02",
+      "gp2y0a51",
+      "2y0a51",
+      "gp2y0a60",
+      "2y0a60",
+      "gp2y0a710",
+      "2y0a710",
+      "gp2y0a700",
+      "gp2y0a21yk0f",
+      "gp2y0a41sk0f",
+      "gp2y0a02yk0f",
+      "gp2y0a51sk0f",
+      "gp2y0a60szlf",
+      "gp2y0a710k0f",
+      "sharpir",
+      "sharpdistsensor",
+      "sharp ir",
+      "telemetre infrarouge",
+      "capteur de distance sharp",
+      "sensor de distancia infrarrojo",
+      "sensore di distanza infrarosso",
+      "serigraphie",
+      "silkscreen",
+      "serigrafia",
+      "variante non supportee",
+      "unsupported variant",
+      "getdistance",
+      "setmodel"
+    ],
+    "summary": "Model name printed on a Sharp GP2Y0A rangefinder omits the GP prefix, followed by a production date code; and two different Arduino libraries cover two different sets of models.",
+    "facts": [
+      "Identity = 2Y0A plus TWO OR THREE DIGITS: 2Y0A21, 2Y0A41, 2Y0A51, 2Y0A02, 2Y0A60, 2Y0A710. Leading GP optional, trailing YK0F or SK0F = output type",
+      "Sharp datasheet E4-A00201EN, section Stamp: marking `2Y0A21  F  4  Z` = model name, then a DATE code -- month 1 to 9 then X=10, Y=11, Z=12, year as its last digit (2005 written 5)",
+      "`2Y0A21 F 81` and `2Y0A21 F 7X` mean the SAME model, made in January and October of two different years: trailing characters carry no variant",
+      "The character between model name and date code (F above) has no explanation in the datasheet legend",
+      "Ranges differ, and so does the conversion curve: 2Y0A51 2-15 cm, 2Y0A41 4-30, 2Y0A21 10-80, 2Y0A02 20-150, 2Y0A60 10-150, 2Y0A710 100-500",
+      "Wiring stays identical across every model: Vcc to 5V, GND to GND, output to an analog pin. Only the code changes",
+      "A wrong model constant yields WRONG DISTANCES THAT COMPILE, with nothing to signal it",
+      "TWO libraries, covering different models. SharpIR (qub1750ul) declares GP2Y0A41SK0F, GP2Y0A21YK0F, GP2Y0A02YK0F, passed to its constructor",
+      "SharpDistSensor (DrGFreeman) declares GP2Y0A51SK0F_5V_DS, GP2Y0A41SK0F_5V_DS, GP2Y0A21F_5V_DS, GP2Y0A60SZLF_5V, GP2Y0A710K0F_5V_DS, passed to setModel, and adds a median filter",
+      "So 2Y0A51, 2Y0A60 and 2Y0A710 work only with SharpDistSensor: SharpIR has no constant for them",
+      "SharpIR getDistance() switches with NO default case, over an uninitialised variable: an unsupported model returns an undefined value rather than an error",
+      "For a model neither library covers (2Y0A700 for instance): read the raw analogRead value, then calibrate by measuring. The relation stays non-linear, and no published coefficients apply",
+      "Promptuino refuses to inject a library for a model neither one covers, and says so, rather than picking a neighbouring constant"
     ]
   }
 ]
