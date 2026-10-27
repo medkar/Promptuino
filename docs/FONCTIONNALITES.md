@@ -2,13 +2,18 @@
 
 Document de référence décrivant le fonctionnement du logiciel.
 
-> ⚠️ **Ce document est PARTIEL, et il le dit plutôt que de le laisser croire.**
-> Relu et corrigé le **2026-10-27** ; il décrivait jusque-là l'application de
-> juin 2026. Ce qui y est écrit est désormais vérifié contre le code, mais
-> **trois chantiers majeurs n'y sont pas encore décrits** : le **schéma de
-> câblage** déduit du code, l'**assistant conversationnel** ancré sur le
-> projet, et l'onglet **Composants**. Les deux premiers sont pourtant mis en
-> avant par le README. Pour ces sujets, le code et les tests font foi.
+> **Relu, corrigé et complété le 2026-10-27.** Il décrivait jusque-là
+> l'application de juin 2026 : chaque affirmation a été reprise contre le
+> code, et les **trois chantiers qui manquaient** y sont désormais décrits —
+> le **schéma de câblage** déduit du croquis (§ 8), l'**assistant
+> conversationnel** ancré sur le projet (§ 9) et l'onglet **Composants**
+> (§ 10). Les deux premiers sont ceux que le README met en avant ; ils
+> n'apparaissaient nulle part ici.
+>
+> ⚠️ Un document de fonctionnalités **se périme en silence** : rien ne
+> l'exécute, aucun test ne le lit. Quand une section et le code divergent,
+> **c'est le code qui fait foi** — et la divergence est un défaut à corriger
+> ici, pas une nuance à tolérer.
 
 ---
 
@@ -81,7 +86,7 @@ Cinq onglets, dans l'ordre :
 
 > L'onglet **Librairies** a disparu de la sidebar : la gestion des
 > bibliothèques Arduino vit désormais dans **Paramètres → Bibliothèques**
-> (cf. § 9).
+> (cf. § 12).
 
 Cliquer sur le bouton de pli réduit la sidebar à 52 px (icônes seules).
 
@@ -175,12 +180,12 @@ Les colonnes sont redimensionnables (QSplitter).
 1. L'utilisateur écrit en langage naturel dans la colonne prompt
    (ex. « fais clignoter la LED de la pin 13 toutes les 500 ms »).
 2. Au clic sur **Générer**, le système :
-   - **Augmente** le prompt avec le contexte RAG (voir §10) — exemples
+   - **Augmente** le prompt avec le contexte RAG (voir § 14) — exemples
      d'API et descriptions des librairies pertinentes injectés en haut.
    - Envoie le prompt augmenté au backend IA actif (Claude Code,
      Anthropic API, Gemini ou Ollama).
    - Parse les marqueurs spéciaux retournés par l'IA pour assigner les
-     lignes générées à une **fonctionnalité** (voir §6).
+     lignes générées à une **fonctionnalité** (voir § 6).
    - Insère le code dans l'éditeur sans écraser ce qui existe déjà :
      les nouvelles fonctionnalités s'ajoutent au code existant.
 
@@ -329,7 +334,130 @@ fermante manque ET que l'indentation permet de la situer, elle est ajoutée.
 
 ---
 
-## 8. Vue Projets
+## 8. Le schéma de câblage
+
+C'est la fonctionnalité qui distingue Promptuino d'un simple générateur de
+code : **le schéma n'est pas demandé au modèle, il est DÉDUIT du croquis
+produit**. Une analyse statique (`ui/wiring/markers.py`) relit le code,
+reconnaît les composants, et le pipeline les place sur une breadboard puis
+tire les fils.
+
+### De quoi il part
+
+- les `#include` et les **constructeurs** (`Servo.h`, `AccelStepper(DRIVER,
+  STEP, DIR)`, `DHT capteur(2, DHT11)`…) ;
+- les appels de broches : `pinMode`, `digitalWrite`, `analogRead`,
+  `analogWrite`, `tone`… y compris quand le croquis les factorise dans une
+  fonction utilitaire ;
+- les **identifiants** que le code emploie (`LDR_PIN`, `L298N_ENA`).
+
+⛔ **Les commentaires ne comptent pas.** Le câblage est établi depuis ce que
+le croquis FAIT, jamais depuis ce qu'une prose en dit : un constructeur
+commenté ne produit plus de composant.
+
+### Trois niveaux de certitude
+
+| niveau | qui le dit | conséquence |
+| ------ | ---------- | ----------- |
+| 1 | le **code** (`#include <L298N.h>`) | composant certain, aucune question posée |
+| 2 | le **prompt** (« 2 moteurs DC avec L298N ») | résolution silencieuse |
+| 3 | **rien** — des broches nues | l'application demande |
+
+### L'honnêteté avant l'exactitude
+
+Le schéma est **expérimental par construction** : il lit du code, donc il
+devine parfois. La règle n'est pas d'être exact, c'est de **ne jamais
+présenter une devinette comme une certitude**. Quatre filets le disent à
+l'écran :
+
+- un `#include` inconnu donne une boîte **non câblée** — aucun fil inventé ;
+- un composant inconnu dans un croquis I2C reçoit un câblage **présumé**, et
+  le mot est écrit ;
+- `analogRead(A0)` ne dit rien de ce qui est branché : le potentiomètre
+  dessiné par défaut s'annonce comme **présumé** ;
+- un composant qu'aucun dessin ne couvre est **signalé** au lieu d'être omis.
+
+### Corriger ce que l'application a deviné
+
+Chaque composant incertain porte un **engrenage** : on change son type, on
+remplace une puce par une autre, on décrit soi-même un composant que
+l'application ne connaît pas (nom, broches, étiquettes). Un composant ainsi
+décrit est **enregistré** et réutilisé dans les autres projets.
+
+Quand le remplacement implique que le code doit changer, l'application
+**propose** de régénérer — elle ne le fait jamais d'office.
+
+### Les instructions de branchement
+
+À côté du schéma, le texte énumère les branchements broche par broche, dans
+la langue de l'utilisateur, avec les avertissements qui comptent : résistance
+série d'une LED, cavalier 5V d'un L298N, bornes d'un capteur de courant qui
+ne vont **pas** à la carte.
+
+---
+
+## 9. L'assistant conversationnel
+
+Un panneau de chat occupe le bord droit de la fenêtre (**340 px**, repliable
+à **48 px**, état conservé entre sessions). Il n'est pas un chatbot
+générique : il est **ancré sur le projet en cours** — il voit le code et le
+matériel, pas seulement la question.
+
+### Ce qu'il reçoit
+
+Un index **BM25 en Python pur** (aucune dépendance d'apprentissage) cherche
+dans deux sources : le **corpus** de bibliothèques et `concepts.json`, qui
+porte **140 fiches** — 62 concepts, 16 cartes et **62 pièges matériels**
+(ce qui chauffe, ce qui demande une résistance, ce qui ne supporte pas 5 V).
+
+Le nombre de fiches injectées dépend du moteur : **une** pour un modèle local
+(fenêtre étroite), **trois** pour un modèle cloud.
+
+### Points d'entrée
+
+- une question libre dans le champ de saisie, dont le texte d'invite fait
+  défiler des **astuces** tant qu'il est vide ;
+- le bouton **« Demander de l'aide sur cette erreur »**, sous le journal,
+  qui pré-remplit la question avec l'erreur de compilation ;
+- le **« ? »** des composants ambigus du schéma ;
+- des **pièces jointes** déposées dans le champ.
+
+---
+
+## 10. L'onglet Composants
+
+La bibliothèque de composants : ce que l'application connaît, et ce que
+l'utilisateur lui a appris.
+
+### Deux magasins, une seule liste
+
+- le **registre curé** — **219 composants** en lecture seule, chacun avec sa
+  fonction, son montage, l'état de son dessin et les documents du corpus qui
+  le décrivent ;
+- les composants **décrits par l'utilisateur**, modifiables, conservés dans
+  `components.json` et donc **réutilisables d'un projet à l'autre**.
+
+S'y ajoute une troisième provenance : les composants que l'application a dû
+**deviner** en interrogeant le registre Arduino. ⚠️ Une fiche seulement
+devinée vient d'un cache qui s'évince ; dès que l'utilisateur a **choisi** sa
+bibliothèque, elle ne disparaît plus.
+
+### Recherche et filtres
+
+Une recherche et quatre filtres : **Tous**, **Perso**, **Sans librairie**,
+**Avec librairie**. ⚠️ « Sans librairie » n'est pas un défaut : une LDR ou un
+bouton n'en demandent aucune, et l'affirmer est une information.
+
+### La fiche
+
+Nombre de broches, bibliothèque associée, description. Deux actions : le
+crayon rouvre le formulaire d'un composant perso, et **« Changer de
+librairie »** permet de corriger un choix que l'application avait fait seule
+— avec une offre de régénération si le code en dépend.
+
+---
+
+## 11. Vue Projets
 
 L'onglet **Projets** liste tous les projets enregistrés dans le workspace,
 groupés par plateforme.
@@ -360,7 +488,7 @@ supprimer en lot.
 
 ---
 
-## 9. Gestion des librairies (Paramètres → Bibliothèques)
+## 12. Gestion des librairies (Paramètres → Bibliothèques)
 
 > ⚠️ **Ce n'est plus un onglet de la sidebar.** Cet écran a été déplacé dans
 > **Paramètres → Bibliothèques** ; la place qu'il occupait revient à l'onglet
@@ -399,7 +527,7 @@ s'affiche en haut de la vue.
 
 ---
 
-## 10. Modèle IA et backends
+## 13. Modèle IA et backends
 
 L'onglet **Modèle IA** permet de choisir le moteur de génération. Deux
 backends ont leur propre implémentation, et tous les autres passent par une
@@ -449,7 +577,7 @@ templates.
 
 ---
 
-## 11. Système RAG (retrieval-augmented generation)
+## 14. Système RAG (retrieval-augmented generation)
 
 Le RAG fournit à l'IA des **exemples concrets** d'usage des librairies
 embarquées avant la génération, ce qui élimine les hallucinations
@@ -519,7 +647,7 @@ contexte enrichi.
 
 ---
 
-## 12. Moniteur série
+## 15. Moniteur série
 
 Intégré au bas du Studio. ⚠️ **Une seule console sert les trois modes**
 depuis le 2026-09-08 : changer de mode ne coupe plus le port et ne change
@@ -541,7 +669,7 @@ quitter l'app.
 
 ---
 
-## 13. Paramètres et personnalisation
+## 16. Paramètres et personnalisation
 
 **Fichier → Paramètres** ouvre un dialog à **six** pages : Langue, Thème,
 Stockage, Bibliothèques, Confidentialité et Coulisses du prompt.
@@ -564,7 +692,7 @@ Sombre / clair, appliqué en temps réel à tous les widgets.
 
 ### Bibliothèques
 
-L'écran décrit au § 9 — installer, chercher, supprimer les librairies
+L'écran décrit au § 12 — installer, chercher, supprimer les librairies
 Arduino.
 
 ### Confidentialité
@@ -580,7 +708,7 @@ ou d'annuler.
 
 ---
 
-## 14. Fichiers persistés
+## 17. Fichiers persistés
 
 | Fichier                             | Contenu                                              |
 | ----------------------------------- | ---------------------------------------------------- |
@@ -598,7 +726,7 @@ ou d'annuler.
 
 ---
 
-## 15. Raccourcis clavier
+## 18. Raccourcis clavier
 
 | Raccourci         | Action                                       |
 | ----------------- | -------------------------------------------- |
@@ -613,7 +741,7 @@ ou d'annuler.
 
 ---
 
-## 16. Architecture (vue de haut)
+## 19. Architecture (vue de haut)
 
 PromptuinoUI suit un découpage modulaire strict :
 
@@ -665,7 +793,7 @@ PromptuinoUI/
 
 ---
 
-## 17. Liens
+## 20. Liens
 
 - **PromptuinoUI** (interface) : https://github.com/medkar/PromptuinoUI
 - **Promptuino** (modules historiques) : https://github.com/medkar/promptuino
