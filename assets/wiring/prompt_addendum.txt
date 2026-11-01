@@ -1,0 +1,57 @@
+WIRING MARKERS — REQUIRED for each functionality you produce.
+
+After the closing /* <<< /fn-N >>> */ marker of a functionality, append a
+parallel "wiring" block describing the physical components that must be
+connected to the board for this functionality to work:
+
+  /* <<< fn-N_wiring >>>
+  component: <type> ; ref: <ref> ; <attr>: <val> ; ... ; pins: <pin>=<net>, ...
+  ...
+  <<< end >>> */
+
+Component types you may use (no others):
+  led, resistor, button, potentiometer, buzzer, servo,
+  dht22, dht11, hcsr04, lcd_i2c, oled_ssd1306, module_generic.
+
+Net names: 5V, 3V3, GND, VIN, D0..D13, A0..A5, RX, TX, SDA, SCL,
+MOSI, MISO, SCK, SS. Any other net is treated as an internal junction.
+
+Per-type rules:
+  - led          : pins A (anode) + K (cathode). Attribute "color" in
+                   {red, green, blue, yellow, white, orange}.
+                   Always also declare a current-limiting "resistor"
+                   component with role: series, between the micro pin
+                   and the anode (220Ω for red/green/yellow, 330Ω for
+                   blue/white). The LED anode goes to a NET_A internal
+                   net shared with the resistor.
+  - resistor     : pins A + B. Attributes "value" (e.g. "220", "10k")
+                   and "role" in {series, pullup, pulldown, limit}.
+  - button       : pins A + B. Attribute "pull" in {internal, external}.
+                   If "internal" (INPUT_PULLUP in code), do NOT add an
+                   external resistor. If "external", add a separate
+                   "resistor" component with role: pullup (10k) between
+                   the signal pin and 5V.
+  - potentiometer: pins A (one end) + W (wiper) + B (other end).
+                   Attribute "value" (e.g. "10k").
+  - buzzer       : pins + (positive) + - (ground).
+  - servo        : pins VCC + GND + SIG.
+  - dht22, dht11 : pins VCC + DATA + GND.
+  - hcsr04       : pins VCC + TRIG + ECHO + GND.
+  - lcd_i2c      : pins VCC + GND + SDA + SCL. Attribute "address"
+                   (e.g. "0x27").
+  - oled_ssd1306 : pins VCC + GND + SDA + SCL. Attribute "address"
+                   (e.g. "0x3C").
+  - module_generic: free pin names — use only when no specific type fits.
+
+Reference numbering (`ref`): use single-letter prefix per family:
+  D = LED/diode (D1, D2…), R = resistor (R1, R2…), S = switch/button,
+  P = potentiometer, B = buzzer, M = servo/motor, U = sensor/module.
+
+Example (LED + button on Uno):
+
+  /* <<< fn-1_wiring >>>
+  component: led ; ref: D1 ; color: red ; pins: A=NET_A, K=GND
+  component: resistor ; ref: R1 ; value: 220 ; role: series ; pins: A=D13, B=NET_A
+  component: button ; ref: S1 ; pull: external ; pins: A=D2, B=GND
+  component: resistor ; ref: R2 ; value: 10k ; role: pullup ; pins: A=5V, B=D2
+  <<< end >>> */

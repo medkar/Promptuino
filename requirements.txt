@@ -1,0 +1,19 @@
+PyQt6>=6.4.0
+PyQt6-Qt6>=6.4.0
+PyQt6-sip>=13.4.0
+pyserial>=3.5
+keyring>=24.0.0
+markdown>=3.4         # rendu des messages du chat (fallback texte brut si absent)
+
+# RAG (library retrieval) — runtime stack (no torch / sentence-transformers).
+# The ONNX model + tokenizer live under assets/rag/model/, generated once via
+# scripts/export_onnx_model.py (dev-only deps: optimum[onnxruntime]).
+# Version FIGÉE : les builds onnxruntime récents (>= 1.2x) exigent un runtime
+# VC++ trop neuf et échouent au chargement de la DLL ("DLL initialization
+# routine failed") sur un Windows pourtant à jour normalement → RAG désactivé en
+# silence (pas de clarification, pas de contexte de lib). 1.19.2 charge avec le
+# runtime VC++ 2015-2022 standard. Pour remonter de version, installer d'abord
+# https://aka.ms/vs/17/release/vc_redist.x64.exe sur toutes les machines.
+onnxruntime==1.19.2
+tokenizers>=0.20.0
+numpy>=1.23.0

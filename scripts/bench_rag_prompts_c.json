@@ -1,0 +1,586 @@
+[
+ {
+  "prompt": "finalement affiche la temperature en degres Celsius au lieu de Fahrenheit",
+  "lang": "fr",
+  "band": "unit_change",
+  "expect": [],
+  "project": "bme280",
+  "project_headers": [
+   "Wire.h",
+   "Adafruit_Sensor.h",
+   "Adafruit_BME280.h"
+  ],
+  "added": "2026-08-26",
+  "source": "TODO #64 -- prompts de suite"
+ },
+ {
+  "prompt": "actually show the temperature in Celsius instead of Fahrenheit",
+  "lang": "en",
+  "band": "unit_change",
+  "expect": [],
+  "project": "bme280",
+  "project_headers": [
+   "Wire.h",
+   "Adafruit_Sensor.h",
+   "Adafruit_BME280.h"
+  ],
+  "added": "2026-08-26",
+  "source": "TODO #64 -- prompts de suite"
+ },
+ {
+  "prompt": "muestra la temperatura en Celsius en lugar de Fahrenheit",
+  "lang": "es",
+  "band": "unit_change",
+  "expect": [],
+  "project": "bme280",
+  "project_headers": [
+   "Wire.h",
+   "Adafruit_Sensor.h",
+   "Adafruit_BME280.h"
+  ],
+  "added": "2026-08-26",
+  "source": "TODO #64 -- prompts de suite"
+ },
+ {
+  "prompt": "mostra la temperatura in Celsius invece che in Fahrenheit",
+  "lang": "it",
+  "band": "unit_change",
+  "expect": [],
+  "project": "bme280",
+  "project_headers": [
+   "Wire.h",
+   "Adafruit_Sensor.h",
+   "Adafruit_BME280.h"
+  ],
+  "added": "2026-08-26",
+  "source": "TODO #64 -- prompts de suite"
+ },
+ {
+  "prompt": "arrondis la temperature a un chiffre apres la virgule",
+  "lang": "fr",
+  "band": "unit_change",
+  "expect": [],
+  "project": "ds18b20",
+  "project_headers": [
+   "OneWire.h",
+   "DallasTemperature.h"
+  ],
+  "added": "2026-08-26",
+  "source": "TODO #64 -- prompts de suite"
+ },
+ {
+  "prompt": "round the temperature to one decimal place",
+  "lang": "en",
+  "band": "unit_change",
+  "expect": [],
+  "project": "ds18b20",
+  "project_headers": [
+   "OneWire.h",
+   "DallasTemperature.h"
+  ],
+  "added": "2026-08-26",
+  "source": "TODO #64 -- prompts de suite"
+ },
+ {
+  "prompt": "redondea la temperatura a un decimal",
+  "lang": "es",
+  "band": "unit_change",
+  "expect": [],
+  "project": "ds18b20",
+  "project_headers": [
+   "OneWire.h",
+   "DallasTemperature.h"
+  ],
+  "added": "2026-08-26",
+  "source": "TODO #64 -- prompts de suite"
+ },
+ {
+  "prompt": "arrotonda la temperatura a un decimale",
+  "lang": "it",
+  "band": "unit_change",
+  "expect": [],
+  "project": "ds18b20",
+  "project_headers": [
+   "OneWire.h",
+   "DallasTemperature.h"
+  ],
+  "added": "2026-08-26",
+  "source": "TODO #64 -- prompts de suite"
+ },
+ {
+  "prompt": "change la frequence de mesure pour une fois par seconde",
+  "lang": "fr",
+  "band": "behaviour",
+  "expect": [],
+  "project": "bme280",
+  "project_headers": [
+   "Wire.h",
+   "Adafruit_Sensor.h",
+   "Adafruit_BME280.h"
+  ],
+  "added": "2026-08-26",
+  "source": "TODO #64 -- prompts de suite"
+ },
+ {
+  "prompt": "change the measurement rate to once per second",
+  "lang": "en",
+  "band": "behaviour",
+  "expect": [],
+  "project": "bme280",
+  "project_headers": [
+   "Wire.h",
+   "Adafruit_Sensor.h",
+   "Adafruit_BME280.h"
+  ],
+  "added": "2026-08-26",
+  "source": "TODO #64 -- prompts de suite"
+ },
+ {
+  "prompt": "cambia la frecuencia de medicion a una vez por segundo",
+  "lang": "es",
+  "band": "behaviour",
+  "expect": [],
+  "project": "bme280",
+  "project_headers": [
+   "Wire.h",
+   "Adafruit_Sensor.h",
+   "Adafruit_BME280.h"
+  ],
+  "added": "2026-08-26",
+  "source": "TODO #64 -- prompts de suite"
+ },
+ {
+  "prompt": "cambia la frequenza di misura a una volta al secondo",
+  "lang": "it",
+  "band": "behaviour",
+  "expect": [],
+  "project": "bme280",
+  "project_headers": [
+   "Wire.h",
+   "Adafruit_Sensor.h",
+   "Adafruit_BME280.h"
+  ],
+  "added": "2026-08-26",
+  "source": "TODO #64 -- prompts de suite"
+ },
+ {
+  "prompt": "ralentis le mouvement du servomoteur",
+  "lang": "fr",
+  "band": "behaviour",
+  "expect": [],
+  "project": "servo",
+  "project_headers": [
+   "Servo.h"
+  ],
+  "added": "2026-08-26",
+  "source": "TODO #64 -- prompts de suite"
+ },
+ {
+  "prompt": "slow down the servo movement",
+  "lang": "en",
+  "band": "behaviour",
+  "expect": [],
+  "project": "servo",
+  "project_headers": [
+   "Servo.h"
+  ],
+  "added": "2026-08-26",
+  "source": "TODO #64 -- prompts de suite"
+ },
+ {
+  "prompt": "ralentiza el movimiento del servo",
+  "lang": "es",
+  "band": "behaviour",
+  "expect": [],
+  "project": "servo",
+  "project_headers": [
+   "Servo.h"
+  ],
+  "added": "2026-08-26",
+  "source": "TODO #64 -- prompts de suite"
+ },
+ {
+  "prompt": "rallenta il movimento del servo",
+  "lang": "it",
+  "band": "behaviour",
+  "expect": [],
+  "project": "servo",
+  "project_headers": [
+   "Servo.h"
+  ],
+  "added": "2026-08-26",
+  "source": "TODO #64 -- prompts de suite"
+ },
+ {
+  "prompt": "ajoute un ecran OLED pour afficher la valeur",
+  "lang": "fr",
+  "band": "add_unnamed",
+  "expect": [
+   "adafruit-ssd1306",
+   "sh1106",
+   "liquidcrystal-i2c"
+  ],
+  "project": "bme280",
+  "project_headers": [
+   "Wire.h",
+   "Adafruit_Sensor.h",
+   "Adafruit_BME280.h"
+  ],
+  "added": "2026-08-26",
+  "source": "TODO #64 -- prompts de suite"
+ },
+ {
+  "prompt": "add an OLED screen to show the value",
+  "lang": "en",
+  "band": "add_unnamed",
+  "expect": [
+   "adafruit-ssd1306",
+   "sh1106",
+   "liquidcrystal-i2c"
+  ],
+  "project": "bme280",
+  "project_headers": [
+   "Wire.h",
+   "Adafruit_Sensor.h",
+   "Adafruit_BME280.h"
+  ],
+  "added": "2026-08-26",
+  "source": "TODO #64 -- prompts de suite"
+ },
+ {
+  "prompt": "anade una pantalla OLED para mostrar el valor",
+  "lang": "es",
+  "band": "add_unnamed",
+  "expect": [
+   "adafruit-ssd1306",
+   "sh1106",
+   "liquidcrystal-i2c"
+  ],
+  "project": "bme280",
+  "project_headers": [
+   "Wire.h",
+   "Adafruit_Sensor.h",
+   "Adafruit_BME280.h"
+  ],
+  "added": "2026-08-26",
+  "source": "TODO #64 -- prompts de suite"
+ },
+ {
+  "prompt": "aggiungi uno schermo OLED per mostrare il valore",
+  "lang": "it",
+  "band": "add_unnamed",
+  "expect": [
+   "adafruit-ssd1306",
+   "sh1106",
+   "liquidcrystal-i2c"
+  ],
+  "project": "bme280",
+  "project_headers": [
+   "Wire.h",
+   "Adafruit_Sensor.h",
+   "Adafruit_BME280.h"
+  ],
+  "added": "2026-08-26",
+  "source": "TODO #64 -- prompts de suite"
+ },
+ {
+  "prompt": "ajoute un capteur de distance a ultrasons",
+  "lang": "fr",
+  "band": "add_unnamed",
+  "expect": [
+   "newping"
+  ],
+  "project": "servo",
+  "project_headers": [
+   "Servo.h"
+  ],
+  "added": "2026-08-26",
+  "source": "TODO #64 -- prompts de suite"
+ },
+ {
+  "prompt": "add an ultrasonic distance sensor",
+  "lang": "en",
+  "band": "add_unnamed",
+  "expect": [
+   "newping"
+  ],
+  "project": "servo",
+  "project_headers": [
+   "Servo.h"
+  ],
+  "added": "2026-08-26",
+  "source": "TODO #64 -- prompts de suite"
+ },
+ {
+  "prompt": "anade un sensor de distancia por ultrasonidos",
+  "lang": "es",
+  "band": "add_unnamed",
+  "expect": [
+   "newping"
+  ],
+  "project": "servo",
+  "project_headers": [
+   "Servo.h"
+  ],
+  "added": "2026-08-26",
+  "source": "TODO #64 -- prompts de suite"
+ },
+ {
+  "prompt": "aggiungi un sensore di distanza a ultrasuoni",
+  "lang": "it",
+  "band": "add_unnamed",
+  "expect": [
+   "newping"
+  ],
+  "project": "servo",
+  "project_headers": [
+   "Servo.h"
+  ],
+  "added": "2026-08-26",
+  "source": "TODO #64 -- prompts de suite"
+ },
+ {
+  "prompt": "ajoute un ecran OLED SSD1306 pour afficher la valeur",
+  "lang": "fr",
+  "band": "add_named",
+  "expect": [
+   "adafruit-ssd1306"
+  ],
+  "project": "bme280",
+  "project_headers": [
+   "Wire.h",
+   "Adafruit_Sensor.h",
+   "Adafruit_BME280.h"
+  ],
+  "added": "2026-08-26",
+  "source": "TODO #64 -- prompts de suite"
+ },
+ {
+  "prompt": "add an SSD1306 OLED screen to show the value",
+  "lang": "en",
+  "band": "add_named",
+  "expect": [
+   "adafruit-ssd1306"
+  ],
+  "project": "bme280",
+  "project_headers": [
+   "Wire.h",
+   "Adafruit_Sensor.h",
+   "Adafruit_BME280.h"
+  ],
+  "added": "2026-08-26",
+  "source": "TODO #64 -- prompts de suite"
+ },
+ {
+  "prompt": "anade una pantalla OLED SSD1306 para mostrar el valor",
+  "lang": "es",
+  "band": "add_named",
+  "expect": [
+   "adafruit-ssd1306"
+  ],
+  "project": "bme280",
+  "project_headers": [
+   "Wire.h",
+   "Adafruit_Sensor.h",
+   "Adafruit_BME280.h"
+  ],
+  "added": "2026-08-26",
+  "source": "TODO #64 -- prompts de suite"
+ },
+ {
+  "prompt": "aggiungi uno schermo OLED SSD1306 per mostrare il valore",
+  "lang": "it",
+  "band": "add_named",
+  "expect": [
+   "adafruit-ssd1306"
+  ],
+  "project": "bme280",
+  "project_headers": [
+   "Wire.h",
+   "Adafruit_Sensor.h",
+   "Adafruit_BME280.h"
+  ],
+  "added": "2026-08-26",
+  "source": "TODO #64 -- prompts de suite"
+ },
+ {
+  "prompt": "ajoute un capteur DHT22 pour lire l'humidite",
+  "lang": "fr",
+  "band": "add_named",
+  "expect": [
+   "dht-sensor-library"
+  ],
+  "project": "servo",
+  "project_headers": [
+   "Servo.h"
+  ],
+  "added": "2026-08-26",
+  "source": "TODO #64 -- prompts de suite"
+ },
+ {
+  "prompt": "add a DHT22 sensor to read the humidity",
+  "lang": "en",
+  "band": "add_named",
+  "expect": [
+   "dht-sensor-library"
+  ],
+  "project": "servo",
+  "project_headers": [
+   "Servo.h"
+  ],
+  "added": "2026-08-26",
+  "source": "TODO #64 -- prompts de suite"
+ },
+ {
+  "prompt": "anade un sensor DHT22 para leer la humedad",
+  "lang": "es",
+  "band": "add_named",
+  "expect": [
+   "dht-sensor-library"
+  ],
+  "project": "servo",
+  "project_headers": [
+   "Servo.h"
+  ],
+  "added": "2026-08-26",
+  "source": "TODO #64 -- prompts de suite"
+ },
+ {
+  "prompt": "aggiungi un sensore DHT22 per leggere l'umidita",
+  "lang": "it",
+  "band": "add_named",
+  "expect": [
+   "dht-sensor-library"
+  ],
+  "project": "servo",
+  "project_headers": [
+   "Servo.h"
+  ],
+  "added": "2026-08-26",
+  "source": "TODO #64 -- prompts de suite"
+ },
+ {
+  "prompt": "finalement lis la temperature avec un DS18B20",
+  "lang": "fr",
+  "band": "replace_named",
+  "expect": [
+   "dallas-temperature"
+  ],
+  "project": "bme280",
+  "project_headers": [
+   "Wire.h",
+   "Adafruit_Sensor.h",
+   "Adafruit_BME280.h"
+  ],
+  "added": "2026-08-26",
+  "source": "TODO #64 -- prompts de suite"
+ },
+ {
+  "prompt": "actually read the temperature with a DS18B20",
+  "lang": "en",
+  "band": "replace_named",
+  "expect": [
+   "dallas-temperature"
+  ],
+  "project": "bme280",
+  "project_headers": [
+   "Wire.h",
+   "Adafruit_Sensor.h",
+   "Adafruit_BME280.h"
+  ],
+  "added": "2026-08-26",
+  "source": "TODO #64 -- prompts de suite"
+ },
+ {
+  "prompt": "lee la temperatura con un DS18B20 en su lugar",
+  "lang": "es",
+  "band": "replace_named",
+  "expect": [
+   "dallas-temperature"
+  ],
+  "project": "bme280",
+  "project_headers": [
+   "Wire.h",
+   "Adafruit_Sensor.h",
+   "Adafruit_BME280.h"
+  ],
+  "added": "2026-08-26",
+  "source": "TODO #64 -- prompts de suite"
+ },
+ {
+  "prompt": "leggi invece la temperatura con un DS18B20",
+  "lang": "it",
+  "band": "replace_named",
+  "expect": [
+   "dallas-temperature"
+  ],
+  "project": "bme280",
+  "project_headers": [
+   "Wire.h",
+   "Adafruit_Sensor.h",
+   "Adafruit_BME280.h"
+  ],
+  "added": "2026-08-26",
+  "source": "TODO #64 -- prompts de suite"
+ },
+ {
+  "prompt": "remplace le servomoteur par un moteur pas a pas 28BYJ-48",
+  "lang": "fr",
+  "band": "replace_named",
+  "expect": [
+   "stepper_28byj48",
+   "accelstepper"
+  ],
+  "project": "servo",
+  "project_headers": [
+   "Servo.h"
+  ],
+  "added": "2026-08-26",
+  "source": "TODO #64 -- prompts de suite"
+ },
+ {
+  "prompt": "replace the servo with a 28BYJ-48 stepper motor",
+  "lang": "en",
+  "band": "replace_named",
+  "expect": [
+   "stepper_28byj48",
+   "accelstepper"
+  ],
+  "project": "servo",
+  "project_headers": [
+   "Servo.h"
+  ],
+  "added": "2026-08-26",
+  "source": "TODO #64 -- prompts de suite"
+ },
+ {
+  "prompt": "sustituye el servo por un motor paso a paso 28BYJ-48",
+  "lang": "es",
+  "band": "replace_named",
+  "expect": [
+   "stepper_28byj48",
+   "accelstepper"
+  ],
+  "project": "servo",
+  "project_headers": [
+   "Servo.h"
+  ],
+  "added": "2026-08-26",
+  "source": "TODO #64 -- prompts de suite"
+ },
+ {
+  "prompt": "sostituisci il servo con un motore passo passo 28BYJ-48",
+  "lang": "it",
+  "band": "replace_named",
+  "expect": [
+   "stepper_28byj48",
+   "accelstepper"
+  ],
+  "project": "servo",
+  "project_headers": [
+   "Servo.h"
+  ],
+  "added": "2026-08-26",
+  "source": "TODO #64 -- prompts de suite"
+ }
+]

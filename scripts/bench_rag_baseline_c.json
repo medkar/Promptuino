@@ -1,0 +1,415 @@
+[
+ {
+  "prompt": "finalement affiche la temperature en degres Celsius au lieu de Fahrenheit",
+  "lang": "fr",
+  "band": "unit_change",
+  "project": "bme280",
+  "injecte": [
+   "adafruit-bme280"
+  ],
+  "outcome": "redundant"
+ },
+ {
+  "prompt": "actually show the temperature in Celsius instead of Fahrenheit",
+  "lang": "en",
+  "band": "unit_change",
+  "project": "bme280",
+  "injecte": [
+   "adafruit-bme280"
+  ],
+  "outcome": "redundant"
+ },
+ {
+  "prompt": "muestra la temperatura en Celsius en lugar de Fahrenheit",
+  "lang": "es",
+  "band": "unit_change",
+  "project": "bme280",
+  "injecte": [
+   "adafruit-bme280"
+  ],
+  "outcome": "redundant"
+ },
+ {
+  "prompt": "mostra la temperatura in Celsius invece che in Fahrenheit",
+  "lang": "it",
+  "band": "unit_change",
+  "project": "bme280",
+  "injecte": [
+   "adafruit-bme280"
+  ],
+  "outcome": "redundant"
+ },
+ {
+  "prompt": "arrondis la temperature a un chiffre apres la virgule",
+  "lang": "fr",
+  "band": "unit_change",
+  "project": "ds18b20",
+  "injecte": [
+   "dallas-temperature"
+  ],
+  "outcome": "redundant"
+ },
+ {
+  "prompt": "round the temperature to one decimal place",
+  "lang": "en",
+  "band": "unit_change",
+  "project": "ds18b20",
+  "injecte": [
+   "dallas-temperature"
+  ],
+  "outcome": "redundant"
+ },
+ {
+  "prompt": "redondea la temperatura a un decimal",
+  "lang": "es",
+  "band": "unit_change",
+  "project": "ds18b20",
+  "injecte": [
+   "dallas-temperature"
+  ],
+  "outcome": "redundant"
+ },
+ {
+  "prompt": "arrotonda la temperatura a un decimale",
+  "lang": "it",
+  "band": "unit_change",
+  "project": "ds18b20",
+  "injecte": [
+   "dallas-temperature"
+  ],
+  "outcome": "redundant"
+ },
+ {
+  "prompt": "change la frequence de mesure pour une fois par seconde",
+  "lang": "fr",
+  "band": "behaviour",
+  "project": "bme280",
+  "injecte": [
+   "adafruit-bme280"
+  ],
+  "outcome": "redundant"
+ },
+ {
+  "prompt": "change the measurement rate to once per second",
+  "lang": "en",
+  "band": "behaviour",
+  "project": "bme280",
+  "injecte": [
+   "adafruit-bme280"
+  ],
+  "outcome": "redundant"
+ },
+ {
+  "prompt": "cambia la frecuencia de medicion a una vez por segundo",
+  "lang": "es",
+  "band": "behaviour",
+  "project": "bme280",
+  "injecte": [
+   "adafruit-bme280"
+  ],
+  "outcome": "redundant"
+ },
+ {
+  "prompt": "cambia la frequenza di misura a una volta al secondo",
+  "lang": "it",
+  "band": "behaviour",
+  "project": "bme280",
+  "injecte": [
+   "adafruit-bme280"
+  ],
+  "outcome": "redundant"
+ },
+ {
+  "prompt": "ralentis le mouvement du servomoteur",
+  "lang": "fr",
+  "band": "behaviour",
+  "project": "servo",
+  "injecte": [
+   "servo"
+  ],
+  "outcome": "redundant"
+ },
+ {
+  "prompt": "slow down the servo movement",
+  "lang": "en",
+  "band": "behaviour",
+  "project": "servo",
+  "injecte": [
+   "servo"
+  ],
+  "outcome": "redundant"
+ },
+ {
+  "prompt": "ralentiza el movimiento del servo",
+  "lang": "es",
+  "band": "behaviour",
+  "project": "servo",
+  "injecte": [
+   "servo"
+  ],
+  "outcome": "redundant"
+ },
+ {
+  "prompt": "rallenta il movimento del servo",
+  "lang": "it",
+  "band": "behaviour",
+  "project": "servo",
+  "injecte": [],
+  "outcome": "correct"
+ },
+ {
+  "prompt": "ajoute un ecran OLED pour afficher la valeur",
+  "lang": "fr",
+  "band": "add_unnamed",
+  "project": "bme280",
+  "injecte": [
+   "adafruit-bme280",
+   "sh1106",
+   "ssd1351"
+  ],
+  "outcome": "correct"
+ },
+ {
+  "prompt": "add an OLED screen to show the value",
+  "lang": "en",
+  "band": "add_unnamed",
+  "project": "bme280",
+  "injecte": [
+   "adafruit-bme280",
+   "sh1106",
+   "adafruit-ssd1306"
+  ],
+  "outcome": "correct"
+ },
+ {
+  "prompt": "anade una pantalla OLED para mostrar el valor",
+  "lang": "es",
+  "band": "add_unnamed",
+  "project": "bme280",
+  "injecte": [
+   "adafruit-bme280",
+   "sh1106"
+  ],
+  "outcome": "correct"
+ },
+ {
+  "prompt": "aggiungi uno schermo OLED per mostrare il valore",
+  "lang": "it",
+  "band": "add_unnamed",
+  "project": "bme280",
+  "injecte": [
+   "adafruit-bme280",
+   "sh1106",
+   "ssd1351"
+  ],
+  "outcome": "correct"
+ },
+ {
+  "prompt": "ajoute un capteur de distance a ultrasons",
+  "lang": "fr",
+  "band": "add_unnamed",
+  "project": "servo",
+  "injecte": [
+   "servo",
+   "newping"
+  ],
+  "outcome": "correct"
+ },
+ {
+  "prompt": "add an ultrasonic distance sensor",
+  "lang": "en",
+  "band": "add_unnamed",
+  "project": "servo",
+  "injecte": [
+   "servo",
+   "newping"
+  ],
+  "outcome": "correct"
+ },
+ {
+  "prompt": "anade un sensor de distancia por ultrasonidos",
+  "lang": "es",
+  "band": "add_unnamed",
+  "project": "servo",
+  "injecte": [
+   "newping",
+   "servo",
+   "pir-motion-sensor"
+  ],
+  "outcome": "correct"
+ },
+ {
+  "prompt": "aggiungi un sensore di distanza a ultrasuoni",
+  "lang": "it",
+  "band": "add_unnamed",
+  "project": "servo",
+  "injecte": [
+   "servo",
+   "pir-motion-sensor",
+   "newping"
+  ],
+  "outcome": "correct"
+ },
+ {
+  "prompt": "ajoute un ecran OLED SSD1306 pour afficher la valeur",
+  "lang": "fr",
+  "band": "add_named",
+  "project": "bme280",
+  "injecte": [
+   "adafruit-ssd1306"
+  ],
+  "outcome": "correct"
+ },
+ {
+  "prompt": "add an SSD1306 OLED screen to show the value",
+  "lang": "en",
+  "band": "add_named",
+  "project": "bme280",
+  "injecte": [
+   "adafruit-ssd1306"
+  ],
+  "outcome": "correct"
+ },
+ {
+  "prompt": "anade una pantalla OLED SSD1306 para mostrar el valor",
+  "lang": "es",
+  "band": "add_named",
+  "project": "bme280",
+  "injecte": [
+   "adafruit-ssd1306"
+  ],
+  "outcome": "correct"
+ },
+ {
+  "prompt": "aggiungi uno schermo OLED SSD1306 per mostrare il valore",
+  "lang": "it",
+  "band": "add_named",
+  "project": "bme280",
+  "injecte": [
+   "adafruit-ssd1306"
+  ],
+  "outcome": "correct"
+ },
+ {
+  "prompt": "ajoute un capteur DHT22 pour lire l'humidite",
+  "lang": "fr",
+  "band": "add_named",
+  "project": "servo",
+  "injecte": [
+   "dht-sensor-library"
+  ],
+  "outcome": "correct"
+ },
+ {
+  "prompt": "add a DHT22 sensor to read the humidity",
+  "lang": "en",
+  "band": "add_named",
+  "project": "servo",
+  "injecte": [
+   "dht-sensor-library"
+  ],
+  "outcome": "correct"
+ },
+ {
+  "prompt": "anade un sensor DHT22 para leer la humedad",
+  "lang": "es",
+  "band": "add_named",
+  "project": "servo",
+  "injecte": [
+   "dht-sensor-library"
+  ],
+  "outcome": "correct"
+ },
+ {
+  "prompt": "aggiungi un sensore DHT22 per leggere l'umidita",
+  "lang": "it",
+  "band": "add_named",
+  "project": "servo",
+  "injecte": [
+   "dht-sensor-library"
+  ],
+  "outcome": "correct"
+ },
+ {
+  "prompt": "finalement lis la temperature avec un DS18B20",
+  "lang": "fr",
+  "band": "replace_named",
+  "project": "bme280",
+  "injecte": [
+   "dallas-temperature"
+  ],
+  "outcome": "correct"
+ },
+ {
+  "prompt": "actually read the temperature with a DS18B20",
+  "lang": "en",
+  "band": "replace_named",
+  "project": "bme280",
+  "injecte": [
+   "dallas-temperature"
+  ],
+  "outcome": "correct"
+ },
+ {
+  "prompt": "lee la temperatura con un DS18B20 en su lugar",
+  "lang": "es",
+  "band": "replace_named",
+  "project": "bme280",
+  "injecte": [
+   "dallas-temperature"
+  ],
+  "outcome": "correct"
+ },
+ {
+  "prompt": "leggi invece la temperatura con un DS18B20",
+  "lang": "it",
+  "band": "replace_named",
+  "project": "bme280",
+  "injecte": [
+   "dallas-temperature",
+   "adafruit-bme280"
+  ],
+  "outcome": "correct"
+ },
+ {
+  "prompt": "remplace le servomoteur par un moteur pas a pas 28BYJ-48",
+  "lang": "fr",
+  "band": "replace_named",
+  "project": "servo",
+  "injecte": [
+   "stepper_28byj48"
+  ],
+  "outcome": "correct"
+ },
+ {
+  "prompt": "replace the servo with a 28BYJ-48 stepper motor",
+  "lang": "en",
+  "band": "replace_named",
+  "project": "servo",
+  "injecte": [
+   "stepper_28byj48",
+   "servo"
+  ],
+  "outcome": "correct"
+ },
+ {
+  "prompt": "sustituye el servo por un motor paso a paso 28BYJ-48",
+  "lang": "es",
+  "band": "replace_named",
+  "project": "servo",
+  "injecte": [
+   "stepper_28byj48"
+  ],
+  "outcome": "correct"
+ },
+ {
+  "prompt": "sostituisci il servo con un motore passo passo 28BYJ-48",
+  "lang": "it",
+  "band": "replace_named",
+  "project": "servo",
+  "injecte": [
+   "stepper_28byj48"
+  ],
+  "outcome": "correct"
+ }
+]

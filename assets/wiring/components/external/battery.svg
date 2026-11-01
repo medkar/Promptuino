@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="110" height="54" viewBox="0 0 110 54" version="1.1">
+  <!-- Batterie externe : visuel generique gris, terminaux + et au bas, label
+       "Battery" et range tension "4.8 - 6 V" dans le corps. Pins en bas
+       (cy=50), fils descendent depuis le corps vers les bornes. -->
+  <g id="component">
+    <!-- Corps neutre gris clair, occupe le haut du viewBox -->
+    <rect id="component-body" x="10" y="4" width="90" height="36"
+          fill="#e8e8ea" stroke="#444" stroke-width="1.4" rx="3"/>
+    <!-- Label "Battery" centre, en haut du corps -->
+    <text id="component-name" x="55" y="19" text-anchor="middle"
+          font-family="sans-serif" font-size="10" font-weight="bold" fill="#444">Battery</text>
+    <!-- Range tension, sous le label. Le texte est remplace a la volee
+         par le renderer en fonction des composants alimentes (voir
+         compute_battery_voltage_range + set_voltage_label). -->
+    <text id="component-voltage" x="55" y="30" text-anchor="middle"
+          font-family="sans-serif" font-size="9" font-weight="bold" fill="#666">4.8 – 6 V</text>
+    <!-- + et au bas du corps (cote pin) -->
+    <text x="18" y="38" font-family="sans-serif" font-size="11" font-weight="bold" fill="#7f1717">+</text>
+    <text x="92" y="38" text-anchor="end" font-family="sans-serif" font-size="11" font-weight="bold" fill="#222">-</text>
+    <!-- Fils des bornes sortant vers le bas -->
+    <line x1="22" y1="40" x2="22" y2="50" stroke="#444" stroke-width="2" stroke-linecap="round"/>
+    <line x1="88" y1="40" x2="88" y2="50" stroke="#444" stroke-width="2" stroke-linecap="round"/>
+    <!-- Pins ancres en bas (les fils partent vers le bas) -->
+    <circle id="pin-1-pos" cx="22" cy="50" r="2" fill="#000083" stroke="#000083" stroke-width="0.5"/>
+    <circle id="pin-2-pos" cx="88" cy="50" r="2" fill="#000083" stroke="#000083" stroke-width="0.5"/>
+  </g>
+</svg>

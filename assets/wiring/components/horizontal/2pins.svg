@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="90" height="32" viewBox="0 0 90 32" version="1.1">
+  <!-- Resistance THT horizontale, span cols 'e' a 'f' (84 px = 3 pas, traverse
+       le sillon central). Style realiste : corps capsule beige + 4 bandes
+       colorees. Les bandes ont des id stables (band-1, band-2, band-3,
+       band-tolerance) pour que le loader les recolore selon la valeur. -->
+  <g id="component">
+    <!-- Pattes argentees -->
+    <path d="M 22,15 H 3" stroke="#9a9a9a" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+    <circle id="pin-1-pos" cx="3" cy="15" r="2" fill="#000083" stroke="#000083" stroke-width="0.5"/>
+    <path d="M 74,15 H 87" stroke="#9a9a9a" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+    <circle id="pin-2-pos" cx="87" cy="15" r="2" fill="#000083" stroke="#000083" stroke-width="0.5"/>
+    <!-- Embouts metalliques fonces -->
+    <rect x="22" y="6" width="6" height="18" fill="#a17b50" stroke="#6e4f2a" stroke-width="0.5" rx="2"/>
+    <rect x="68" y="6" width="6" height="18" fill="#a17b50" stroke="#6e4f2a" stroke-width="0.5" rx="2"/>
+    <!-- Corps capsule beige -->
+    <rect id="component-body" x="26" y="4" width="44" height="22" fill="#e8c99a" stroke="#6e4f2a" stroke-width="0.8" rx="11"/>
+    <!-- 4 bandes de couleur (220 par defaut : red-red-brown-gold).
+         Les fills sont reecrits par ComponentSVGLoader.set_resistor_value(). -->
+    <rect id="band-1"         x="36" y="4" width="4" height="22" fill="#c52828"/>
+    <rect id="band-2"         x="42" y="4" width="4" height="22" fill="#c52828"/>
+    <rect id="band-3"         x="48" y="4" width="4" height="22" fill="#6b3e1a"/>
+    <rect id="band-tolerance" x="58" y="4" width="4" height="22" fill="#d4af37"/>
+    <!-- Reflet horizontal pour effet 3D -->
+    <rect x="28" y="5.5" width="40" height="2" fill="#ffffff" fill-opacity="0.4" rx="1"/>
+  </g>
+</svg>

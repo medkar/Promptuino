@@ -1,0 +1,330 @@
+"""
+AI configuration manager.
+
+Storage:
+  - Active backend → ~/Documents/Promptuino/config.json (non-sensitive)
+  - API keys      → Windows Credential Manager via `keyring` (never in plaintext on disk)
+
+Migration: if old plaintext keys are found in config.json,
+they are migrated to keyring then removed from the file.
+"""
+import json
+from pathlib import Path
+
+from PyQt6.QtCore import QObject, pyqtSignal
+
+try:
+    import keyring
+    _KEYRING_OK = True
+except Exception:
+    _KEYRING_OK = False
+
+_SERVICE    = "promptuino"
+from .paths import DATA_DIR
+CONFIG_PATH = DATA_DIR / "config.json"
+
+# Valid context sizes (tokens) for the local Ollama chat. The IA-tab slider
+# offers these steps; the setter snaps any stored value to the nearest one.
+OLLAMA_NUM_CTX_STEPS = (2048, 4096, 8192, 16384, 32768)
+_OLLAMA_NUM_CTX_DEFAULT = 8192
+
+
+def _snap_num_ctx(value) -> int:
+    """Snap an arbitrary value to the nearest valid Ollama context step."""
+    try:
+        v = int(value)
+    except (TypeError, ValueError):
+        return _OLLAMA_NUM_CTX_DEFAULT
+    return min(OLLAMA_NUM_CTX_STEPS, key=lambda step: abs(step - v))
+
+
+_DEFAULTS: dict = {
+    # Ollama : le moteur local, sans compte ni cle d'API -- c'est ce que le
+    # README promet (« No account and no API key are needed »).
+    "ai_backend":   "ollama",
+    "ollama_model": "gemma4:e2b",
+    "models":       {},          # {provider_id: model override}
+    "custom_base_url": "",
+    "custom_model":    "",
+    "ollama_num_ctx":  _OLLAMA_NUM_CTX_DEFAULT,
+}
+
+
+def migre_backend_retire(backend_id: str) -> "tuple[str, bool]":
+    """Rend (backend a utiliser, a-t-on migre ?).
+
+    Une configuration enregistree peut designer un moteur que CETTE version ne
+    propose plus : sans correction l'application demarrerait sans moteur, sans
+    rien dire. Tout identifiant inconnu de la fabrique bascule donc sur Ollama.
+
+    ⚠️ La regle est « inconnu de cette version », et non « c'etait tel
+    backend » : le code n'a ainsi pas besoin de NOMMER ce qu'il a retire, elle
+    vaut pour tout retrait futur, et elle rattrape aussi un fichier corrompu.
+    Un backend facultatif present (poste de developpement) est connu de la
+    fabrique, donc jamais migre -- sans quoi son auteur serait ramene sur
+    Ollama a chaque demarrage.
+
+    ⚠️ Fonction PURE, pour qu'un test puisse l'eprouver sans toucher au
+    disque ni construire la configuration.
+    """
+    from .ai_backends.factory import known_backend_ids
+    if not backend_id:
+        return "ollama", False          # rien n'avait ete choisi : rien a dire
+    if backend_id in known_backend_ids():
+        return backend_id, False
+    return "ollama", True
+
+
+class AIConfig(QObject):
+    """AI configuration singleton — emits `changed` when the active backend changes."""
+
+    changed = pyqtSignal(str)   # emits the new backend_id
+
+    def __init__(self):
+        super().__init__(None)
+        self._data: dict = dict(_DEFAULTS)
+        # dict(_DEFAULTS) is shallow: detach the nested `models` dict so it is
+        # never shared with _DEFAULTS across instances.
+        self._data["models"] = dict(self._data.get("models", {}))
+        # Vrai une seule fois, au demarrage qui a migre : la vue s'en sert
+        # pour dire a l'utilisateur ce qui a change, puis n'y revient plus.
+        self.backend_migre_depuis_retire = False
+        self._load()
+
+    # ── JSON persistence (backend only) ─────────────────
+
+    def _load(self):
+        try:
+            if CONFIG_PATH.exists():
+                with open(CONFIG_PATH, encoding="utf-8") as f:
+                    saved = json.load(f)
+                if "ai_backend" in saved:
+                    bid = saved["ai_backend"]
+                    if bid == "anthropic_api":      # migration: old id -> new
+                        bid = "anthropic"
+                    bid, migre = migre_backend_retire(bid)
+                    self._data["ai_backend"] = bid
+                    # ⚠️ On ENREGISTRE tout de suite. Sans ca le fichier
+                    # garderait l'ancien identifiant, la migration se
+                    # rejouerait a chaque demarrage, et le message qui
+                    # l'annonce avec elle -- or il doit etre dit UNE fois.
+                    if migre:
+                        self.backend_migre_depuis_retire = True
+                        self._save_backend()
+                if "ollama_model" in saved:
+                    self._data["ollama_model"] = saved["ollama_model"]
+                if isinstance(saved.get("models"), dict):
+                    self._data["models"] = saved["models"]
+                self._data["custom_base_url"] = saved.get("custom_base_url", "")
+                self._data["custom_model"] = saved.get("custom_model", "")
+                self._data["ollama_num_ctx"] = _snap_num_ctx(
+                    saved.get("ollama_num_ctx", _OLLAMA_NUM_CTX_DEFAULT)
+                )
+                # Migration: plaintext keys present → keyring → removal from the JSON
+                self._migrate_plain_keys(saved)
+        except Exception:
+            pass
+
+    def _migrate_plain_keys(self, saved: dict):
+        """Transfers plaintext keys to keyring and removes them from the JSON."""
+        migrated = False
+        for field in ("gemini_api_key", "anthropic_api_key"):
+            if saved.get(field):
+                self._keyring_set(field, saved[field])
+                saved.pop(field)
+                migrated = True
+        if migrated:
+            try:
+                CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+                with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+                    json.dump(saved, f, indent=2, ensure_ascii=False)
+            except Exception:
+                pass
+
+    def _save_backend(self):
+        try:
+            CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+            existing: dict = {}
+            if CONFIG_PATH.exists():
+                try:
+                    with open(CONFIG_PATH, encoding="utf-8") as f:
+                        existing = json.load(f)
+                except Exception:
+                    pass
+            # Never rewrite plaintext keys, even if some are still lying around
+            existing.pop("gemini_api_key", None)
+            existing.pop("anthropic_api_key", None)
+            existing["ai_backend"]   = self._data["ai_backend"]
+            existing["ollama_model"] = self._data.get("ollama_model", "gemma4:e2b")
+            existing["models"]          = self._data.get("models", {})
+            existing["custom_base_url"] = self._data.get("custom_base_url", "")
+            existing["custom_model"]    = self._data.get("custom_model", "")
+            existing["ollama_num_ctx"] = self._data.get(
+                "ollama_num_ctx", _OLLAMA_NUM_CTX_DEFAULT
+            )
+            with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+                json.dump(existing, f, indent=2, ensure_ascii=False)
+        except Exception:
+            pass
+
+    # ── Keyring (API keys) ────────────────────────────────────
+
+    def _keyring_get(self, key: str) -> str:
+        if not _KEYRING_OK:
+            return ""
+        try:
+            return keyring.get_password(_SERVICE, key) or ""
+        except Exception:
+            return ""
+
+    def _keyring_set(self, key: str, value: str):
+        if not _KEYRING_OK:
+            return
+        try:
+            if value:
+                keyring.set_password(_SERVICE, key, value)
+            else:
+                try:
+                    keyring.delete_password(_SERVICE, key)
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+    # ── Properties ────────────────────────────────────────────
+
+    @property
+    def backend_id(self) -> str:
+        return self._data["ai_backend"]
+
+    @backend_id.setter
+    def backend_id(self, value: str):
+        if self._data["ai_backend"] != value:
+            self._data["ai_backend"] = value
+            self._save_backend()
+            self.changed.emit(value)
+
+    def api_key(self, provider_id: str) -> str:
+        return self._keyring_get(f"{provider_id}_api_key")
+
+    def clear_all_api_keys(self) -> int:
+        """Efface TOUTES les cles d'API du trousseau. Rend le nombre efface.
+
+        Appelee par `main.py --clear-credentials`, que le desinstalleur lance
+        si l'utilisateur le demande (TODO #78). Les cles vivent dans le
+        Gestionnaire d'identifiants Windows, JAMAIS dans le dossier de l'app :
+        une desinstallation ne les emporte donc pas, et personne ne le disait.
+
+        ⚠️ C'est l'APPLICATION qui efface, pas l'installeur : elle seule sait
+        quels services elle a ecrits. Une liste recopiee cote Inno Setup
+        aurait derive au premier fournisseur ajoute.
+
+        ⚠️ Limite : le trousseau est PAR UTILISATEUR WINDOWS. Si la
+        desinstallation est lancee avec elevation sous un autre compte, ce
+        sont les cles de CE compte qui seraient visees -- donc aucune.
+        """
+        if not _KEYRING_OK:
+            return 0
+        from .ai_backends.providers import PROVIDERS
+        efface = 0
+        for p in PROVIDERS:
+            nom = f"{p.id}_api_key"
+            try:
+                if keyring.get_password(_SERVICE, nom):
+                    keyring.delete_password(_SERVICE, nom)
+                    efface += 1
+            except Exception:
+                pass
+        return efface
+
+    def set_api_key(self, provider_id: str, value: str):
+        self._keyring_set(f"{provider_id}_api_key", value)
+
+    def model_for(self, provider_id: str) -> str:
+        """Le modèle CHOISI pour ce fournisseur, ou "" si aucun.
+
+        Plus de repli sur un défaut du préréglage : les modèles bougent, et un
+        défaut écrit une fois se recopie dans la config de tous ceux qui
+        ouvrent l'écran. C'est ainsi que `gemini-2.5-flash`, retiré par Google,
+        a continué d'être demandé (spec 2026-09-03).
+        """
+        return self._data.get("models", {}).get(provider_id) or ""
+
+    def set_model(self, provider_id: str, model: str):
+        models = dict(self._data.get("models", {}))
+        if model:
+            models[provider_id] = model
+        else:
+            models.pop(provider_id, None)
+        if models != self._data.get("models"):
+            self._data["models"] = models
+            self._save_backend()
+            self.changed.emit(self._data["ai_backend"])
+
+    @property
+    def custom_base_url(self) -> str:
+        return self._data.get("custom_base_url", "")
+
+    @custom_base_url.setter
+    def custom_base_url(self, value: str):
+        if self._data.get("custom_base_url") != value:
+            self._data["custom_base_url"] = value
+            self._save_backend()
+
+    @property
+    def custom_model(self) -> str:
+        return self._data.get("custom_model", "")
+
+    @custom_model.setter
+    def custom_model(self, value: str):
+        if self._data.get("custom_model") != value:
+            self._data["custom_model"] = value
+            self._save_backend()
+
+    @property
+    def ollama_model(self) -> str:
+        return self._data.get("ollama_model", "gemma4:e2b")
+
+    @ollama_model.setter
+    def ollama_model(self, value: str):
+        if self._data.get("ollama_model") != value:
+            self._data["ollama_model"] = value
+            self._save_backend()
+            # Notifies the views (status bar, etc.) that the label of the active
+            # backend may have changed — re-emits the current backend_id unchanged.
+            self.changed.emit(self._data["ai_backend"])
+
+    @property
+    def ollama_num_ctx(self) -> int:
+        return self._data.get("ollama_num_ctx", _OLLAMA_NUM_CTX_DEFAULT)
+
+    @ollama_num_ctx.setter
+    def ollama_num_ctx(self, value: int):
+        snapped = _snap_num_ctx(value)
+        if self._data.get("ollama_num_ctx") != snapped:
+            self._data["ollama_num_ctx"] = snapped
+            self._save_backend()
+            self.changed.emit(self._data["ai_backend"])
+
+    @property
+    def keyring_available(self) -> bool:
+        return _KEYRING_OK
+
+    def display_name(self) -> str:
+        """Short name of the active backend for the status bar."""
+        bid = self._data["ai_backend"]
+        from .ai_backends.factory import extra_backend
+        extra = extra_backend(bid)
+        if extra is not None:
+            return extra.status_name
+        if bid == "ollama":
+            return f"Ollama ({self._data.get('ollama_model', 'gemma4:e2b')})"
+        if bid == "custom":
+            return f"Custom ({self._data.get('custom_model') or '?'})"
+        from .ai_backends.providers import get_provider
+        preset = get_provider(bid)
+        return preset.label if preset else bid
+
+
+# Global instance — imported by all modules
+ai_config = AIConfig()
