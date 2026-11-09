@@ -66,8 +66,6 @@ Two remote options stay available for those who want one:
 - **ChatGPT account** — sign in and use the **paid** ChatGPT plan you already
   have, with no API key; OpenAI allows this for open-source projects running
   locally. Free plans are refused by OpenAI itself, not by Promptuino.
-  ⚠️ Still being tried out: generation and token renewal have not yet been
-  confirmed on a paid account.
 
 ## Install
 
@@ -219,9 +217,7 @@ Deux options distantes restent possibles pour qui les veut :
 - **Compte ChatGPT** — connectez-vous et utilisez le forfait ChatGPT
   **payant** que vous avez déjà, sans clé d'API ; OpenAI l'autorise pour les
   projets open source qui tournent en local. Les comptes gratuits sont refusés
-  par OpenAI elle-même, pas par Promptuino. ⚠️ Encore à l'essai : la
-  génération et le renouvellement du jeton n'ont pas encore été confirmés sur
-  un compte payant.
+  par OpenAI elle-même, pas par Promptuino.
 
 ## Installation
 

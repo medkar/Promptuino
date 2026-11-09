@@ -102,8 +102,9 @@ Cliquer sur le bouton de pli réduit la sidebar à 52 px (icônes seules).
 ### Barre d'état
 
 Affiche en permanence en bas à droite :
-- **Modèle IA** : pastille rouge/verte + nom du backend actif (ex. « Ollama
-  (gemma4:12b) »).
+- **Modèle IA** : pastille rouge/orange/verte + nom du moteur actif et de
+  son modèle (ex. « Ollama (gemma4:12b) »). L'orange signale un modèle local
+  qui déborde de la carte graphique (§ 13).
 - **Carte** : pastille rouge/verte + carte+port (ex. « Arduino Uno —
   COM3 »).
 
@@ -182,8 +183,8 @@ Les colonnes sont redimensionnables (QSplitter).
 2. Au clic sur **Générer**, le système :
    - **Augmente** le prompt avec le contexte RAG (voir § 14) — exemples
      d'API et descriptions des librairies pertinentes injectés en haut.
-   - Envoie le prompt augmenté au backend IA actif (Ollama en local, ou
-     un fournisseur compatible OpenAI).
+   - Envoie le prompt augmenté au moteur IA actif (Ollama ou LM Studio en
+     local, un fournisseur cloud par clé d'API, ou le compte ChatGPT).
    - Parse les marqueurs spéciaux retournés par l'IA pour assigner les
      lignes générées à une **fonctionnalité** (voir § 6).
    - Insère le code dans l'éditeur sans écraser ce qui existe déjà :
@@ -553,10 +554,6 @@ chargé » est **rouge** chez LM Studio, où une génération échouerait, et
 **gris** chez Ollama, qui charge seul à la première demande — juste plus
 lentement.
 
-⚠️ **Essai réel en attente pour le compte ChatGPT** : OpenAI refuse les
-comptes **gratuits** (constaté sur l'écran de consentement) ; la génération et
-le renouvellement du jeton restent à confirmer sur un compte payant.
-
 Les huit préréglages cloud : **Gemini**, **OpenAI**, **Anthropic**,
 **Mistral**, **DeepSeek**, **Qwen Coder**, **Groq**, **OpenRouter** — plus
 n'importe quelle URL compatible saisie à la main.
@@ -568,6 +565,102 @@ réellement accessible — `gemini-2.5-flash` figure dans celui de Google,
 annonce `generateContent`, et répond 404 à l'usage. La pastille reste
 **grise** tant que rien n'a été vérifié : elle n'affirme jamais ce qu'elle
 n'a pas constaté.
+
+### Gérer les modèles locaux
+
+Les deux pages locales ont un bouton **Modèles…** : la liste des modèles
+installés, des suggestions à télécharger, et pour chaque modèle **Charger** /
+**Décharger**.
+
+- **Charger pour Promptuino** charge le modèle choisi avec la taille de
+  contexte réglée sur la page : la première génération démarre sans attendre.
+  Sous Ollama c'est facultatif — il charge seul à la première demande, un peu
+  plus lentement ; sous LM Studio, un modèle qui n'est pas chargé fait échouer
+  la génération, et la page le dit en rouge.
+- **Charger libère les autres modèles**, y compris ceux de l'autre moteur, et
+  la page dit ce qui a été libéré. « Décharger » reste un geste manuel, sur le
+  seul modèle choisi.
+- **Un chargement en cours s'annule** : pendant le chargement, le même bouton
+  devient « Annuler ».
+- **À la fermeture, Promptuino décharge les modèles qu'il a lui-même
+  chargés**, pour rendre la carte graphique au reste de la machine. Un modèle
+  chargé par un autre moyen n'est jamais touché.
+- **Un téléchargement continue si l'on ferme la fenêtre** « Modèles… » : en
+  la rouvrant, on retrouve sa progression.
+- Sous Ollama, la fenêtre permet aussi d'annuler un téléchargement et de
+  supprimer un modèle. LM Studio ne le permet pas à une autre application :
+  la fenêtre renvoie vers LM Studio pour ces deux gestes. Les tailles annoncées
+  par son catalogue sont approximatives (précédées de `~`), et il faut
+  LM Studio 0.4 ou plus.
+
+### Taille de contexte
+
+Un même curseur, sur les deux moteurs, règle la taille de contexte **pour la
+génération comme pour le chat**. Il va de **16 384 tokens** — ce dont
+Promptuino a besoin — jusqu'au **maximum du modèle choisi**.
+
+- Un modèle dont le maximum est inférieur à 16 384 est dit **inutilisable**,
+  avec la raison : son contexte est trop petit.
+- LM Studio fixe le contexte **au chargement** : un modèle chargé à une autre
+  taille que le réglage le signale, avec un bouton **Recharger**. Il arrondit
+  aussi la valeur au multiple de 256 supérieur.
+
+### Un modèle qui déborde de la carte graphique
+
+Une fois le modèle chargé, Promptuino vérifie qu'il tient entièrement dans la
+mémoire de la carte graphique. S'il déborde, il fonctionne, mais lentement : la
+pastille passe à l'**orange**, sur la page et dans la barre d'état, avec le
+conseil de baisser la taille de contexte ou de choisir un modèle plus petit.
+Côté LM Studio, cette vérification n'existe que sous Windows ; ailleurs, la
+page se tait plutôt que de deviner.
+
+### Réflexion (« thinking »)
+
+Certains modèles savent réfléchir avant de répondre : souvent plus justes sur
+les demandes difficiles, mais plus lents. La réflexion est **désactivée par
+défaut**.
+
+- Sur les pages Ollama et LM Studio, l'interrupteur **Réfléchir avant de
+  répondre** la règle. Il est grisé quand le modèle ne sait pas réfléchir, et
+  grisé mais coché quand il réfléchit toujours. Le curseur **Niveau d'effort**
+  (Bas / Moyen / Élevé) n'est actif que pour un modèle qui a des niveaux
+  nommés, comme gpt-oss ; sinon il reste visible et grisé, avec la raison.
+- Pour le compte ChatGPT, un curseur **Réflexion** à trois crans : Instant /
+  Moyen / Élevé.
+- Une **pastille** en forme d'ampoule montre l'état et le bascule d'un clic,
+  dans le chat (à côté du nom du modèle) comme dans le champ de génération (à
+  gauche de « + Joindre ») : pleine = activée, vide et barrée = désactivée,
+  grisée = pas de mode thinking pour ce modèle. Sur un modèle à niveaux, le
+  clic les fait défiler. Chat, génération et onglet partagent **un seul
+  réglage** par moteur.
+- **Aucun plafond de réponse en local** : un plafond compterait aussi la
+  réflexion et couperait la réponse en route. Les fournisseurs cloud gardent
+  un plafond de 8 192 tokens.
+
+### Compte ChatGPT
+
+Le troisième choix utilise le forfait ChatGPT **payant** de l'utilisateur,
+sans clé d'API — ce qu'OpenAI autorise pour les projets open source qui
+tournent en local.
+
+1. **Continuer avec ChatGPT** ouvre le navigateur : on s'y connecte et on
+   accepte le partage du forfait.
+2. Le navigateur affiche « Connexion transmise à Promptuino ». La section
+   montre le compte connecté, le choix du modèle (la liste dépend du compte),
+   le curseur de réflexion et un lien **Gérer l'usage**. Une fenêtre
+   d'accueil rappelle, une seule fois, que l'usage compte dans les limites du
+   forfait.
+
+- Les comptes **gratuits** sont refusés par OpenAI, sur son propre écran de
+  consentement : il faut un forfait Plus ou Pro.
+- Les jetons de connexion vivent dans le **trousseau du système**, jamais sur
+  disque, et sont effacés à la désinstallation. Promptuino n'a accès ni aux
+  conversations ni au reste du compte.
+- ⚠️ **Se déconnecter de ChatGPT dans le navigateur ne déconnecte pas
+  Promptuino** : ses jetons sont indépendants de la session du site. Pour
+  sortir, c'est le bouton **Se déconnecter** de la section.
+- Les erreurs s'affichent en une phrase traduite, jamais en code d'OpenAI ;
+  une coupure réseau ne fait pas perdre la connexion.
 
 ### Stockage des clés API
 
@@ -583,8 +676,9 @@ Le backend actif est appelé pour toutes les opérations IA (génération,
 réparation, lint, simulation, etc.). Tous les backends implémentent
 la même interface (`AIBackend`) ; le code applicatif est agnostique.
 
-La barre d'état affiche en permanence le nom du backend actif (pastille
-verte si disponible, rouge sinon).
+La barre d'état affiche en permanence le nom du moteur actif (pastille
+verte s'il est disponible, orange si le modèle local déborde de la carte
+graphique, rouge sinon).
 
 ### Mode débug — afficher le prompt IA
 
@@ -731,7 +825,7 @@ ou d'annuler.
 | Fichier                             | Contenu                                              |
 | ----------------------------------- | ---------------------------------------------------- |
 | `~/Documents/Promptuino/data/session.json` | Workspace, dernier projet, langue, thème, compteurs de progression. |
-| `~/Documents/Promptuino/data/config.json` | Backend IA actif et modèle choisi par fournisseur. |
+| `~/Documents/Promptuino/data/config.json` | Moteur IA actif, modèle choisi par fournisseur, taille de contexte et réglages de réflexion. |
 | `~/Documents/Promptuino/data/components.json` | Composants décrits par l'utilisateur (nom, broches, librairie) — partagés entre projets. |
 | `~/Documents/Promptuino/data/component-libs.json` | Bibliothèque choisie à la main pour un composant non déclaré. Créé au premier choix. |
 | `~/Documents/Promptuino/data/registry-cache.json` | Cache des recherches au registre Arduino. Supprimable sans rien perdre. |
@@ -740,7 +834,7 @@ ou d'annuler.
 | `<workspace>/<plat>/projects/<projet>/<projet>.promptuino.json` | Métadonnées projet.    |
 | `<workspace>/<plat>/libraries/`     | Librairies arduino-cli (par plateforme).             |
 | `<workspace>/<plat>/arduino-cli.yaml` | Config arduino-cli isolée (redirige `directories.user`). |
-| **Keyring système**                 | Clés d'API des fournisseurs cloud (jamais sur disque). |
+| **Keyring système**                 | Clés d'API des fournisseurs cloud et jetons de connexion ChatGPT (jamais sur disque). |
 
 ---
 
