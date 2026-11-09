@@ -1166,6 +1166,15 @@ class MainWindow(QMainWindow):
             event.ignore()
             return
         event.accept()
+        # The update check (child QThread, network call up to 6 s) may still
+        # be running: destroying it with the window aborts the process
+        # (« QThread: Destroyed while thread is still running »).
+        w = getattr(self, "_update_worker", None)
+        try:
+            if w is not None and w.isRunning():
+                w.wait(8000)
+        except RuntimeError:        # C++ object already gone
+            pass
 
     # ── Public API ─────────────────────────────────────────────
 

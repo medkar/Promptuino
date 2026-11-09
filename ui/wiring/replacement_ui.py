@@ -39,7 +39,7 @@ def build_replacement_choices(component: Component,
         ordered = [component.type] + [t for t in members
                                       if t != component.type
                                       and can_replace_with(component.type, t)]
-        return [(t, _catalog_label(t) or _human_label(t, lang)) for t in ordered]
+        return [(t, _catalog_label(t, lang) or _human_label(t, lang)) for t in ordered]
 
     cat = category_of(component.type)
     if cat is None or cat == NON_REPLACEABLE:
@@ -56,11 +56,11 @@ def build_replacement_choices(component: Component,
         # les echappatoires inter-categories, la bibliotheque de l'utilisateur
         # et la recherche : une liste de pairs vide se dit par une liste vide.
         return [(component.type,
-                 _catalog_label(component.type)
+                 _catalog_label(component.type, lang)
                  or _human_label(component.type, lang))]
     members2 = candidates_in(cat)
     ordered = [component.type] + [t for t in members2 if t != component.type]
-    return [(t, _catalog_label(t) or _human_label(t, lang)) for t in ordered]
+    return [(t, _catalog_label(t, lang) or _human_label(t, lang)) for t in ordered]
 
 
 # Cross-category promotions offered in BOTH modals when the pin could be a
@@ -130,13 +130,13 @@ def full_candidate_choices(component: Component,
                 or is_user_declared(component)):
             return []
         base = [(component.type,
-                 _catalog_label(component.type)
+                 _catalog_label(component.type, lang)
                  or _human_label(component.type, lang))]
     present = {t for t, _ in base}
     out = list(base)
     for t in CROSS_CATEGORY_PROMOTIONS:
         if t not in present:
-            out.append((t, _catalog_label(t) or _human_label(t, lang)))
+            out.append((t, _catalog_label(t, lang) or _human_label(t, lang)))
     # La bibliotheque de l'utilisateur, apres les promotions. C'est cet ajout
     # qui fait de la modale « la bibliotheque de composants » — et il est ici,
     # en amont de la divergence tuiles/liste, pour que la parite

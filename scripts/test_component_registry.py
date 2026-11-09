@@ -425,8 +425,12 @@ def test_guard_6_every_component_has_a_translated_label():
         if c.id in _TYPE_LABEL:
             missing += [(c.id, lang) for lang in ("fr", "en", "es", "it")
                         if not (_TYPE_LABEL[c.id].get(lang) or "").strip()]
-        elif not (label_of(c.id) or "").strip():
-            missing.append((c.id, "label_of"))
+        else:
+            # Traduit depuis le 2026-11-07 (TODO #124) : le repli doit
+            # parler les quatre langues, lui aussi.
+            missing += [(c.id, f"label_of:{lang}")
+                        for lang in ("fr", "en", "es", "it")
+                        if not (label_of(c.id, lang) or "").strip()]
     assert not missing, missing
 
 

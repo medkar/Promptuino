@@ -30,9 +30,32 @@ def test_catalog_label_coverage():
     from ui.wiring.replacement_catalog import REPLACEMENT_CATALOG, label_of
     for type_id, _category, label in REPLACEMENT_CATALOG:
         assert label and label != type_id, f"{type_id}: libelle brut/absent"
-        assert label_of(type_id) == label, f"{type_id}: label_of incoherent"
-    assert label_of("type_inexistant_xyz") is None
+        assert label_of(type_id, "fr") == label, f"{type_id}: label_of incoherent"
+    assert label_of("type_inexistant_xyz", "en") is None
     print("  OK — libelles couverts, aucun type_id brut")
+
+
+def test_every_catalog_entry_is_translated():
+    """TODO #124 (2026-11-07) : la table se disait << neutre, noms propres >>,
+    mais 48 libelles sur 60 portaient un descripteur francais. Chaque entree
+    a desormais sa traduction ; une entree sans traduction rougit ici au lieu
+    de retomber en francais en silence."""
+    from ui.wiring.replacement_catalog import (REPLACEMENT_CATALOG,
+                                               _OTHER_LANGS, label_of)
+    ids = {t for t, _c, _l in REPLACEMENT_CATALOG}
+    assert set(_OTHER_LANGS) == ids, (sorted(ids - set(_OTHER_LANGS)),
+                                      sorted(set(_OTHER_LANGS) - ids))
+    for t in ids:
+        for lang in ("en", "es", "it"):
+            assert (label_of(t, lang) or "").strip(), (t, lang)
+    assert label_of("speaker", "en") == "Speaker"
+    assert label_of("speaker", "it") == "Altoparlante"
+    assert label_of("bmp180", "es") == "BMP180 (barómetro)"
+    # Aucun accent francais typique ne survit en anglais.
+    for t in ids:
+        en = label_of(t, "en")
+        assert not any(ch in en for ch in "éèàçù"), (t, en)
+    print(f"  OK — {len(ids)} entrees traduites en en/es/it")
 
 
 def test_catalog_no_duplicate_type_ids():
@@ -137,7 +160,8 @@ def test_engine_bus_replacement_keeps_nets():
 def test_spot_tier2_bare_pin_categories():
     """Spot-check Tier-2 bare pin + mpr121 recategorized as I2C fix."""
     from ui.wiring import categories as cat
-    assert cat.category_of("solenoid") == cat.SINGLE_OUTPUT
+    assert cat.category_of("solenoid") is None   # ecarte (audit 2026-11-06)
+    assert cat.category_of("speaker") == cat.SINGLE_OUTPUT
     # TODO #98 : `digital_in` depuis le 2026-09-08. Il etait analogique a
     # une epoque ou aucun de ces types n'etait emis par `markers.py` ; il
     # l'est desormais, et en tout-ou-rien (A3144, KY-003).
@@ -152,6 +176,7 @@ TESTS = [
     test_dropdown_uses_curated_label,
     test_catalog_categories_match_constants,
     test_catalog_label_coverage,
+    test_every_catalog_entry_is_translated,
     test_catalog_no_duplicate_type_ids,
     test_merge_into_populates_map,
     test_no_collision_after_merge,

@@ -88,29 +88,50 @@ def test_the_chat_attachment_remove_button_draws_its_glyph():
     assert encre > 0, "le ✕ de la puce de piece jointe ne dessine aucun pixel"
 
 
-def test_the_chat_stop_button_draws_its_whole_glyph():
-    """Le ■ du bouton Stop : sans padding:0, seul le CERCLE se dessinait --
-    mesure sur le vrai widget, 160 px d'encre au lieu de 192, les 32 px
-    manquants etant le carre lui-meme.
+def _centre_de_l_encre(btn) -> "tuple[float, float, int]":
+    """Decalage (dx, dy) du centre de la boite d'encre INTERIEURE par rapport
+    au centre du bouton, et le nombre de pixels d'encre. Seuls les pixels a
+    moins de 9 px du centre comptent : le cercle (rayon 14) est ecarte."""
+    px = QPixmap(btn.size())
+    px.fill()
+    btn.render(px)
+    img = px.toImage()
+    fond = img.pixel(0, 0)
+    cx, cy = (img.width() - 1) / 2, (img.height() - 1) / 2
+    xs, ys = [], []
+    for y in range(img.height()):
+        for x in range(img.width()):
+            if (x - cx) ** 2 + (y - cy) ** 2 < 81 and img.pixel(x, y) != fond:
+                xs.append(x)
+                ys.append(y)
+    if not xs:
+        return 99.0, 99.0, 0
+    return (min(xs) + max(xs)) / 2 - cx, (min(ys) + max(ys)) / 2 - cy, len(xs)
 
-    Auto-calibre plutot qu'ancre sur 192 : on compare le bouton tel qu'il est
-    au MEME bouton prive de son `padding`. Un seuil en dur casserait a la
-    premiere retouche de bordure ou de police, et le nombre magique ne dirait
-    plus ce qu'il verifie."""
+
+def test_the_chat_round_buttons_center_their_symbol():
+    """Signale par l'auteur le 2026-11-06 (capture) : le carre du bouton Stop
+    n'etait pas centre. C'etait un caractere de texte (« ■ ») : sa place dans
+    le cercle dependait de la police -- et sans `padding: 0` il etait meme
+    rogne (QA du 2026-08-11). Le carre est desormais une ICONE dessinee,
+    comme la fleche d'Envoyer, centree au pixel quelle que soit la police.
+
+    Mesure : le centre de la boite d'encre a l'interieur du cercle, a un
+    pixel pres du centre du bouton, pour les deux boutons ronds du chat."""
     def mesure(vue):
-        btn = vue._stop_btn
-        avec = _encre(btn)
-        qss = btn.styleSheet()
-        btn.setStyleSheet(qss.replace("padding:0;", "").replace("padding: 0;", ""))
+        vue._set_streaming_ui(True)          # Stop visible
         _APP.processEvents()
-        sans = _encre(btn)
-        btn.setStyleSheet(qss)          # remise en etat
-        return avec, sans
+        stop = _centre_de_l_encre(vue._stop_btn)
+        vue._set_streaming_ui(False)         # Envoyer visible
+        _APP.processEvents()
+        envoyer = _centre_de_l_encre(vue._send_btn)
+        return stop, envoyer
 
-    avec, sans = _sous_app_qss(_chat_view, mesure)
-    assert avec > sans, (
-        f"`padding: 0` ne change rien sur le bouton Stop ({avec} = {sans} px) : "
-        "soit le glyphe n'est plus rogne, soit la mesure ne mesure plus rien")
+    for nom, (dx, dy, encre) in zip(("Stop", "Envoyer"),
+                                    _sous_app_qss(_chat_view, mesure)):
+        assert encre > 0, f"{nom} : aucun symbole dessine"
+        assert abs(dx) <= 1 and abs(dy) <= 1, (
+            f"{nom} : symbole decale de ({dx:+.1f}, {dy:+.1f}) px")
 
 
 def test_the_nudge_banner_close_button_draws_its_glyph():
@@ -189,7 +210,7 @@ def test_every_fixed_size_text_button_declares_its_padding():
 
 TESTS = [
     test_the_chat_attachment_remove_button_draws_its_glyph,
-    test_the_chat_stop_button_draws_its_whole_glyph,
+    test_the_chat_round_buttons_center_their_symbol,
     test_the_nudge_banner_close_button_draws_its_glyph,
     test_every_fixed_size_text_button_declares_its_padding,
 ]

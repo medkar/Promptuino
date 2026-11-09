@@ -395,28 +395,26 @@ DIALOG_LABELS: dict[str, dict[str, str]] = {
               "<b>{limit} moteurs DC</b> maximum (tous les drivers "
               "catalogués sont des dual H-bridges, 1 chip = 2 moteurs). Les "
               "{limit} premiers sont pré-cochés ; tu peux en décocher pour "
-              "en choisir d'autres. Les broches non retenues deviendront "
-              "des sorties à reclasser individuellement plus bas dans "
-              "cette modale.",
+              "en choisir d'autres. Les moteurs décochés restent "
+              "reconnus mais ne seront pas câblés sur le schéma.",
         "en": "⚠️ <b>{n} DC motors detected.</b> Promptuino limits you to "
               "<b>{limit} DC motors</b> maximum (every cataloged driver is "
               "a dual H-bridge, 1 chip = 2 motors). The first {limit} are "
               "pre-checked; you can uncheck some to pick different ones. "
-              "Pins that aren't kept become individual outputs to "
-              "reclassify further down in this dialog.",
+              "Unchecked motors stay recognized but won't be wired "
+              "on the diagram.",
         "es": "⚠️ <b>Se detectaron {n} motores DC.</b> Promptuino limita "
               "a <b>{limit} motores DC</b> como máximo (todos los drivers "
               "del catálogo son puente H dual, 1 chip = 2 motores). Los "
               "primeros {limit} están premarcados; puedes desmarcarlos "
-              "para elegir otros. Los pines no conservados pasarán a ser "
-              "salidas individuales para reclasificar más abajo en esta "
-              "ventana.",
+              "para elegir otros. Los motores desmarcados siguen "
+              "reconocidos pero no se cablearán en el esquema.",
         "it": "⚠️ <b>Rilevati {n} motori DC.</b> Promptuino limita a "
               "<b>{limit} motori DC</b> al massimo (tutti i driver a "
               "catalogo sono ponti H doppi, 1 chip = 2 motori). I primi "
               "{limit} sono preselezionati; puoi deselezionarne alcuni per "
-              "sceglierne altri. I pin non mantenuti diventeranno uscite "
-              "singole da riclassificare più in basso in questa finestra.",
+              "sceglierne altri. I motori deselezionati restano "
+              "riconosciuti ma non saranno cablati sullo schema.",
     },
     "pin_digital": {
         "fr": "Broche numérique {n}", "en": "Digital pin {n}",
@@ -466,6 +464,12 @@ DIALOG_LABELS: dict[str, dict[str, str]] = {
     "rail_motors_all": {
         "fr": "les {n} sont des moteurs", "en": "all {n} are motors",
         "es": "los {n} son motores", "it": "tutti e {n} sono motori",
+    },
+    # Singulier : la section consolidee sert aussi pour UN moteur depuis le
+    # 2026-08-29 (audit 2026-11-06, « 1 moteurs DC détectés »).
+    "rail_motors_all_one": {
+        "fr": "c'est un moteur", "en": "it is a motor",
+        "es": "es un motor", "it": "è un motore",
     },
     "rail_motors_none": {
         "fr": "aucun n'est un moteur", "en": "none is a motor",
@@ -545,6 +549,20 @@ DIALOG_LABELS: dict[str, dict[str, str]] = {
     "motors_detected_title": {
         "fr": "{k} moteurs DC détectés", "en": "{k} DC motors detected",
         "es": "{k} motores DC detectados", "it": "{k} motori DC rilevati",
+    },
+    "motors_detected_title_one": {
+        "fr": "1 moteur DC détecté", "en": "1 DC motor detected",
+        "es": "1 motor DC detectado", "it": "1 motore DC rilevato",
+    },
+    "motors_groups_desc_one": {
+        "fr": "<i>J'ai détecté un groupe de broches OUTPUT qui forme un "
+              "moteur DC :</i>",
+        "en": "<i>I detected a group of OUTPUT pins that forms a DC "
+              "motor:</i>",
+        "es": "<i>Detecté un grupo de pines OUTPUT que forma un motor "
+              "DC:</i>",
+        "it": "<i>Ho rilevato un gruppo di pin OUTPUT che forma un motore "
+              "DC:</i>",
     },
     "motors_groups_desc": {
         "fr": "<i>J'ai détecté plusieurs groupes de broches OUTPUT qui "

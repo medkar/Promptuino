@@ -31,7 +31,7 @@ sys.path.insert(0, str(ROOT))
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 os.environ.setdefault("PROMPTUINO_NO_MIGRATION", "1")
 
-from PyQt6.QtWidgets import QApplication, QLabel  # noqa: E402
+from PyQt6.QtWidgets import QApplication, QLabel, QPushButton  # noqa: E402
 
 _APP = QApplication.instance() or QApplication(sys.argv)
 
@@ -55,7 +55,30 @@ def _section() -> Section:
     s._availability_state = None
     s._model_combo = _FauxCombo()
     s._lbl_availability = QLabel()
+    # La ligne « en memoire » (2026-11-06) : la section la rend a chaque etat.
+    s._lbl_memoire = QLabel()
+    s._btn_charger_mem = QPushButton()
+    s._btn_decharger_mem = QPushButton()
+    s._memoire = None
+    s._geste_en_cours = False
+    # Le reglage de contexte (2026-11-06), borne par le modele choisi.
+    from ui.contexte_curseur import CurseurContexte
+    s._ctx = CurseurContexte()
+    s._ctx_max = None
+    # L'interrupteur de reflexion (TODO #123), regle par le modele choisi.
+    from ui.reflexion_interrupteur import InterrupteurReflexion
+    s._think = InterrupteurReflexion()
+    # Le niveau d'effort (P4, 2026-11-07), regle avec l'interrupteur.
+    from ui.thinking_niveaux import CurseurNiveaux
+    s._niveaux = CurseurNiveaux()
     return s
+
+
+# `/api/ps` (la ligne « en memoire ») est une sonde de plus : ce fichier ne
+# doit JAMAIS parler au vrai serveur, qu'Ollama tourne ou non sur la machine.
+ia_view.ollama_models.en_memoire = lambda modele: None
+ia_view.ollama_models.contexte_max = lambda modele: None     # `/api/show`, idem
+ia_view.ollama_models.reflexion_modele = lambda modele: None  # idem
 
 
 def _etat(*, installe: bool, processus: bool, serveur: bool = False) -> str:

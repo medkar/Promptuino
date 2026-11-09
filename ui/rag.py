@@ -271,6 +271,19 @@ def module_forced_libs(prompt: str) -> list[dict]:
     return out
 
 
+def _another_family_left_to_rag(prompt: str) -> bool:
+    """Vrai si une famille du prompt est restee AMBIGUE (rien de nomme pour
+    elle) et qu'aucun part-number inconnu n'est en jeu."""
+    try:
+        to_clarify, _ = detect_lib_ambiguities(prompt)
+        if not to_clarify:
+            return False
+        from .registry_lookup import detect_unknown_part_tokens
+        return not detect_unknown_part_tokens(prompt)
+    except Exception:
+        return False
+
+
 def forced_libs_for_generation(prompt: str) -> list[dict]:
     """Libs a FORCER dans le contexte de generation, SANS aucune modale
     (decision 2026-07-08). On garde les DEUX forcages silencieux qui existaient
@@ -666,6 +679,14 @@ def _build_lib_context(prompt: str, k: int = 3, threshold: float | None = None,
         # contourne donc par construction sans la modifier.
         _log("[RAG] anti-rebond -> motif Debounce.ino injecte")
         libs = [dict(_DEBOUNCE_PATTERN_REF)]
+        # Il S'AJOUTE aux puces que le prompt NOMME (audit 2026-11-06 :
+        # « compte les appuis ... et fais tourner le servo » perdait Servo).
+        # Lexical et categoriel, jamais par similarite : « onebutton » remonte
+        # sur tout prompt de bouton, c'est du bruit.
+        debounce_keys = {_lib_key(lib) for lib in libs}
+        libs += [lib for lib in named_corpus_libs(prompt)
+                 if _lib_key(lib) not in debounce_keys
+                 and (lib.get("id") or "") not in banned_libs]
     else:
         plain_retrieval = True
         # "Basic component" guard: a plain LED, button, buzzer, pot… need
@@ -692,7 +713,13 @@ def _build_lib_context(prompt: str, k: int = 3, threshold: float | None = None,
     # retrieval) appliqué à un cas qu'on n'avait pas classé comme « inconnu ».
     variante = unsupported_sharp_model(prompt)
     if variante:
-        libs = [lib for lib in libs if (lib.get("id") or "") != "sharpir"]
+        # BOTH Sharp libraries: the variant is unsupported by the union of
+        # their curves (`_SUPPORTED_SHARP_MODELS`), and the directive appended
+        # below says « do NOT use either library ». Dropping only `sharpir`
+        # left `sharpdistsensor` injected right above that sentence -- two
+        # contradictory orders in one prompt (audit 2026-11-06).
+        libs = [lib for lib in libs
+                if (lib.get("id") or "") not in _SHARP_LIBRARY_IDS]
         _log(f"[RAG] modèle Sharp {variante} hors des trois que SharpIR sait "
              f"convertir : bibliothèque SUPPRIMÉE, consigne à la place")
     if not libs:
@@ -763,6 +790,15 @@ def _build_lib_context(prompt: str, k: int = 3, threshold: float | None = None,
     # is meaningless without it, and the caller contract requires both) —
     # this branch never touches the i2c-scan / basic-component / plain-
     # retrieval paths above, which are untouched by this parameter.
+    # Audit 2026-11-06 : nommer la puce d'UNE famille force sa lib, et coupait
+    # le retrieval des AUTRES besoins du prompt (« temperature + humidite +
+    # ecran SSD1306 » ne gardait que le SSD1306). Une famille restee ambigue
+    # est « laissee au RAG » : meme bloc supplementaire hedge que le
+    # declencheur « composant declare », jamais pour un part-number inconnu
+    # (suppression mesuree toxique, cf. `registry_lookup`).
+    if (forced_libs is not None and not declared_component_forced
+            and _another_family_left_to_rag(prompt)):
+        declared_component_forced = True
     if declared_component_forced and forced_libs is not None:
         try:
             candidates = retrieve_libs(ranked_on, k=k, threshold=threshold,
@@ -1334,6 +1370,17 @@ def _prompt_tokens(prompt: str) -> set[str]:
     return toks
 
 
+# Audit 2026-11-06 : « 9600 » est le nom de la puce RCWL-9600 ET le debit serie
+# ecrit dans une grande partie des prompts Arduino ; « 19200 » nomme de meme
+# l'imprimante thermique. Un token fait de chiffres seuls reste un numero de
+# piece valable (« 5110 », « 9250 »), SAUF les debits standards : ceux-la
+# nomment une vitesse, jamais une puce.
+_BAUD_RATES = frozenset({"1200", "2400", "4800", "9600", "14400", "19200",
+                         "28800", "38400", "57600", "74880", "115200",
+                         "230400", "250000", "460800", "500000", "921600",
+                         "1000000", "2000000"})
+
+
 def _signature_tokens(entry: dict) -> set[str]:
     """Distinctive "part-number" tokens of a corpus entry: alphanumeric
     tokens of at least 4 characters containing ≥1 digit (e.g.
@@ -1365,7 +1412,8 @@ def _signature_tokens(entry: dict) -> set[str]:
     # avait nomme sa puce, ET le token partait au registre Arduino comme
     # reference inconnue pour un composant que le corpus documente.
     toks += [m.replace("-", "") for m in re.findall(r"[a-z0-9]+(?:-[a-z0-9]+)+", text)]
-    sig = {t for t in toks if len(t) >= 4 and any(c.isdigit() for c in t)}
+    sig = {t for t in toks if len(t) >= 4 and any(c.isdigit() for c in t)
+           and t not in _BAUD_RATES}
     cid = (entry.get("id") or "").lower()
     if re.fullmatch(r"[a-z][a-z0-9]{3,}", cid):
         sig.add(cid)
@@ -1912,10 +1960,19 @@ _I2C_SCAN_VERB_CUES = ("scan", "escáner")
 def _prompt_is_i2c_scan(prompt: str) -> bool:
     """True if the prompt asks for an I2C bus/address scan (a no-lib diagnostic
     sketch). Requires BOTH an I2C cue and a scan cue so a plain "capteur i2c"
-    or an unrelated "scanner de codes-barres" does not match."""
+    or an unrelated "scanner de codes-barres" does not match.
+
+    Audit 2026-11-06 : les deux indices doivent aussi etre VOISINS (au plus
+    quatre mots entre eux) — « scanne le clavier matriciel 4x4 et affiche la
+    touche sur un lcd i2c » portait les deux, loin l'un de l'autre, et ne
+    recevait que le sketch de scan du bus au lieu de Keypad + LCD."""
     t = prompt.lower()
-    return (any(c in t for c in _I2C_SCAN_I2C_CUES)
-            and any(s in t for s in _I2C_SCAN_VERB_CUES))
+    words = re.findall(r"[^\W_]+", t)
+    i2c = [i for i, w in enumerate(words)
+           if any(c in w for c in _I2C_SCAN_I2C_CUES)]
+    scan = [i for i, w in enumerate(words)
+            if any(c in w for c in _I2C_SCAN_VERB_CUES)]
+    return any(abs(a - b) <= 5 for a in i2c for b in scan)
 
 
 # ── Variante Sharp non couverte par la bibliothèque (2026-09-09) ─────────
@@ -1949,6 +2006,8 @@ def _prompt_is_i2c_scan(prompt: str) -> bool:
 # alors que la liste des modeles vit dans l'EN-TETE des sources. Il fallait
 # installer et lire.
 _SUPPORTED_SHARP_MODELS = frozenset({"21", "41", "02", "51", "60", "710"})
+# The corpus entries of the two Sharp libraries those curves come from.
+_SHARP_LIBRARY_IDS = frozenset({"sharpir", "sharpdistsensor"})
 # Même motif que `markers._SHARP_MODEL_RE`, et la copie est ASSUMÉE : `rag.py`
 # ne doit pas dépendre du paquet câblage. `test_the_two_sharp_patterns_agree`
 # échoue si les deux divergent.
@@ -2101,7 +2160,7 @@ _DEBOUNCE_BUTTON_CUES = (
 )
 _DEBOUNCE_EVENT_CUES = (
     # anti-rebond nommé explicitement
-    "anti-rebond", "antirebond", "anti rebond", "rebond", "debounce",
+    "anti-rebond", "antirebond", "anti rebond", "debounce",
     "antirrebote", "rimbalzo",
     # compter des appuis / réagir à CHAQUE appui (détection de front)
     "compte les appui", "compter les appui", "compte le nombre",
@@ -2125,8 +2184,12 @@ def _prompt_needs_debounce(prompt: str) -> bool:
     le nombre de tours » n'a rien à voir ; sans l'événement, « allume la LED
     quand le bouton est appuyé » n'a pas besoin de ce motif (QA AE1)."""
     t = prompt.lower()
-    return (any(c in t for c in _DEBOUNCE_BUTTON_CUES)
-            and any(c in t for c in _DEBOUNCE_EVENT_CUES))
+    # « rebond » NU, comme MOT : « les rebonds du bouton » en est un, « fais
+    # rebondir une balle » n'en est pas (audit 2026-11-06 — la sous-chaine
+    # attrapait « rebondir »).
+    event = (any(c in t for c in _DEBOUNCE_EVENT_CUES)
+             or re.search(r"rebonds?", t) is not None)
+    return any(c in t for c in _DEBOUNCE_BUTTON_CUES) and event
 
 
 # Motif d'anti-rebond AUTHENTIQUE — celui de l'exemple officiel Arduino

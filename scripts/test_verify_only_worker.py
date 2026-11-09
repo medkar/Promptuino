@@ -18,6 +18,12 @@ def _run(code):
     loop = QEventLoop()
     w.done.connect(lambda ok, err: (res.update(ok=ok, err=err), loop.quit()))
     w.start(); loop.exec()
+    # Attendre la FIN du fil avant que `w` sorte de portee : `done` part avant
+    # la fin de `run()`, et detruire un QThread vivant abort le processus
+    # (0xC0000409, sans aucune sortie) -- le crash « intermittent sous -j »
+    # que CLAUDE.md signalait, devenu systematique sous la charge du
+    # 2026-11-07.
+    w.wait(30000)
     return res
 
 def test_good_compiles():

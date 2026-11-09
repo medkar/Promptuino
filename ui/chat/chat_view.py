@@ -3,9 +3,9 @@
 Vertical 3-zone layout:
 - Header (40px): title + turn counter + 'New conversation' button
 - Conversation (flex): scrollable, ChatMessage bubbles
-- Input: rounded bar — multi-line QTextEdit (Enter = send, no
-  send button) + toolbar (attach a doc, model label, Stop button
-  shown only during streaming)
+- Input: rounded bar — multi-line QTextEdit (Enter = send) + toolbar
+  (attach a doc, model label, then a small round icon button: Send,
+  replaced by Stop during streaming)
 
 The widget hooks into the ChatController. Project context update
 triggered by the caller (MainWindow) via set_project_context().
@@ -19,7 +19,7 @@ from PyQt6.QtCore import (
     Qt, pyqtSignal, QThread, QTimer, QRectF,
     QPropertyAnimation, QParallelAnimationGroup, QEasingCurve,
 )
-from PyQt6.QtGui import QColor, QKeyEvent, QPalette, QPainter, QFont
+from PyQt6.QtGui import QColor, QIcon, QKeyEvent, QPalette, QPainter, QFont
 from PyQt6.QtWidgets import (
     QFrame, QGraphicsOpacityEffect, QHBoxLayout, QLabel, QMessageBox,
     QPushButton, QScrollArea, QSizePolicy, QTextEdit, QVBoxLayout, QWidget,
@@ -430,6 +430,17 @@ class ChatView(QWidget):
         # dark theme on machines whose Windows is in light mode.
         theme_manager.changed.connect(self._apply_theme)
         self._apply_theme()
+        # First render of a history handed over before construction: the
+        # theme pass above now re-themes bubbles in place and no longer
+        # builds them.
+        self._rebuild_conversation()
+        # Stop the stream workers on app exit so Qt never destroys a running
+        # QThread (« QThread: Destroyed while thread is still running »),
+        # same guard as ia_view / library_view (audit 2026-11-06).
+        from PyQt6.QtWidgets import QApplication
+        _app = QApplication.instance()
+        if _app is not None:
+            _app.aboutToQuit.connect(self._stop_workers_on_quit)
 
         # Collapse animation (min+maxWidth simultaneously, 180ms OutCubic) — same
         # mechanism as the sidebar (Phase 3 §7).
@@ -525,7 +536,7 @@ class ChatView(QWidget):
         vsb.rangeChanged.connect(self._on_scroll_range_changed)
         vsb.valueChanged.connect(self._on_scroll_value_changed)
 
-        # ─── Input (rounded bar, no send button) ──────────
+        # ─── Input (rounded bar) ──────────
         input_frame = QFrame()
         input_frame.setObjectName("ChatInputFrame")
         input_lay = QVBoxLayout(input_frame)
@@ -573,7 +584,23 @@ class ChatView(QWidget):
         self._model_lbl.setCursor(Qt.CursorShape.PointingHandCursor)
         self._model_lbl.clicked.connect(self.open_model_settings_requested.emit)
         tool_row.addWidget(self._model_lbl)
-        self._stop_btn = QPushButton("■")
+        # Pastille « thinking », collee au nom du modele, juste avant Envoyer
+        # (choix B de l'auteur, 2026-11-07). Reglage PARTAGE avec la zone de
+        # generation et l'onglet Modele IA.
+        from ..thinking_pastille import PastilleThinking
+        self._thinking = PastilleThinking()
+        tool_row.addWidget(self._thinking)
+        # Envoyer : un petit bouton rond a ICONE, a la place du Stop (l'un ou
+        # l'autre). Demande de l'auteur (2026-11-06) : Entree etait le seul
+        # moyen d'envoyer. La barre arrondie de juin l'avait retire ; le clic
+        # suit exactement le chemin d'Entree.
+        self._send_btn = QPushButton()
+        self._send_btn.setFixedSize(28, 28)
+        self._send_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._send_btn.clicked.connect(self._on_send_clicked)
+        self._input.textChanged.connect(self._refresh_send_btn)
+        tool_row.addWidget(self._send_btn)
+        self._stop_btn = QPushButton()     # icone posee par _apply_theme
         self._stop_btn.setFixedSize(28, 28)
         self._stop_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._stop_btn.clicked.connect(self._on_stop_clicked)
@@ -678,6 +705,7 @@ class ChatView(QWidget):
         # Same prefix on the collapsed chat's vertical label (user request).
         self._vertical_label.set_text(f"_{s.chat_title}")
         self._stop_btn.setToolTip(s.chat_stop_button)
+        self._send_btn.setToolTip(s.chat_send_button)
         self._attach_btn.setText(s.studio_attach)
         self._attach_btn.setToolTip(s.chat_attach_tooltip)
         self._model_lbl.setToolTip(s.chat_model_label_tooltip)
@@ -771,10 +799,15 @@ class ChatView(QWidget):
         if self._typing_indicator is not None:
             self._typing_indicator.apply_theme(c)
         # The bubbles freeze their dark/light color at construction:
-        # we rebuild them to reflect the new theme. We avoid this
-        # during an active stream (the in-progress bubble is referenced).
+        # we swap them for re-themed copies. We avoid this during an active
+        # stream (the in-progress bubble is referenced).
+        # ⚠️ IN PLACE, never _rebuild_conversation: it only knows
+        # controller.history, so a theme toggle deleted every bubble living
+        # outside it -- redirect and its buttons, error bubbles, the
+        # « Corriger dans le Studio » offer (audit 2026-11-06).
         if self._worker is None:
-            self._rebuild_conversation()
+            self._theme_catchup_pending = True
+            self._catch_up_theme_after_stream()
         else:
             # Deferred to the end of the stream, otherwise the conversation
             # stays frozen in the previous theme until the next toggle made
@@ -792,10 +825,11 @@ class ChatView(QWidget):
         self._chip_lbl.setFont(chip_font)
         self._chip_lbl.setMaximumWidth(_CHIP_LABEL_MAX_W)
         self._chip_lbl.setStyleSheet(f"color:{c.text_primary};")
-        # `padding: 0` is load-bearing: this button has a FIXED size and its
-        # content is a TEXT glyph (■). Without it the application default
-        # (`7px 18px`, theme.app_qss) pushes the square out of the frame and
-        # only the circle is drawn -- measured, 272 ink px instead of 304.
+        # The two round buttons (Send, Stop) carry ICONS since 2026-11-06: the
+        # Stop square used to be a TEXT glyph (■), off-centre in its circle
+        # depending on the font, and clipped without `padding: 0` (the
+        # application default `7px 18px` pushed it out of the frame). An icon
+        # is not moved by the padding; `padding: 0` stays, harmless.
         round_btn = (
             f"QPushButton {{ background:transparent; color:{c.text_primary}; "
             f"border:1px solid {c.border}; border-radius:14px; padding:0; }} "
@@ -809,6 +843,15 @@ class ChatView(QWidget):
         # every state identically (measured 0 % difference).
         self._attach_btn.setStyleSheet(chip_button_qss(c, bg=c.surface))
         self._stop_btn.setStyleSheet(round_btn)
+        self._stop_btn.setIcon(IC.make_icon(IC.STOP, c.text_primary, 16))
+        self._send_btn.setStyleSheet(round_btn)
+        # Icone redessinee a chaque theme. L'etat inactif (champ vide, pas de
+        # moteur) a SA couleur : le grisage automatique de Qt ne se voyait pas
+        # en theme sombre (capture du 2026-11-06, fleche identique).
+        icone = IC.make_icon(IC.ARROW_UP, c.text_primary, 16)
+        icone.addPixmap(IC.make_icon(IC.ARROW_UP, c.disabled_text, 16).pixmap(16, 16),
+                        QIcon.Mode.Disabled)
+        self._send_btn.setIcon(icone)
         # `padding: 0`, same reason as `round_btn` above and even worse here:
         # measured at 0 ink pixels, i.e. the ✕ was drawn NOWHERE inside the
         # 18x18 frame -- the only way to remove an attachment was invisible.
@@ -945,6 +988,8 @@ class ChatView(QWidget):
         self._scroll_to_bottom(force=True)
 
     def _on_send_clicked(self) -> None:
+        if self._worker is not None:
+            return   # un flux est deja en cours : pas de second worker
         text = self._input.toPlainText().strip()
         if not text:
             return
@@ -977,6 +1022,8 @@ class ChatView(QWidget):
         conversation, above the redirect bubble; showing it twice would read
         as if he had asked twice.
         """
+        if self._worker is not None:
+            return   # double-clic / flux en cours : pas de second worker
         decision = self.controller.evaluate_turn(text, force_answer=True)
         if isinstance(decision, ChatTurnResult):
             self._handle_immediate_result(decision)
@@ -1153,6 +1200,12 @@ class ChatView(QWidget):
         if not full_text.strip():
             if self._streaming_bubble is not None:
                 self._streaming_bubble.deleteLater()
+            # Une reponse vide ne doit pas finir en silence : l'eleve
+            # croirait que l'envoi n'est pas parti (audit #124). Stop
+            # n'atteint jamais ce chemin.
+            self._append_temp_bubble(
+                "assistant", lang_manager.current.chat_empty_reply,
+                is_error=True)
             self._teardown_stream()
             return
 
@@ -1277,49 +1330,45 @@ class ChatView(QWidget):
                 and ("introuvable" in low or "not found" in low
                      or "404" in low or "invalid" in low
                      or "does not exist" in low)):
-            return (
-                "Le modèle sélectionné est invalide ou introuvable. "
-                "Vérifie-le dans l'onglet « Modèle IA »."
-            )
+            return s.chat_err_model_invalid
 
         # Backend not found (package not installed, ollama not running).
         if ("introuvable" in low or "not found" in low
                 or "non installé" in low or "non installe" in low
                 or "no such" in low):
-            return (
-                "Le backend IA est introuvable ou non configuré. "
-                "Vérifie l'onglet « Modèle IA »."
-            )
+            return s.chat_err_backend_missing
 
         # API key / authentication.
         if ("api key" in low or "api_key" in low or "apikey" in low
                 or "clé api" in low or "cle api" in low
                 or "unauthorized" in low or "401" in low
                 or "invalid_request_error" in low):
-            return "Vérifie la clé API dans l'onglet « Modèle IA »."
+            return s.chat_err_api_key
 
         # Quota / rate limit.
         if ("quota" in low or "rate limit" in low or "rate_limit" in low
                 or "429" in low or "too many requests" in low):
-            return (
-                "Limite de quota atteinte. Réessaye plus tard ou change "
-                "de backend."
-            )
+            return s.chat_err_quota
 
         # Ollama: local server not running. Port 11434 = strong
         # signature (= always Ollama, never another service). Otherwise
         # detection via "ollama" + a sign of failed connection
         # (OllamaBackend re-raises with "Ollama n'est pas lance" in the
         # RuntimeError message, so we match that too).
-        if "11434" in low or (
+        # The backend's "not running" message is translated: recognise it in
+        # ANY of the four languages (the language may change between the
+        # error and its display), by its first sentence.
+        from ..i18n import TRANSLATIONS
+        not_running = any(
+            tr.ia_err_ollama_not_running.split(".")[0].lower() in low
+            for tr in TRANSLATIONS.values()
+            if getattr(tr, "ia_err_ollama_not_running", ""))
+        if "11434" in low or not_running or (
                 "ollama" in low and (
                     "n'est pas lancé" in low or "n'est pas lance" in low
                     or "connection refused" in low
                     or "ne repond pas" in low)):
-            return (
-                "Ollama n'est pas accessible. Vérifie qu'il est lancé "
-                "(commande : ollama serve)."
-            )
+            return s.chat_err_ollama_down
 
         # Anthropic: 5xx / server-side overload (529 specific to
         # Anthropic = overloaded). Different from the quota (429) which is on
@@ -1329,10 +1378,7 @@ class ChatView(QWidget):
                 or "503" in low or "504" in low or "529" in low
                 or "service unavailable" in low
                 or "internal server error" in low):
-            return (
-                "Le serveur Anthropic est en panne ou surchargé. "
-                "Réessaye plus tard ou change de backend."
-            )
+            return s.chat_err_anthropic_down
 
         # Generic AI server down (Gemini, other). Same patterns as
         # Anthropic but without the "anthropic" filter -- placed after
@@ -1341,10 +1387,7 @@ class ChatView(QWidget):
                 or "internal server error" in low
                 or "500" in low or "502" in low
                 or "503" in low or "504" in low):
-            return (
-                "Le serveur du backend IA est en panne ou surchargé. "
-                "Réessaye plus tard ou change de backend."
-            )
+            return s.chat_err_server_down
 
         # Network / server unavailable (generic case, fallback after
         # the specific Ollama/5xx detections above).
@@ -1352,17 +1395,13 @@ class ChatView(QWidget):
                 or "connection reset" in low or "name or service"
                 in low or "getaddrinfo" in low or "n'est pas accessible"
                 in low or "ne repond pas" in low):
-            return (
-                "Impossible de joindre le backend IA (réseau coupé ou "
-                "serveur indisponible). Vérifie ta connexion ou la "
-                "configuration du backend."
-            )
+            return s.chat_err_network
 
         # Fallback: short message + truncated to 200 chars max.
         short = raw.strip()
         if len(short) > 200:
             short = short[:197] + "…"
-        return f"Erreur du backend IA : {short}"
+        return s.chat_err_generic.replace("{detail}", short)
 
     def _on_stop_clicked(self) -> None:
         if self._worker is None:
@@ -1408,6 +1447,32 @@ class ChatView(QWidget):
         # instead of waiting for it), so the postponed theme is caught up here
         # too — same end of stream for the user.
         self._catch_up_theme_after_stream()
+
+    def _stop_workers_on_quit(self) -> None:
+        """aboutToQuit: asks the current AND detached stream workers to stop,
+        cancels the backend request (unblocks an HTTP read) and waits for
+        them, bounded like ia_view._stop_worker."""
+        workers = [w for w in (self._worker, *self._detached_workers)
+                   if w is not None]
+        if not workers:
+            return
+        for w in workers:
+            try:
+                w.request_stop()
+            except RuntimeError:
+                pass   # C++ object already gone
+        backend = self.controller.backend
+        if backend is not None:
+            try:
+                backend.cancel()
+            except Exception:
+                pass
+        for w in workers:
+            try:
+                if w.isRunning():
+                    w.wait(2000)
+            except RuntimeError:
+                pass
 
     def _detach_worker(self) -> None:
         """Detaches the current worker: cuts its UI callbacks and lets it
@@ -1458,13 +1523,43 @@ class ChatView(QWidget):
         # that no bubble is referenced anymore.
         self._catch_up_theme_after_stream()
 
+    def _abort_stream(self) -> None:
+        """Interrompt un flux en cours SANS rien committer, avant qu'on
+        reconstruise le fil : la bulle en cours et l'indicateur vont etre
+        detruits, le worker ne doit plus les referencer (sinon RuntimeError
+        sur un objet C++ detruit et chat bloque jusqu'au redemarrage)."""
+        if self._worker is None:
+            return
+        self._worker.request_stop()
+        backend = self.controller.backend
+        if backend is not None:
+            try:
+                backend.cancel()
+            except Exception:
+                pass
+        self._stream_soft_warn_timer.stop()
+        self._stream_hard_warn_timer.stop()
+        self._clear_warning_bubble()
+        self._remove_typing_indicator()
+        self._streaming_bubble = None
+        self._streaming_user_text = ""
+        self._streaming_correction_intent = False
+        self._last_buffer = ""
+        self._detach_worker()
+        self._set_streaming_ui(False)
+
     def _on_reset_clicked(self) -> None:
-        if not self.controller.history:
+        # Un echange EN COURS compte : l'historique n'est rempli qu'a la FIN
+        # d'une reponse, donc pendant la toute premiere « Nouvelle
+        # conversation » ne faisait rien et la reponse continuait (vu en
+        # pilotant la vraie fenetre, 2026-11-07).
+        if not self.controller.history and self._worker is None:
             return
         s = lang_manager.current
         if not ask_yes_no(self, s.chat_new_conversation,
                           s.chat_new_conversation + " ?"):
             return
+        self._abort_stream()
         self.controller.reset()
         self._pending_correction = None
         self._rebuild_conversation()
@@ -1475,6 +1570,7 @@ class ChatView(QWidget):
 
     def load_project_history(self, history: list[dict]) -> None:
         """Loads a project's history and refreshes the UI."""
+        self._abort_stream()
         self.controller.load_history(history)
         self._pending_correction = None
         self._rebuild_conversation()
@@ -1513,8 +1609,10 @@ class ChatView(QWidget):
     def _refresh_input_state(self) -> None:
         """Enables/disables the input depending on whether the controller has a backend."""
         has_backend = self.controller.backend is not None
-        self._input.setEnabled(has_backend)
-        self._attach_btn.setEnabled(has_backend)
+        streaming = self._worker is not None
+        self._input.setEnabled(has_backend and not streaming)
+        self._attach_btn.setEnabled(has_backend and not streaming)
+        self._refresh_send_btn()
         self._refresh_model_label()
         s = lang_manager.current
         if has_backend:
@@ -1528,8 +1626,18 @@ class ChatView(QWidget):
         """Toggles the UI between idle and streaming: Stop visible + input/attach
         disabled during the stream. Replaces the old send/stop toggle."""
         self._stop_btn.setVisible(active)
+        self._send_btn.setVisible(not active)
         self._input.setEnabled(not active)
         self._attach_btn.setEnabled(not active)
+        self._refresh_send_btn()
+
+    def _refresh_send_btn(self) -> None:
+        """Envoyer n'est actif qu'avec un moteur et du texte : un clic sur un
+        champ vide ne ferait rien (`_on_send_clicked` l'ignore)."""
+        self._send_btn.setEnabled(
+            self.controller.backend is not None
+            and self._input.isEnabled()
+            and bool(self._input.toPlainText().strip()))
 
     def _refresh_model_label(self) -> None:
         b = self.controller.backend

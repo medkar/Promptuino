@@ -8,6 +8,8 @@ this dialog only had to be written.
 """
 from __future__ import annotations
 
+import html
+
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QColor, QPalette
 from PyQt6.QtWidgets import (
@@ -195,7 +197,9 @@ class _IndexLoader(QThread):
     signal si elle est fermee entre-temps.
     """
 
-    done = pyqtSignal(list)
+    # `None` = le chargement a ECHOUE (sortie vide : CLI occupee, delai, config
+    # absente) -- different d'un registre qui serait vraiment vide.
+    done = pyqtSignal(object)
 
     def __init__(self, config_file: str | None, parent=None):
         super().__init__(parent)
@@ -204,7 +208,8 @@ class _IndexLoader(QThread):
     def run(self):
         from .registry_lookup import fetch_library_index
         from .library_index import parse_index
-        self.done.emit(parse_index(fetch_library_index(self._config_file)))
+        raw = fetch_library_index(self._config_file)
+        self.done.emit(parse_index(raw) if (raw or "").strip() else None)
 
 
 class LibChoiceDialog(QDialog):
@@ -253,6 +258,7 @@ class LibChoiceDialog(QDialog):
         self._alive = True
         self._loader: _IndexLoader | None = None
         self.setMinimumWidth(520)
+        self._load_failed = False
         self._build()
         self._start_loading()
         theme_manager.changed.connect(self._apply_theme)
@@ -267,8 +273,11 @@ class LibChoiceDialog(QDialog):
         root.setContentsMargins(20, 18, 20, 18)
         root.setSpacing(12)
 
+        # RichText label: a name typed in the declare form (« Capteur <3V »,
+        # « R&D board ») must be escaped, or Qt reads it as markup.
         self._lbl_body = QLabel(s.lib_choice_body.format(
-            part=self._token.upper(), lib=self._current or "—"))
+            part=html.escape(self._token.upper()),
+            lib=html.escape(self._current or "—")))
         self._lbl_body.setTextFormat(Qt.TextFormat.RichText)
         self._lbl_body.setWordWrap(True)
         root.addWidget(self._lbl_body)
@@ -362,7 +371,14 @@ class LibChoiceDialog(QDialog):
         # (jamais terminate()), on ignore simplement son resultat.
         if not self._alive:
             return
-        set_index(records)
+        if records is None:
+            # Echec : ne PAS memoriser un registre vide pour la session
+            # (set_index([]) rendait is_loaded() vrai, donc « aucun resultat »
+            # partout et aucune nouvelle tentative). La prochaine ouverture
+            # relance le chargement.
+            self._load_failed = True
+        else:
+            set_index(records)
         self._refresh()
 
     def done(self, result: int) -> None:
@@ -477,7 +493,7 @@ class LibChoiceDialog(QDialog):
             self._cards.append(card)
 
         query = self._search.text().strip()
-        if self._config_file is None:
+        if self._config_file is None or self._load_failed:
             self._lbl_count.setText("")
             self._lbl_empty.setText(s.lib_choice_search_unavailable)
             self._lbl_empty.setVisible(True)

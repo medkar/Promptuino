@@ -10,6 +10,8 @@ import re
 import urllib.error
 import urllib.request
 
+from .coupure import Coupure
+
 from .base import AIBackend
 from ..subprocess_flags import NO_CONSOLE
 
@@ -53,7 +55,7 @@ def _get(path: str, timeout: int = _TIMEOUT_CHECK) -> dict:
 
 
 def _post(path: str, payload: dict, timeout: int | None = _TIMEOUT_GEN,
-          register=None) -> dict:
+          register=None, coupure=None) -> dict:
     """POST JSON, reponse JSON.
 
     ``timeout=None`` : AUCUN delai. Sur cet endpoint le serveur n'envoie RIEN
@@ -63,6 +65,11 @@ def _post(path: str, payload: dict, timeout: int | None = _TIMEOUT_GEN,
     ``register`` : appele avec la reponse ouverte, puis avec ``None`` a la
     fermeture. C'est ce qui rend l'appel annulable : sans delai, fermer la
     reponse depuis un autre thread est la SEULE facon d'en sortir.
+
+    ``coupure`` (`coupure.Coupure`) : ouvre la requete de facon a pouvoir
+    couper la SOCKET avant meme les en-tetes. Indispensable ici : sans flux,
+    Ollama n'envoie rien avant d'avoir fini, donc ``register`` ne recoit la
+    reponse qu'une fois la generation terminee -- trop tard pour annuler.
     """
     data = json.dumps(payload).encode()
     req = urllib.request.Request(
@@ -70,7 +77,8 @@ def _post(path: str, payload: dict, timeout: int | None = _TIMEOUT_GEN,
         data=data,
         headers={"Content-Type": "application/json"},
     )
-    with urllib.request.urlopen(req, timeout=timeout) as r:
+    ouvrir = coupure.urlopen if coupure is not None else urllib.request.urlopen
+    with ouvrir(req, timeout=timeout) as r:
         if register is not None:
             register(r)
         try:
@@ -216,6 +224,44 @@ def is_server_running() -> bool:
         return False
 
 
+def _texte(cle: str, repli: str) -> str:
+    """Texte traduit, repli francais si l'i18n est indisponible (meme
+    discipline que `openai_compat._error_message`)."""
+    try:
+        from ..i18n import lang_manager
+        return getattr(lang_manager.current, cle, "") or repli
+    except Exception:
+        return repli
+
+
+def _msg_not_running() -> str:
+    return _texte("ia_err_ollama_not_running",
+                  "Ollama n'est pas lancé. Démarrez-le avec : ollama serve")
+
+
+def _msg_generic(e: BaseException) -> str:
+    # .replace et non .format : le detail peut contenir des accolades.
+    return _texte("ia_err_ollama_generic",
+                  "Erreur Ollama : {detail}").replace("{detail}", str(e))
+
+
+def _http_error_message(e: "urllib.error.HTTPError") -> str:
+    """Message d'une reponse HTTP d'erreur d'Ollama : le serveur TOURNE, la
+    cause est dans son corps ("model not found", "requires more system
+    memory"...)."""
+    detail = ""
+    try:
+        raw = e.read().decode("utf-8", errors="replace")
+        try:
+            detail = str(json.loads(raw).get("error", "")) or raw
+        except Exception:
+            detail = raw
+    except Exception:
+        pass
+    detail = detail.strip()
+    return f"Erreur Ollama (HTTP {e.code}) : {detail or e.reason}"
+
+
 def list_local_models() -> list[str]:
     """Returns the list of model names available locally."""
     try:
@@ -229,9 +275,12 @@ def is_model_available(model: str) -> bool:
     """Returns True if the model is downloaded locally."""
     try:
         models = list_local_models()
-        # Exact match or by prefix (e.g. "gemma4" matches "gemma4:e2b")
-        tag_prefix = model.split(":")[0]
-        return any(m == model or m.split(":")[0] == tag_prefix for m in models)
+        # Modele SANS etiquette : le nom suffit ("gemma4" vaut "gemma4:e2b").
+        # Modele AVEC etiquette : correspondance exacte -- "gemma4:e2b" n'est
+        # pas installe parce que "gemma4:e4b" l'est (Ollama repondrait 404).
+        if ":" in model:
+            return model in models
+        return any(m == model or m.split(":")[0] == model for m in models)
     except Exception:
         return False
 
@@ -249,6 +298,8 @@ class OllamaBackend(AIBackend):
         # chunk suivant, donc il n'a besoin de rien de tout ca.
         self._inflight = None
         self._inflight_lock = threading.Lock()
+        # La socket elle-meme, coupable avant les en-tetes (cf. `coupure`).
+        self._coupure = Coupure()
 
     def _register_inflight(self, response) -> None:
         with self._inflight_lock:
@@ -267,6 +318,9 @@ class OllamaBackend(AIBackend):
         donc l'utilisateur retrouve la main immediatement de toute facon ; ce
         qui reste ici ne decide que du sort d'un thread orphelin.
         """
+        # La socket d'abord : c'est la seule chose qui existe AVANT que le
+        # serveur ait fini (mesure : sans elle, Annuler ne coupait rien).
+        self._coupure.couper()
         with self._inflight_lock:
             r = self._inflight
         if r is None:
@@ -297,14 +351,18 @@ class OllamaBackend(AIBackend):
         return is_server_running() and is_model_available(self._model)
 
     def _show(self) -> dict:
-        """Fetches /api/show once and caches it. {} if unavailable."""
+        """Fetches /api/show once and caches it. {} if unavailable.
+
+        Only a SUCCESS is cached (audit 2026-11-06) : the chat instance lives
+        long, so a failure cached while Ollama was still stopped kept `think`
+        at False and `num_ctx` unbounded even after the server came up."""
         if self._show_cache is not None:
             return self._show_cache
         try:
             data = _post("/api/show", {"model": self._model},
                          timeout=_TIMEOUT_CHECK)
         except Exception:
-            data = {}
+            return {}
         self._show_cache = data
         return data
 
@@ -317,19 +375,62 @@ class OllamaBackend(AIBackend):
                 return int(v)
         return 8192
 
+    def _contexte_max_connu(self) -> "int | None":
+        """Le maximum du modele s'il est DIT ; None sinon (contrairement a
+        `context_window_hint`, qui retombe sur 8 192 pour les budgets)."""
+        info = self._show().get("model_info") or {}
+        for k, v in info.items():
+            if k.endswith(".context_length") and isinstance(v, (int, float)) \
+                    and v > 0:
+                return int(v)
+        return None
+
+    def _contexte_regle(self) -> int:
+        """Le reglage de l'onglet IA, borne au maximum connu du modele. Lu en
+        direct : le curseur s'applique sans recreer le moteur."""
+        from ..ai_config import ai_config   # lazy import: avoid any cycle
+        from .. import contexte
+        maxi = self._contexte_max_connu()
+        if not maxi:
+            return ai_config.ollama_num_ctx
+        # Le MEME haut que la page (`contexte.plage`, arrondi au pas de
+        # 1 024) : un maximum non multiple de 1 024 chargeait a 200 000 quand
+        # la page attendait 199 680, d'ou « Recharger » sans fin (audit
+        # 2026-11-06). `maxi` garde le maximum d'un modele sous le plancher.
+        return min(ai_config.ollama_num_ctx, contexte.plage(maxi)[1], maxi)
+
+    def _think(self):
+        """La valeur du champ `think` : l'interrupteur de l'onglet IA, LU EN
+        DIRECT comme le contexte, borne a ce que le modele sait faire
+        (TODO #123). Desactive par defaut -- l'app envoyait `False` depuis
+        toujours : sans lui, qwen3.5 & co reflechissaient, et `response`
+        restait vide le temps de la reflexion. ⛔ Jamais `True` a un modele
+        qui ne sait pas reflechir : Ollama refuserait la requete."""
+        from ..ai_config import ai_config   # lazy import: avoid any cycle
+        from .. import reflexion
+        return reflexion.ollama_think(reflexion.depuis_ollama(self._show()),
+                                      ai_config.ollama_think,
+                                      ai_config.ollama_think_level)
+
     def generation_context(self) -> int:
         """Ce que `_call` alloue REELLEMENT pour une generation, prompt ET
         sortie. Source unique : `_call` lit cette methode, elles ne peuvent
         donc plus diverger — c'est tout l'interet, un garde-fou calcule sur un
-        chiffre different de celui qui est alloue ne garderait rien."""
-        return min(8192, self.context_window_hint)
+        chiffre different de celui qui est alloue ne garderait rien.
+
+        ⛔ Depuis le 2026-11-06, le MEME chiffre que le chat (decision de
+        l'auteur : le curseur devait regler la generation aussi). Il etait
+        fige a 8 192 depuis juin, et la spec #15 avait volontairement limite
+        le curseur au chat, de peur qu'on le baisse et que la generation
+        tronque : le plancher (`ui.contexte.CTX_PROMPTUINO`) leve ce risque.
+        Deux chiffres differents faisaient aussi RECHARGER le modele a chaque
+        passage chat <-> generation (mesure : 7,7 s)."""
+        return self._contexte_regle()
 
     def effective_chat_context(self) -> int:
-        """Chat budget = what we ask Ollama to allocate (num_ctx), bounded by
-        the model's real context. Read live from ai_config so the IA-tab slider
-        takes effect without re-instantiating the backend."""
-        from ..ai_config import ai_config   # lazy import: avoid any cycle
-        return min(ai_config.ollama_num_ctx, self.context_window_hint)
+        """Chat budget = what we ask Ollama to allocate (num_ctx): the same
+        setting as the generation (see `generation_context`)."""
+        return self._contexte_regle()
 
     @property
     def is_slm(self) -> bool:
@@ -414,22 +515,23 @@ class OllamaBackend(AIBackend):
                 "model": self._model,
                 "messages": full_messages,
                 "stream": False,
-                "think": False,   # reasoning models (qwen3.5…): otherwise the
-                                  # reasoning fills the `thinking` field and eats
-                                  # num_predict, leaving `response` empty.
+                "think": self._think(),
                 "options": {
-                    "num_predict": 2048,
+                    # Aucun plafond (decision de l'auteur, 2026-11-06) :
+                    # 2 048 coupait la reponse d'un modele qui reflechit.
+                    "num_predict": -1,
                     "num_ctx": self.effective_chat_context(),
                 },
             })
             return result["message"]["content"]
+        except urllib.error.HTTPError as e:
+            # HTTPError herite de URLError : sans cette clause, un 404 (modele
+            # absent) ou un 500 (memoire) se lisait "Ollama n'est pas lance".
+            raise RuntimeError(_http_error_message(e))
         except urllib.error.URLError:
-            raise RuntimeError(
-                "Ollama n'est pas lancé.\n"
-                "Démarrez-le avec : ollama serve"
-            )
+            raise RuntimeError(_msg_not_running())
         except Exception as e:
-            raise RuntimeError(f"Erreur Ollama : {e}")
+            raise RuntimeError(_msg_generic(e))
 
     def chat_stream(self, system_prompt: str,
                      messages: list[dict]):
@@ -446,10 +548,11 @@ class OllamaBackend(AIBackend):
                 "model": self._model,
                 "messages": full_messages,
                 "stream": True,
-                "think": False,   # cf. chat(): disables reasoning so that
-                                  # the content arrives in message.content.
+                "think": self._think(),
                 "options": {
-                    "num_predict": 2048,
+                    # Aucun plafond (decision de l'auteur, 2026-11-06) :
+                    # 2 048 coupait la reponse d'un modele qui reflechit.
+                    "num_predict": -1,
                     "num_ctx": self.effective_chat_context(),
                 },
             }):
@@ -459,13 +562,14 @@ class OllamaBackend(AIBackend):
                 chunk = msg.get("content") or ""
                 if chunk:
                     yield chunk
+        except urllib.error.HTTPError as e:
+            # HTTPError herite de URLError : sans cette clause, un 404 (modele
+            # absent) ou un 500 (memoire) se lisait "Ollama n'est pas lance".
+            raise RuntimeError(_http_error_message(e))
         except urllib.error.URLError:
-            raise RuntimeError(
-                "Ollama n'est pas lancé.\n"
-                "Démarrez-le avec : ollama serve"
-            )
+            raise RuntimeError(_msg_not_running())
         except Exception as e:
-            raise RuntimeError(f"Erreur Ollama : {e}")
+            raise RuntimeError(_msg_generic(e))
 
     def _call(self, prompt: str, timeout: int | None = _TIMEOUT_GEN) -> str:
         """``timeout=None`` : aucun delai (TODO #24). Reserve aux appels que
@@ -475,12 +579,12 @@ class OllamaBackend(AIBackend):
         orphelin que rien ne pourrait plus arreter."""
         try:
             result = _post("/api/generate", timeout=timeout,
-                           register=self._register_inflight, payload={
+                           register=self._register_inflight,
+                           coupure=self._coupure, payload={
                 "model": self._model,
                 "prompt": prompt,
                 "stream": False,
-                "think": False,   # cf. chat(): without this, qwen3.5 & co start
-                                  # reasoning and `response` stays empty (or times out).
+                "think": self._think(),
                 # EXPLICIT token budget. Without this, /api/generate uses the
                 # model's default num_ctx (often 4096): on
                 # generation/repair, prompt (system + full code + errors)
@@ -496,10 +600,11 @@ class OllamaBackend(AIBackend):
                 },
             })
             return result.get("response", "")
+        except urllib.error.HTTPError as e:
+            # HTTPError herite de URLError : sans cette clause, un 404 (modele
+            # absent) ou un 500 (memoire) se lisait "Ollama n'est pas lance".
+            raise RuntimeError(_http_error_message(e))
         except urllib.error.URLError:
-            raise RuntimeError(
-                "Ollama n'est pas lancé.\n"
-                "Démarrez-le avec : ollama serve"
-            )
+            raise RuntimeError(_msg_not_running())
         except Exception as e:
-            raise RuntimeError(f"Erreur Ollama : {e}")
+            raise RuntimeError(_msg_generic(e))

@@ -264,10 +264,11 @@ class AIBackend(ABC):
     def generation_context(self) -> int:
         """Tokens available for ONE code generation — prompt AND output.
 
-        Distinct from `effective_chat_context`: the generation path has its
-        own budget (Ollama allocates a different `num_ctx` there, and the chat
-        slider must not move it). Same default, overridden where the runtime
-        budget differs.
+        Distinct from `effective_chat_context` so that a backend CAN budget
+        them differently. Since 2026-11-06 Ollama gives both the same value
+        (the IA-tab setting, author's decision): before, the chat slider was
+        kept away from the generation, frozen at 8 192. Same default,
+        overridden where the runtime budget differs.
 
         Exists for TODO #48: nothing checked that the prompt fit, and beyond a
         certain project size the model silently loses the beginning of the

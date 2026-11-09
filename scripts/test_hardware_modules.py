@@ -174,7 +174,19 @@ def test_chips_needing_lookup_on_production_data_gy80():
     assert out == [], out
 
 
-TESTS = [test_hw612_detected_multilingual, test_no_false_positive_on_generic_word,
+def test_a_named_board_beats_the_generic_10dof_alias():
+    """Audit 2026-11-06 : << GY-87 10DOF >> donnait hw-612 (alias generique
+    '10dof' du hw-612, premier de MODULES) -> mauvaises puces forcees."""
+    for p, want in (("module GY-87 10DOF sur le bus i2c", "gy-87"),
+                    ("lis ma carte GY-80 10 DOF", "gy-80"),
+                    ("centrale GY-86 10-DOF", "gy-86"),
+                    ("10 DOF imu", "hw-612")):
+        m = detect_module(p)
+        assert m is not None and m.id == want, (p, m)
+
+
+TESTS = [test_a_named_board_beats_the_generic_10dof_alias,
+         test_hw612_detected_multilingual, test_no_false_positive_on_generic_word,
          test_chips_are_corpus_ids, test_module_forced_libs_returns_chip_entries,
          test_module_detected_all_syntaxes, test_no_match_inside_longer_token,
          test_chips_needing_lookup_empty_when_no_module,

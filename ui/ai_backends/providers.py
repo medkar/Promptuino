@@ -24,6 +24,13 @@ class ProviderPreset:
     context_window_hint: int = 8192
     key_url: str = ""                       # where to obtain a key (UI link)
     extra_headers: "Mapping[str, str] | None" = None  # e.g. OpenRouter / Anthropic version
+    # Nom du champ qui plafonne la reponse. OpenAI SEUL : ses modeles a
+    # raisonnement (o1, o3, o4-mini, gpt-5...) refusent `max_tokens` par un 400
+    # et exigent `max_completion_tokens`, que les autres modeles OpenAI
+    # acceptent aussi. Les autres fournisseurs gardent `max_tokens`
+    # (DeepSeek, Mistral, Gemini... ne documentent que lui) : rien n'est change
+    # pour eux.
+    max_tokens_field: str = "max_tokens"
 
 
 PROVIDERS: tuple[ProviderPreset, ...] = (
@@ -36,6 +43,7 @@ PROVIDERS: tuple[ProviderPreset, ...] = (
     ProviderPreset(
         "openai", "OpenAI", "https://api.openai.com/v1",
         context_window_hint=128_000,
+        max_tokens_field="max_completion_tokens",
         key_url="https://platform.openai.com/api-keys",
     ),
     ProviderPreset(

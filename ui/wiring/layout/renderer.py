@@ -121,8 +121,11 @@ class SceneRenderer:
                 from .component_catalog import format_voltage_range
                 rng = compute_battery_voltage_range(
                     self.scene.netlist_components, placed.component_ref)
-                if rng is not None:
-                    loader.set_voltage_label(format_voltage_range(*rng))
+                # Plage inconnue ou incompatible : ne jamais laisser le
+                # texte code en dur du SVG (plage d'un servo) se faire
+                # passer pour une recommandation.
+                loader.set_voltage_label(
+                    format_voltage_range(*rng) if rng is not None else "? V")
             L.append('  ' + loader.render(
                 translate=(tx, ty),
                 instance_id=component_id(i, placed.component_ref),

@@ -215,6 +215,10 @@ def _bare_section() -> CloudSection:
     # __init__() of type _CloudSection was never called >>, un message qui
     # envoie chercher le defaut au mauvais endroit.
     section._probe_verdicts = {}
+    # Sondes suivies par couple et workers vivants (audit, gravite basse,
+    # 2026-11-07) : lus par _start_model_probe et son retour.
+    section._sondes_en_vol = set()
+    section._workers_vivants = set()
     section._probe_timer = None
     section._probe_dots = 0
     section._lbl_models_status = QLabel()

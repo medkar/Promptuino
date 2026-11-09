@@ -11,7 +11,9 @@ import copy
 import re
 from dataclasses import dataclass, field
 
-from .feature_model import Feature, resolve_feature_pins, declared_name
+from .feature_model import (
+    Feature, resolve_feature_pins, declared_name, _PIN_CALL_RE,
+)
 
 # boards.json capabilities marking a bus pin to NEVER reassign
 # (neither source nor target): I2C, SPI, UART, power.
@@ -21,6 +23,8 @@ _DEFINE_RE = re.compile(r"#\s*define\s+([A-Za-z_]\w*)\s+(A?\d{1,3})\b")
 _CONST_RE = re.compile(
     r"\b(?:const\s+|static\s+|volatile\s+)*(?:unsigned\s+)?"
     r"(?:int|byte|short|uint8_t|uint16_t)\s+([A-Za-z_]\w*)\s*=\s*(A?\d{1,3})\b")
+_CTOR_ARGS_RE = re.compile(
+    r"^\s*[A-Za-z_][\w:<>]*\s+[A-Za-z_]\w*\s*\(([^)]*)\)\s*;")
 _AW_RE = re.compile(r"\banalogWrite\s*\(\s*([A-Za-z0-9_]+)")
 _AR_RE = re.compile(r"\banalogRead\s*\(\s*([A-Za-z0-9_]+)")
 
@@ -58,10 +62,24 @@ def _constant_pins(feature: Feature) -> dict:
     text = feature.all_text()
     aw = set(_AW_RE.findall(text))
     ar = set(_AR_RE.findall(text))
+    # Une constante n'est une BROCHE que si elle est (1) declaree au niveau
+    # global (seul endroit ou _rewrite_value sait la reecrire : un `for (int
+    # i = 0` ou une locale n'en sont pas) et (2) passee a un appel de broche
+    # (pinMode, digitalWrite, attach...) ou a un constructeur de objet global
+    # (`LiquidCrystal lcd(12, 11, ...)`). Sans (2), `const int NB_BIPS = 3;`
+    # ou `int compteur = 0;` etaient pris pour D3 / D0 et reecrits ou
+    # signales a tort. Une valeur `A<n>` est d'office une broche.
+    decl_text = "\n".join(feature.global_lines)
+    pin_args = set(_PIN_CALL_RE.findall(text))
+    for g in feature.global_lines:
+        m = _CTOR_ARGS_RE.match(g)
+        if m:
+            pin_args.update(re.findall(r"[A-Za-z_]\w*", m.group(1)))
     out: dict = {}
     for rx in (_DEFINE_RE, _CONST_RE):
-        for name, val in rx.findall(text):
-            if name in out:
+        for name, val in rx.findall(decl_text):
+            if name in out or (name not in pin_args
+                               and not val[:1] in ("A", "a")):
                 continue
             token = _value_to_token(val)
             if token.startswith("A") or name in ar:
@@ -137,13 +155,26 @@ def _rewrite_summary_pins(summary: str, moves: list) -> str:
     return summary
 
 
+def _strings():
+    """Current language's strings, imported lazily: this module stays usable
+    without building any Qt object (i18n only needs QtCore)."""
+    from ui.i18n import lang_manager
+    return lang_manager.current
+
+
+def _kind_label(kind: str) -> str:
+    s = _strings()
+    return {"pwm": s.gen_pin_kind_pwm, "analog": s.gen_pin_kind_analog,
+            "digital": s.gen_pin_kind_digital}.get(kind, kind)
+
+
 def format_reassign_notice(moves: list, warnings: list) -> str:
     """Notice text (int/advanced). Empty if nothing to report."""
     lines: list[str] = []
+    s = _strings()
     for m in moves:
-        lines.append(
-            f"• {m.const_name} déplacé de {m.old_pin} à {m.new_pin} "
-            f"({m.old_pin} était déjà utilisée par une autre fonctionnalité).")
+        lines.append(s.gen_pin_moved_notice.format(
+            const=m.const_name, old=m.old_pin, new=m.new_pin))
     for w in warnings:
         lines.append(f"⚠ {w}")
     return "\n".join(lines)
@@ -174,24 +205,20 @@ def reassign_conflicting_pins(new_feature: Feature,
 
     for tok in conflicts:
         if _is_bus_token(board, tok):
-            result.warnings.append(
-                f"{tok} partagé (bus I2C/SPI/UART) — non réaffecté.")
+            result.warnings.append(_strings().gen_pin_shared_bus.format(pin=tok))
             continue
         if tok not in token_to_const:
             result.warnings.append(
-                f"{tok} en conflit mais utilisé en littéral (pas de constante "
-                f"nommée) — non réaffecté.")
+                _strings().gen_pin_literal_conflict.format(pin=tok))
             continue
         name, kind = token_to_const[tok]
         new_pin = _free_pin(board, kind, used)
         if new_pin is None:
-            result.warnings.append(
-                f"{tok} en conflit mais plus de broche {kind} libre — "
-                f"non réaffecté.")
+            result.warnings.append(_strings().gen_pin_no_free.format(
+                pin=tok, kind=_kind_label(kind)))
             continue
         used.add(new_pin)
-        comment = (f"// déplacé {tok}→{new_pin} : {tok} déjà utilisé par une "
-                   f"autre fonctionnalité")
+        comment = _strings().gen_pin_moved_comment.format(old=tok, new=new_pin)
         feat.global_lines = [
             _rewrite_value(ln, name, new_pin, comment)
             if declared_name(ln) == name else ln

@@ -11,8 +11,11 @@ Additive layer: imports NOTHING from categories.py (categories as literals to
 break the import cycle ; a drift test locks the consistency). Feeds
 CATEGORY_OF_TYPE (proposal) and the label resolution of the dropdown/tiles.
 
-display_name = cleaned-up Fritzing title + short FR descriptor ; proper nouns →
-identical FR/EN/ES/IT (no per-language translation).
+display_name = cleaned-up Fritzing title + short FR descriptor. The other
+three languages live in `_OTHER_LANGS` (TODO #124, 2026-11-07): the table was
+long documented as "language-neutral, proper nouns", but 48 of its 60 labels
+carry a French descriptor (« (baromètre) », « Haut-parleur »), so English,
+Spanish and Italian users read French in the picker and on the cards.
 """
 from __future__ import annotations
 
@@ -69,11 +72,13 @@ REPLACEMENT_CATALOG: list[tuple[str, str, str]] = [
     # TIER-2 — bare pin (aggressive dedup: 256 scrape entries → distinct).
     # Wiring keep-pins safe (intra-category replacement keeps signal+GND).
     # =================================================================
-    # --- SINGLE_OUTPUT (4) ---
+    # --- SINGLE_OUTPUT (3) ---
     ("rgb_led", "single_output", "LED RGB"),
     ("speaker", "single_output", "Haut-parleur"),
     ("passive_buzzer", "single_output", "Buzzer passif"),
-    ("solenoid", "single_output", "Solénoïde"),
+    # ⛔ Le solenoide (300 mA a 1 A) n'est PAS ici : decision de l'auteur
+    # (CLAUDE.md). Pair d'echange d'une LED, il aurait ete cable en direct sur
+    # la broche, sans transistor ni diode de roue libre.
     # --- ANALOG_IN (8) ---
     ("light_sensor", "analog_in", "Capteur de lumière (TEMT6000)"),
     ("soil_moisture", "analog_in", "Capteur d'humidité du sol"),
@@ -100,6 +105,72 @@ REPLACEMENT_CATALOG: list[tuple[str, str, str]] = [
 
 _LABEL_BY_TYPE: dict[str, str] = {t: lbl for t, _c, lbl in REPLACEMENT_CATALOG}
 
+# type_id -> (en, es, it). The French label stays in REPLACEMENT_CATALOG.
+# `test_every_catalog_entry_is_translated` reddens if an entry is missing.
+_OTHER_LANGS: dict[str, tuple[str, str, str]] = {
+    "adxl345": ("ADXL345 (accelerometer)", "ADXL345 (acelerómetro)", "ADXL345 (accelerometro)"),
+    "mma8452q": ("MMA8452Q (accelerometer)", "MMA8452Q (acelerómetro)", "MMA8452Q (accelerometro)"),
+    "sensor_stick_9dof": ("Sensor Stick 9DOF", "Sensor Stick 9DOF", "Sensor Stick 9DOF"),
+    "mpl3115a2": ("MPL3115A2 (altimeter/barometer)", "MPL3115A2 (altímetro/barómetro)", "MPL3115A2 (altimetro/barometro)"),
+    "bmp085": ("BMP085 (barometer)", "BMP085 (barómetro)", "BMP085 (barometro)"),
+    "bmp180": ("BMP180 (barometer)", "BMP180 (barómetro)", "BMP180 (barometro)"),
+    "adjd_s311": ("ADJD-S311 (colour sensor)", "ADJD-S311 (sensor de color)", "ADJD-S311 (sensore di colore)"),
+    "hmc6352": ("HMC6352 (compass)", "HMC6352 (brújula)", "HMC6352 (bussola)"),
+    "hmc5883": ("HMC5883L (magnetometer)", "HMC5883L (magnetómetro)", "HMC5883L (magnetometro)"),
+    "tmp102": ("TMP102 (temperature)", "TMP102 (temperatura)", "TMP102 (temperatura)"),
+    "ds1307": ("DS1307 (RTC clock)", "DS1307 (reloj RTC)", "DS1307 (orologio RTC)"),
+    "ds3231": ("DS3231 (precise RTC clock)", "DS3231 (reloj RTC preciso)", "DS3231 (orologio RTC preciso)"),
+    "grove_3axis_accel": ("Grove 3-axis accelerometer", "Grove acelerómetro de 3 ejes", "Grove accelerometro a 3 assi"),
+    "grove_oled_128x96": ("Grove OLED 128×96", "Grove OLED 128×96", "Grove OLED 128×96"),
+    "sht15": ("SHT15 (temperature/humidity)", "SHT15 (temperatura/humedad)", "SHT15 (temperatura/umidità)"),
+    "sht25": ("SHT25 (temperature/humidity)", "SHT25 (temperatura/humedad)", "SHT25 (temperatura/umidità)"),
+    "imu_6dof": ("IMU 6DOF (combo)", "IMU 6DOF (combo)", "IMU 6DOF (combo)"),
+    "itg3200": ("ITG-3200 (gyroscope)", "ITG-3200 (giroscopio)", "ITG-3200 (giroscopio)"),
+    "l3g4200d": ("L3G4200D (gyroscope)", "L3G4200D (giroscopio)", "L3G4200D (giroscopio)"),
+    "lsm303": ("LSM303 (compass/accelerometer)", "LSM303 (brújula/acelerómetro)", "LSM303 (bussola/accelerometro)"),
+    "mag3110": ("MAG3110 (magnetometer)", "MAG3110 (magnetómetro)", "MAG3110 (magnetometro)"),
+    "max1704x": ("MAX1704x (LiPo fuel gauge)", "MAX1704x (indicador de batería LiPo)", "MAX1704x (indicatore batteria LiPo)"),
+    "mlx90614": ("MLX90614 (IR thermometer)", "MLX90614 (termómetro IR)", "MLX90614 (termometro IR)"),
+    "mpu9250": ("MPU-9250 (9-axis IMU)", "MPU-9250 (IMU de 9 ejes)", "MPU-9250 (IMU a 9 assi)"),
+    "pcf8574": ("PCF8574 (I/O expander)", "PCF8574 (expansor de E/S)", "PCF8574 (espansore I/O)"),
+    "vcnl4000": ("VCNL4000 (proximity/light)", "VCNL4000 (proximidad/luz)", "VCNL4000 (prossimità/luce)"),
+    "mpr121": ("MPR121 (capacitive touch controller)", "MPR121 (controlador táctil capacitivo)", "MPR121 (controller touch capacitivo)"),
+    "ds3234": ("DS3234 (SPI RTC clock)", "DS3234 (reloj RTC SPI)", "DS3234 (orologio RTC SPI)"),
+    "led_matrix_rgb_spi": ("RGB LED matrix (serial)", "Matriz LED RGB (serie)", "Matrice LED RGB (seriale)"),
+    "max6675": ("MAX6675 (type K thermocouple)", "MAX6675 (termopar tipo K)", "MAX6675 (termocoppia tipo K)"),
+    "mcp41xxx": ("MCP41xxx (digital potentiometer)", "MCP41xxx (potenciómetro digital)", "MCP41xxx (potenziometro digitale)"),
+    "mcp42xxx": ("MCP42xxx (dual digital potentiometer)", "MCP42xxx (potenciómetro digital doble)", "MCP42xxx (doppio potenziometro digitale)"),
+    "microsd_card_module": ("microSD card module", "Módulo de tarjeta microSD", "Modulo scheda microSD"),
+    "nrf24l01": ("nRF24L01 (2.4 GHz radio)", "nRF24L01 (radio 2,4 GHz)", "nRF24L01 (radio 2,4 GHz)"),
+    "wiz820io": ("WIZ820io (Ethernet)", "WIZ820io (Ethernet)", "WIZ820io (Ethernet)"),
+    "hc05": ("HC-05 (Bluetooth)", "HC-05 (Bluetooth)", "HC-05 (Bluetooth)"),
+    "gps_em406": ("GPS EM-406", "GPS EM-406", "GPS EM-406"),
+    "ftdi_basic": ("FTDI Basic (USB-serial)", "FTDI Basic (USB-serie)", "FTDI Basic (USB-seriale)"),
+    "openlog": ("OpenLog (serial logger)", "OpenLog (registrador serie)", "OpenLog (registratore seriale)"),
+    "atlas_ph": ("pH circuit (Atlas)", "Circuito de pH (Atlas)", "Circuito pH (Atlas)"),
+    "thermal_printer": ("Thermal printer", "Impresora térmica", "Stampante termica"),
+    "us100": ("US-100 (ultrasonic sensor)", "US-100 (sensor ultrasónico)", "US-100 (sensore a ultrasuoni)"),
+    "rgb_led": ("RGB LED", "LED RGB", "LED RGB"),
+    "speaker": ("Speaker", "Altavoz", "Altoparlante"),
+    "passive_buzzer": ("Passive buzzer", "Zumbador pasivo", "Buzzer passivo"),
+    "light_sensor": ("Light sensor (TEMT6000)", "Sensor de luz (TEMT6000)", "Sensore di luce (TEMT6000)"),
+    "soil_moisture": ("Soil moisture sensor", "Sensor de humedad del suelo", "Sensore di umidità del terreno"),
+    "load_cell": ("Load cell (strain gauge)", "Celda de carga (galga)", "Cella di carico (estensimetro)"),
+    "joystick": ("Analog joystick", "Joystick analógico", "Joystick analogico"),
+    "acs712": ("ACS712 current sensor", "Sensor de corriente ACS712", "Sensore di corrente ACS712"),
+    "force_sensor": ("Force sensor (FSR)", "Sensor de fuerza (FSR)", "Sensore di forza (FSR)"),
+    "slider": ("Slide potentiometer", "Potenciómetro deslizante", "Potenziometro a slitta"),
+    "toggle_switch": ("Toggle switch", "Interruptor de palanca", "Interruttore a levetta"),
+    "slide_switch": ("Slide switch", "Interruptor deslizante", "Interruttore a slitta"),
+    "tilt_switch": ("Tilt sensor", "Sensor de inclinación (tilt)", "Sensore di inclinazione (tilt)"),
+    "reed_switch": ("Reed switch (magnetic)", "Interruptor reed (magnético)", "Interruttore reed (magnetico)"),
+    "dip_switch": ("DIP switch", "Interruptor DIP", "Interruttore DIP"),
+    "buttonpad": ("Button pad", "Teclado de botones", "Tastierino a pulsanti"),
+    "touch_sensor": ("Capacitive touch sensor", "Sensor táctil capacitivo", "Sensore touch capacitivo"),
+    "hall_sensor": ("Hall effect sensor", "Sensor de efecto Hall", "Sensore a effetto Hall"),
+}
+_LANG_INDEX = {"en": 0, "es": 1, "it": 2}
+
 
 def merge_into(category_map: dict[str, str]) -> None:
     """Writes each curated entry into category_map (type_id -> category).
@@ -113,6 +184,19 @@ def merge_into(category_map: dict[str, str]) -> None:
         category_map[type_id] = category
 
 
-def label_of(type_id: str) -> str | None:
-    """Curated human label of a type, or None if absent from the table."""
-    return _LABEL_BY_TYPE.get(type_id)
+def label_of(type_id: str, lang: str) -> str | None:
+    """Curated human label of a type in `lang` (fr/en/es/it), or None if the
+    type is absent from the table.
+
+    `lang` is REQUIRED on purpose: with a default, every caller that forgot it
+    showed French in the other three languages -- which is exactly how this
+    table stayed French for months. The module stays free of lang_manager:
+    the caller knows its language. An unknown code falls back to French.
+    """
+    fr = _LABEL_BY_TYPE.get(type_id)
+    if fr is None:
+        return None
+    idx = _LANG_INDEX.get(lang)
+    if idx is None:
+        return fr
+    return _OTHER_LANGS.get(type_id, (fr, fr, fr))[idx]

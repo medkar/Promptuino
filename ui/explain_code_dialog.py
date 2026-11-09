@@ -112,6 +112,19 @@ class _ExplainWorker(QThread):
             self.error.emit(str(e))
 
 
+# Workers of closed dialogs, kept alive until their request returns.
+_PARKED: list = []
+
+
+def _unpark(w) -> None:
+    # Emitted as the LAST statement of run(): the thread is returning.
+    w.wait()
+    try:
+        _PARKED.remove(w)
+    except ValueError:
+        pass
+
+
 class ExplainCodeDialog(QDialog):
     """2-column modal dialog for the "Explain lines" tool.
 
@@ -132,6 +145,10 @@ class ExplainCodeDialog(QDialog):
 
         self.setModal(True)
         self.setMinimumSize(900, 520)
+        # Parented to the Studio and opened afresh each time: without this,
+        # every « Expliquer » left a live dialog behind, restyled on every
+        # theme / language switch until the app quit (audit 2026-11-06).
+        self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         self._build(code, selection)
         self.apply_theme(theme_manager.current)
         self.apply_lang(lang_manager.current)
@@ -142,6 +159,17 @@ class ExplainCodeDialog(QDialog):
         # the user sees the response without any additional action.
         if selection.strip():
             self._trigger_explain()
+
+    def done(self, result: int):
+        # Deleted on close: a request still in flight must not die with the
+        # dialog (destroying a live QThread aborts the process). Park it
+        # until its run() returns.
+        w, self._worker = self._worker, None
+        if w is not None and w.isRunning():
+            _PARKED.append(w)
+            w.finished.connect(lambda _t, w=w: _unpark(w))
+            w.error.connect(lambda _m, w=w: _unpark(w))
+        super().done(result)
 
     # ── Construction ─────────────────────────────────────────────
     def _build(self, code: str, selection: str):

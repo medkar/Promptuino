@@ -89,6 +89,21 @@ from ui.generation.feature_model import MANUAL_ID
 from ui.generation.gen_modal import GenerationModal
 
 
+def _untitled_name() -> str:
+    """Nom du projet créé d'office : `studio_untitled` dans la langue courante.
+
+    Il était écrit en dur « Sans-titre » alors que le titre affiché avant la
+    création suit la langue (audit 2026-11-06, basse). Les accents sont repliés
+    (« Sin título » -> « Sin titulo ») : un nom de projet n'admet que l'ASCII
+    (`project_manager._NAME_RE`, contrainte du dossier de croquis Arduino).
+    """
+    import unicodedata
+    raw = lang_manager.current.studio_untitled
+    folded = "".join(ch for ch in unicodedata.normalize("NFKD", raw)
+                     if not unicodedata.combining(ch))
+    return folded if is_name_valid(folded) else "Untitled"
+
+
 def should_verify_assembly(action: str, n_features: int) -> bool:
     """Vrai si l'operation a ASSEMBLE plusieurs fonctionnalites (risque de
     couplage type 'lis X' + 'affiche X'). REGENERATE = 1 fonctionnalite
@@ -695,7 +710,7 @@ def _features_using_includes(features, includes: list[str]) -> set[str]:
     return out
 
 
-def _write_back_declared_lib(prompt: str, results: list) -> None:
+def _write_back_declared_lib(prompt: str, results: list) -> bool | None:
     """Records on the declared entry the library the registry just resolved,
     plus its REAL `#include`s — which later serve as the attachment key for
     wiring. Without this, the result would be thrown away and the card would
@@ -741,8 +756,9 @@ def _write_back_declared_lib(prompt: str, results: list) -> None:
     updated = replace(hit, lib=hit.lib or lib,
                       headers=tuple(dict.fromkeys((*hit.headers, *heads))))
     items = upsert(load(), updated)
-    save(items)
+    saved = save(items)
     set_registry(items)
+    return saved  # None above = nothing to write; False = write failed
 
 
 # ── Arduino code parsing/merging helpers ─────────────────────────────────────
@@ -1409,6 +1425,7 @@ class _PromptTextEdit(QPlainTextEdit):
         self.setAcceptDrops(True)
         self._overlay_btn = None
         self._overlay_left = None   # widget anchored just to the left of the button
+        self._overlay_mid = None    # pastille thinking, entre la puce et le bouton
 
     def focusInEvent(self, event):
         super().focusInEvent(event)
@@ -1439,21 +1456,38 @@ class _PromptTextEdit(QPlainTextEdit):
         widget.setParent(self)
         self._reposition_overlay()
 
+    def set_overlay_mid(self, widget) -> None:
+        """Ancre un widget (la pastille thinking) juste a GAUCHE du bouton ;
+        la puce de fichier passe alors a sa gauche (choix A de l'auteur,
+        2026-11-07)."""
+        self._overlay_mid = widget
+        widget.setParent(self)
+        self._reposition_overlay()
+        widget.show()
+
     def _reposition_overlay(self) -> None:
         b = self._overlay_btn
         if b is None:
             return
         m = 8
+        gap = 6
         b.adjustSize()
         b.move(self.width() - b.width() - m, self.height() - b.height() - m)
         b.raise_()
-        # File chip stuck to the left of the button, vertically centered ON the
-        # button (different heights -> bottom alignment misaligns).
+        # Everything left of the button is vertically centered ON it
+        # (different heights -> bottom alignment misaligns).
+        bord = b.x()
+        mw = self._overlay_mid
+        if mw is not None:
+            mw.move(bord - gap - mw.width(),
+                    b.y() + (b.height() - mw.height()) // 2)
+            mw.raise_()
+            bord = mw.x()
+        # File chip stuck to the left of the button (or of the pastille).
         lw = self._overlay_left
         if lw is not None:
-            gap = 6
             lw.adjustSize()
-            lw.move(max(m, b.x() - gap - lw.width()),
+            lw.move(max(m, bord - gap - lw.width()),
                     b.y() + (b.height() - lw.height()) // 2)
             lw.raise_()
 
@@ -1688,6 +1722,15 @@ class StudioView(QWidget):
         # `_detach_gen_worker`, qui explique pourquoi ils ne sont pas recoltes.
         self._detached_gen_workers: list = []
         self._registry_worker = None   # lookup registre Arduino (hors-corpus)
+        # « Ajouter des commentaires » : lu par la garde de `_run_add_comments`
+        # AVANT toute creation. Sans cette ligne, le PREMIER clic levait
+        # AttributeError (trouve en pilotant la vraie fenetre, 2026-11-07 ; le
+        # test d'audit posait l'attribut sur un faux `self`).
+        self._addcmt_worker = None
+        # Prompt tel que tape AU LANCEMENT d'une generation (audit 2026-11-06 #8)
+        self._gen_launch_prompt: str | None = None
+        # Contenu de l'editeur quand « Ajouter des commentaires » est parti (#11)
+        self._addcmt_editor_at_launch: str | None = None
         self._cu_worker:  arduino_cli.CompileUploadWorker | None = None
         self._cu_running: bool = False
         # Restauration du bouton actif (IA ou stable) — appelée à l'annulation
@@ -1973,6 +2016,11 @@ class StudioView(QWidget):
         self._btn_attach_prompt.setAutoDefault(False)
         self._btn_attach_prompt.clicked.connect(self._on_context_add_clicked)
         self._prompt_field.set_overlay_button(self._btn_attach_prompt)
+        # Pastille « thinking » a gauche de « + Joindre » (choix A de l'auteur,
+        # 2026-11-07) : le MEME reglage que celle du chat.
+        from .thinking_pastille import PastilleThinking
+        self._thinking = PastilleThinking()
+        self._prompt_field.set_overlay_mid(self._thinking)
         # Context file chip anchored just to the left of the « Joindre » button.
         self._prompt_field.set_overlay_left(self._context_badge)
         # Rotating tips in the placeholder (every 10 s, cf #24).
@@ -3236,10 +3284,49 @@ class StudioView(QWidget):
                                 preselect_target_id=preselect_target_id,
                                 default_override=default_override,
                                 modification_hint=modification_hint)
-        if (modal.exec() != QDialog.DialogCode.Accepted
-                or modal.result_choice is None):
+        accepted = modal.exec() == QDialog.DialogCode.Accepted
+        choice = modal.result_choice
+        self._dispose_dialog(modal)
+        if not accepted or choice is None:
             return None
-        return modal.result_choice
+        return choice
+
+    @staticmethod
+    def _dispose_dialog(dlg) -> None:
+        """Détruit une modale fermée, créée avec le Studio pour parent.
+
+        Sans ça, chaque clic sur Générer ou Réparer laissait une fenêtre
+        cachée enfant du Studio, encore abonnée à theme_manager/lang_manager :
+        elles s'accumulaient et étaient toutes remises en forme à chaque
+        changement de thème ou de langue (audit 2026-11-06, basse).
+        ⚠️ Une modale dont le fil de travail tourne encore (fermée pendant une
+        revue IA) n'est PAS détruite : la détruire détruirait le QThread en
+        cours (crash natif). Elle reste, comme avant — cas rare."""
+        worker = getattr(dlg, "_worker", None)
+        if worker is not None and worker.isRunning():
+            return
+        delete_later = getattr(dlg, "deleteLater", None)   # doublures de test
+        if delete_later is not None:
+            delete_later()
+
+    def _generation_in_flight(self) -> bool:
+        """Une generation (tous modes) ou son worker tourne encore."""
+        w = self._gen_worker
+        return (self._gen_busy is not None or self._beginner_running
+                or bool(w is not None and w.isRunning()))
+
+    def _refuse_while_busy(self) -> bool:
+        """Garde de reentrance commune (audit 2026-11-06 #1) : le swap de puce,
+        la banniere et l'onglet Composants restent actifs pendant une
+        generation ; en lancer une seconde remplacait `_gen_worker` (QThread en
+        cours -> « Destroyed while thread is still running ») et ecrasait
+        `_pending_action`. On refuse, et on le DIT. N'appelle PAS
+        `_show_gen_error` : il remet `_gen_busy` a None."""
+        if not self._generation_in_flight():
+            return False
+        self._lbl_gen_error.setText(lang_manager.current.studio_busy_try_later)
+        self._lbl_gen_error.setVisible(True)
+        return True
 
     def _launch_generation(self, action, target_id, prompt: str,
                            *, from_scratch: bool = False,
@@ -3249,6 +3336,8 @@ class StudioView(QWidget):
         `from_scratch` (↻ régénération par fonctionnalité) : régénère depuis le
         prompt sans fournir le code actuel — cf. `_start_generation`."""
         s = lang_manager.current
+        if self._refuse_while_busy():
+            return
         if not self._auto_create_untitled():
             return
         self._hide_gen_error()
@@ -3569,8 +3658,8 @@ class StudioView(QWidget):
         from PyQt6.QtWidgets import QMessageBox
         from .wiring.replacement_catalog import label_of
         s = lang_manager.current
-        old_lbl = label_of(old_type) or old_type
-        new_lbl = label_of(new_type) or new_type
+        old_lbl = label_of(old_type, lang_manager.lang) or old_type
+        new_lbl = label_of(new_type, lang_manager.lang) or new_type
         box = QMessageBox(self)
         box.setWindowTitle(s.chip_swap_regen_title)
         box.setTextFormat(Qt.TextFormat.RichText)
@@ -3632,8 +3721,10 @@ class StudioView(QWidget):
         # était prévue (QA B1-bis, 2026-08-08). `_type_label` porte le nom
         # humain ×4 langues ; on le prend en ANGLAIS, comme toute consigne
         # machine du prompt.
-        new_lbl = label_of(new_type) or _type_label(new_type, "en") or new_type
-        old_lbl = label_of(old_type) or _type_label(old_type, "en") or old_type
+        new_lbl = (label_of(new_type, "en") or _type_label(new_type, "en")
+                   or new_type)
+        old_lbl = (label_of(old_type, "en") or _type_label(old_type, "en")
+                   or old_type)
         old_cid = _corpus_id(old_type)
         new_cid = _corpus_id(new_type)
         new_entry = corpus_entry(new_cid) if new_cid else None
@@ -3825,6 +3916,7 @@ class StudioView(QWidget):
         if self._verify_worker and self._verify_worker.isRunning():
             self._verify_worker.cancel()
             self._verify_worker.wait(2000)
+            self._detach_verify_worker()
         forced = (forced_override if forced_override is not None
                   else self._resolve_lib_ambiguity(prompt))
         # Swaps de puce persistés sur les features ciblées (schéma) : bans et
@@ -3838,6 +3930,9 @@ class StudioView(QWidget):
             forced = _apply_lib_overrides(forced, targets)
             banned_libs = _banned_lib_ids(targets)
         self._pending_action = (action, target_id)
+        # Prompt saisi AU LANCEMENT : le champ reste modifiable pendant la
+        # generation, le relire a la fin enregistrait la demande suivante.
+        self._gen_launch_prompt = self.get_prompt()
         # ↻ (from_scratch) vs Modifier : lu par _on_generation_done pour
         # l'historique des prompts (un ↻ rejoue l'intent existant, il ne
         # doit PAS y appendre le prompt réinjecté — doublon sinon).
@@ -3867,6 +3962,7 @@ class StudioView(QWidget):
         if unknown:
             self._set_generating(True)
             self._start_gen_loader()
+            self._detach_registry_worker()
             self._registry_worker = RegistryLookupWorker(
                 unknown, self._registry_config_file(),
                 preferred_libs=preferred,
@@ -4168,7 +4264,10 @@ class StudioView(QWidget):
                 numbered(msgs),
                 s.registry_change_lib if self._registry_choices else "",
                 s.registry_ask_chat if self._registry_unknown else "")
-        _write_back_declared_lib(prompt, results)
+        if _write_back_declared_lib(prompt, results) is False:
+            # Ecrit dans le journal plutot qu'une fenetre : on est au milieu
+            # d'une generation (audit #124).
+            self._output_area.append_raw(s.declared_save_failed)
         return forced, directive
 
     def _on_change_lib_requested(self) -> None:
@@ -4750,14 +4849,15 @@ class StudioView(QWidget):
             lang_manager.current.backstage_title, system, user_msg, self)
         if dlg.exec() != QDialog.DialogCode.Accepted:
             return _BACKSTAGE_CANCELLED
-        if dlg.edited():
-            # Un prompt modifié à la main n'est plus reproductible depuis
-            # l'état du projet : la Feature garde la demande écrite par
-            # l'utilisateur, pas ce texte. Le dire ici plutôt que de le
-            # laisser découvrir au premier ↻ qui rend autre chose.
-            self._active_output_area().begin_phase(
-                lang_manager.current.backstage_edited, "#f59e0b")
-        self._start_gen_loader()         # la génération part pour de bon
+        # Un prompt modifié à la main n'est plus reproductible depuis
+        # l'état du projet : la Feature garde la demande écrite par
+        # l'utilisateur, pas ce texte. Le dire ici plutôt que de le
+        # laisser découvrir au premier ↻ qui rend autre chose.
+        # ⚠️ L'avis passe PAR `_start_gen_loader`, qui vide le journal : écrit
+        # avant, il était effacé aussitôt (audit 2026-11-06, basse).
+        notice = (lang_manager.current.backstage_edited
+                  if dlg.edited() else None)
+        self._start_gen_loader(notice=notice)   # la génération part pour de bon
         return dlg.user_message()
 
     def _resolve_lib_ambiguity(self, bare_prompt: str):
@@ -5019,6 +5119,11 @@ class StudioView(QWidget):
         if save:
             self.save_project()
 
+    def _generation_prompt(self) -> str:
+        """Prompt de la generation en cours de livraison (capture au lancement)."""
+        p = getattr(self, "_gen_launch_prompt", None)
+        return p if p is not None else self.get_prompt()
+
     def _on_generation_done(self, code: str):
         # Guard: stale signal (previous worker) or double trigger.
         if self._pending_action is None:
@@ -5041,14 +5146,14 @@ class StudioView(QWidget):
             # destructive action, knowingly chosen -> no warning, we reassemble
             # from the single new feature.
             new_features = [self._feature_from_parsed(
-                parsed, "f1", self.get_prompt(), summary,
+                parsed, "f1", self._generation_prompt(), summary,
                 carry_from=self._features_with_id("f1"))]
             # Regeneration = single feature -> no inter-feature conflict.
             self._pending_reassign = ([], [])
             new_code = assemble(new_features)
         elif action == ADD:
             feat = self._feature_from_parsed(
-                parsed, next_feature_id(self._features), self.get_prompt(),
+                parsed, next_feature_id(self._features), self._generation_prompt(),
                 summary)
             feat = self._clean_new_feature(feat)
             feat = self._reassign_new_feature_pins(feat)
@@ -5064,7 +5169,7 @@ class StudioView(QWidget):
             def _mk(fid, prompts=None, carry_from=None):
                 hist = [p for p in (prompts or []) if p and p.strip()]
                 if not hist:
-                    hist = [self.get_prompt()]
+                    hist = [self._generation_prompt()]
                 return self._feature_from_parsed(parsed, fid, hist[-1],
                                                  summary, prompts=hist,
                                                  carry_from=carry_from)
@@ -5082,7 +5187,7 @@ class StudioView(QWidget):
                 # the others stay unchanged.
                 old = selected[0]
                 hist = list(old.prompts) if from_scratch \
-                    else list(old.prompts) + [self.get_prompt()]
+                    else list(old.prompts) + [self._generation_prompt()]
                 new_feat = _mk(old.id, prompts=hist, carry_from=[old])
                 new_feat = self._clean_new_feature(new_feat)
                 new_feat = self._reassign_new_feature_pins(new_feat)
@@ -5099,7 +5204,7 @@ class StudioView(QWidget):
                 merged_id = selected[0].id
                 hist = [p for f in selected for p in f.prompts]
                 if not from_scratch:
-                    hist = hist + [self.get_prompt()]
+                    hist = hist + [self._generation_prompt()]
                 new_feat = _mk(merged_id, prompts=hist, carry_from=selected)
                 new_feat = self._clean_new_feature(new_feat, exclude_ids=sel_ids)
                 new_feat = self._reassign_new_feature_pins(new_feat, exclude_ids=sel_ids)
@@ -5138,7 +5243,8 @@ class StudioView(QWidget):
         if self._current_mode != "beginner" and (moves or warnings):
             from PyQt6.QtWidgets import QMessageBox
             from .generation import format_reassign_notice
-            QMessageBox.information(self, "Broches réaffectées",
+            QMessageBox.information(self,
+                                    lang_manager.current.studio_pins_reassigned_title,
                                     format_reassign_notice(moves, warnings))
 
         # Une génération ferme le segment d'édition manuelle courant (#35) : le
@@ -5326,8 +5432,14 @@ class StudioView(QWidget):
             comment_verbosity=self._comments_verbosity(),
         )
         self._gen_worker.finished.connect(self._on_recombine_done)
-        self._gen_worker.error.connect(self._on_gen_error)
+        self._gen_worker.error.connect(self._on_recombine_error)
         self._gen_worker.start()
+
+    def _on_recombine_error(self, msg: str):
+        """Erreur du moteur pendant la recombinaison : meme issue que tout echec
+        final de verification (retour au baseline), pas un simple libelle
+        (audit 2026-11-06 #9)."""
+        self._finalize_verify_failure(msg)
 
     def _on_recombine_done(self, code: str):
         from .code_format import reindent_code
@@ -6676,7 +6788,14 @@ class StudioView(QWidget):
             # que le crayon du schema debutant. Les trois portes passent par
             # `notify_lib_chosen_in_form` (TODO #52).
             modal.lib_changed_in_form.connect(self.notify_lib_chosen_in_form)
-            if modal.exec() != modal.DialogCode.Accepted:
+            _accepte = modal.exec() == modal.DialogCode.Accepted
+            # Enfant de la vue, la modale vivait jusqu'a la fermeture de
+            # l'app : une instance de plus a chaque ouverture (audit #124).
+            # Sans risque pour la suite de la fonction : Qt ne detruit qu'au
+            # retour dans la boucle d'evenements EXTERIEURE, jamais dans une
+            # boucle imbriquee ouverte apres (QMessageBox ci-dessous).
+            modal.deleteLater()
+            if not _accepte:
                 return None   # cancelled -> abort
             # Pre-computes the keys BEFORE apply_choices: the mutation
             # (_to_dc_motor replaces pins [A,K] with [M+,M-] with net=GND)
@@ -7028,6 +7147,9 @@ class StudioView(QWidget):
             dlg.exec()
         finally:
             self._open_wiring_dialog = None
+            # Meme fuite que la modale d'ambiguite : chaque ouverture du
+            # schema gardait sa scene en memoire (audit #124).
+            dlg.deleteLater()
         # Task 9 : si une puce détectée a été remplacée dans le schéma (vrai
         # changement de lib), proposer de régénérer la fonctionnalité concernée.
         self._process_pending_chip_swaps()
@@ -7195,6 +7317,18 @@ class StudioView(QWidget):
             self._code_with_comments[target] = None
             self._stripped_at_decoche[target] = None
 
+    def _full_code_for(self, target: str) -> str:
+        """Code COMPLET (commentaires compris) de la fenetre `target`, a jour des
+        editions faites depuis le decochage de « Commentaires » (audit
+        2026-11-06 #10/#13) : l'instantane pris au decochage est perime des que
+        l'editeur change, on y re-injecte donc les modifications."""
+        ed = self._tools_editor(target)
+        full = self._code_with_comments.get(target)
+        if self._tools_chk(target).isChecked() or full is None:
+            return ed.toPlainText()
+        return _restore_comments_after_edits(
+            full, self._stripped_at_decoche.get(target) or "", ed.toPlainText())
+
     def _reset_comments_state(self, target: str) -> None:
         """After a STRUCTURAL code replacement (delete / transfer) that writes
         the full assembled code (comments included), re-check the « Comments »
@@ -7252,7 +7386,14 @@ class StudioView(QWidget):
         if self._active_repair_target == "stable":
             self._write_repaired_to_target(code, "stable")
         else:
+            # Une réparation IA appliquée EST désormais le code « livré » : sans
+            # cela l'échec final ne revenait plus au baseline (audit #3). Seulement
+            # si l'éditeur valait encore le code livré (le voile interdit l'édition).
+            delivered = getattr(self, "_verify_delivered_code", None)
+            was_delivered = delivered is not None and self.get_code() == delivered
             self._set_code_with_attribution(code, self._features)
+            if was_delivered:
+                self._verify_delivered_code = self.get_code()
 
     def _write_repaired_to_target(self, code: str, target: str):
         """Write repaired `code` to the target editor WITH line attribution
@@ -7288,17 +7429,16 @@ class StudioView(QWidget):
             )
             return
         t = self._code_target
-        if self._tools_chk().isChecked():
-            source_code = self._tools_editor().toPlainText()
-        else:
-            source_code = self._code_with_comments[t] or self._tools_editor().toPlainText()
+        source_code = self._full_code_for(t)
         # Compile-first requires arduino-cli + a selected board. Otherwise we
         # cannot detect compile errors -> fall back to AUDIT only.
         env, model = board_manager.env, board_manager.model
         fqbn = get_fqbn(env, model) if (env and model) else None
         if (not fqbn or not arduino_cli.is_available()
                 or self._cu_running or self._gen_busy is not None
-                or self._beginner_running or self._manual_repair_running):
+                or self._beginner_running or self._manual_repair_running
+                or (self._verify_worker is not None
+                    and self._verify_worker.isRunning())):
             self._open_audit_dialog(backend, source_code, t)
             return
         self._manual_repair = {"target": t, "original": source_code,
@@ -7327,6 +7467,12 @@ class StudioView(QWidget):
         self._manual_repair_dialog = dlg
         dlg.exec()
         self._manual_repair_dialog = None
+        # Fermée pendant que la cascade tourne : l'utilisateur a renoncé. Sans
+        # ce drapeau, la fin de cascade ouvrait d'elle-même une NOUVELLE
+        # fenêtre d'audit et lançait un appel IA (audit 2026-11-06, basse).
+        if self._manual_repair is not None:
+            self._manual_repair["dismissed"] = True
+        self._dispose_dialog(dlg)
 
     def _log_behavior_findings(self, findings) -> None:
         """Layer B: log the deterministic behavioral lint to the journal (a
@@ -7372,6 +7518,7 @@ class StudioView(QWidget):
             lambda code, tt=target: self._apply_repair_result(code, tt))
         dlg.summary_ready.connect(self._log_repair_summary)
         dlg.exec()
+        self._dispose_dialog(dlg)
 
     def _on_manual_repair_done(self, ok: bool, errors: str):
         """Done of the compile-first manual repair (verify_only cascade). Drives
@@ -7395,11 +7542,11 @@ class StudioView(QWidget):
             # modal diff baseline stays the TRUE original so it shows BOTH the
             # cascade fixes AND the review fix. Nothing is applied yet.
             current = info.get("repaired_code") or info.get("original", "")
-            review_call = self._build_review_call(backend, current, t)
             if dlg is not None:
+                review_call = self._build_review_call(backend, current, t)
                 dlg.set_pre_summary(self._cascade_summary_text())
                 dlg.start_deferred(review_call)
-            else:
+            elif not info.get("dismissed"):
                 self._open_audit_dialog(backend, current, t)
         else:
             # Buffered preview -> the editor was never touched, nothing to
@@ -7513,9 +7660,10 @@ class StudioView(QWidget):
         button. Only the automatic paths (verify v2 / upload) show it."""
         self._last_repair_steps = steps or []
         if self._last_repair_steps and not self._manual_repair_running:
-            s = lang_manager.current
+            n = len(self._last_repair_steps)
+            # Un callable : le journal le rappelle au changement de langue.
             self._output_area.show_repairs_action(
-                s.studio_repairs_link.format(n=len(self._last_repair_steps)),
+                lambda n=n: lang_manager.current.studio_repairs_link.format(n=n),
             )
 
     def _on_output_action(self, href: str):
@@ -7533,13 +7681,18 @@ class StudioView(QWidget):
         steps = self._last_repair_steps
         original = steps[0].get("code_before", "") or ""
         final = steps[-1].get("code_after", "") or ""
-        RepairCodeDialog(None, original, self._board_name(), self,
-                         applied=(final, self._cascade_summary_text())).exec()
+        dlg = RepairCodeDialog(None, original, self._board_name(), self,
+                               applied=(final, self._cascade_summary_text()))
+        dlg.exec()
+        self._dispose_dialog(dlg)
 
     def _run_add_comments(self):
         """Launches the comment generation directly in the background
         and applies the result to the editor as soon as it arrives — no
         intermediate dialog, no validation."""
+        w = self._addcmt_worker
+        if w is not None and w.isRunning():
+            return   # un robot tourne deja (audit 2026-11-06 #4) : la carte le dit
         s = lang_manager.current
         backend = get_backend_instance(ai_config.backend_id)
         if backend is None or not backend.is_available():
@@ -7552,10 +7705,8 @@ class StudioView(QWidget):
         # We send the most complete version we know.
         t = self._code_target
         self._addcmt_target = t          # figé pour le callback async
-        if self._tools_chk().isChecked():
-            source_code = self._tools_editor().toPlainText()
-        else:
-            source_code = self._code_with_comments[t] or self._tools_editor().toPlainText()
+        source_code = self._full_code_for(t)
+        self._addcmt_editor_at_launch = self._tools_editor(t).toPlainText()
         from .add_comments_dialog import _AddCommentsWorker
         # Overlay loader (top-right of the editor) rather than the
         # global hourglass cursor.
@@ -7572,6 +7723,13 @@ class StudioView(QWidget):
         t = getattr(self, "_addcmt_target", "ia")
         self._code_target = t
         self._tools_panel(t).show_comment_loader(False)
+        sent = getattr(self, "_addcmt_editor_at_launch", None)
+        if sent is not None and self._tools_editor(t).toPlainText() != sent:
+            # L'editeur a change pendant l'appel : appliquer ecraserait ces
+            # modifications (audit 2026-11-06 #11).
+            QMessageBox.warning(self, lang_manager.current.studio_ai_tools_title,
+                                lang_manager.current.studio_addcmt_stale)
+            return
         new_code = new_code.rstrip() + "\n"
         # Auto-checks the checkbox so the user sees the comments
         # that were just generated. If it was already checked, the set
@@ -7632,6 +7790,12 @@ class StudioView(QWidget):
         (hidden) must never keep an orphan spinner."""
         s = lang_manager.current
         busy = self._gen_busy is not None
+        # « Une operation est deja en cours » (`_refuse_while_busy`) ne vaut que
+        # PENDANT l'operation : vu le 2026-11-07, il restait en rouge sous un
+        # bouton revenu au repos. Seul CE message part ; une vraie erreur posee
+        # ensuite par `_show_gen_error` reste affichee.
+        if not busy and self._lbl_gen_error.text() == s.studio_busy_try_later:
+            self._hide_gen_error()
         if self._current_mode == "beginner":
             active_btn, idle_btn = self._btn_generate_send, self._btn_generate
         else:
@@ -7682,13 +7846,15 @@ class StudioView(QWidget):
         n'a plus le droit d'echouer en silence.
         """
         self._stop_gen_worker_safely()
+        self._detach_registry_worker()
         # v2 : la vérif (compile + réparation) tourne dans un worker dédié,
         # annulable proprement (cancel() tue le sous-process — pas terminate()).
         if self._verify_worker and self._verify_worker.isRunning():
             self._verify_worker.cancel()
             self._verify_worker.wait(3000)
+        self._detach_verify_worker()
         s = lang_manager.current
-        self._reset_generation_ui(s.studio_cancel + ".")
+        self._reset_generation_ui(s.studio_cancelled + ".")
 
     def _stop_gen_worker_safely(self):
         """Arrete le worker de generation SANS `QThread.terminate()`.
@@ -7700,15 +7866,58 @@ class StudioView(QWidget):
         affichage >>. Deux copies d'un arret dangereux, une seule corrigee :
         c'est exactement ce qu'un point de passage unique empeche.
         """
-        if not (self._gen_worker and self._gen_worker.isRunning()):
+        w = self._gen_worker
+        if not (w and w.isRunning()):
             return
+        # Callbacks coupes AVANT d'annuler (2026-11-07). Depuis que l'annulation
+        # coupe vraiment la socket (`ai_backends/coupure.py`), le worker sort
+        # dans les 2 s en emettant l'ERREUR de coupure (« HTTP 500 context
+        # canceled », « Fournisseur injoignable ») -- qui s'affichait apres
+        # « Annule » tant qu'on ne detachait que les workers encore vivants.
+        self._detach_gen_worker()
         try:
-            self._gen_worker.backend.cancel()
+            w.backend.cancel()
         except Exception:
             pass              # un backend sans override, ou deja fini
-        self._gen_worker.wait(2000)
-        if self._gen_worker.isRunning():
-            self._detach_gen_worker()
+        w.wait(2000)
+        if not w.isRunning():
+            try:
+                self._detached_gen_workers.remove(w)
+            except ValueError:
+                pass
+
+    def _detach_registry_worker(self):
+        """Coupe le `done` du lookup registre et le laisse finir en arriere-plan
+        (audit 2026-11-06 #2/#6). Sans cela, apres « Annuler » le lookup
+        relancait la generation (parfois jusqu'a l'upload en Debutant) avec des
+        parametres perimes, et une relance remplacait un QThread en cours."""
+        w = self._registry_worker
+        self._registry_worker = None
+        if w is None:
+            return
+        try:
+            w.done.disconnect()
+        except TypeError:
+            pass
+        if w.isRunning():
+            self._detached_gen_workers.append(w)
+
+    def _detach_verify_worker(self):
+        """Coupe les rappels UI du worker de verification (annulation, audit
+        2026-11-06 #5) : un appel IA de reparation revenu apres « Annule »
+        reecrivait l'editeur via `code_updated`. Le thread meurt seul ;
+        `QThread.finished` reste branche (restauration des boutons)."""
+        w = self._verify_worker
+        self._verify_worker = None
+        if w is None:
+            return
+        for sig in (w.status, w.output, w.code_updated, w.repair_steps, w.done):
+            try:
+                sig.disconnect()
+            except TypeError:
+                pass
+        if w.isRunning():
+            self._detached_gen_workers.append(w)
 
     def _detach_gen_worker(self):
         """Coupe les callbacks UI du worker de generation et le laisse mourir
@@ -7810,8 +8019,13 @@ class StudioView(QWidget):
         forced = self._resolve_lib_ambiguity(bare_prompt)
 
         # Materializes the Untitled project at the start of the generation.
+        # L'échec vient du disque (dossier, droits), jamais du modèle : dire
+        # « aucun modèle IA » envoyait le débutant dans le mauvais onglet
+        # (audit 2026-11-06, basse). On montre la vraie cause.
         if not self._auto_create_untitled():
-            self._show_beginner_status(s.studio_err_no_backend, error=True)
+            self._show_beginner_status(
+                getattr(self, "_untitled_error", "") or s.studio_err_no_backend,
+                error=True)
             return
 
         # Composant hors-corpus : MÊME pipeline qu'en Intermédiaire/Avancé.
@@ -7829,6 +8043,7 @@ class StudioView(QWidget):
             self._show_beginner_status(s.studio_generating)
             self._start_gen_loader()
             from .registry_lookup import RegistryLookupWorker
+            self._detach_registry_worker()
             self._registry_worker = RegistryLookupWorker(
                 unknown, self._registry_config_file(),
                 preferred_libs=preferred,
@@ -7853,6 +8068,8 @@ class StudioView(QWidget):
         lib est réseau, donc elle vit dans un worker et la génération reprend
         ici."""
         s = lang_manager.current
+        if registry_results is not None and not self._beginner_running:
+            return   # annulé pendant le lookup registre (miroir de `_continue_generation`)
         # Bannière registre/ressemblance d'une génération précédente :
         # obsolète (miroir de `_start_generation`, ligne ~3378 — seul chemin
         # débutant à masquer avant tout). AVANT `_apply_registry_results`,
@@ -7879,6 +8096,7 @@ class StudioView(QWidget):
                         part=r.token.upper(), lib=r.lib_name), error=True)
                 return
 
+        self._gen_launch_prompt = bare_prompt
         # Remember the parameters for the compile phase
         self._beg_fqbn       = fqbn
         self._beg_port       = port
@@ -7945,7 +8163,7 @@ class StudioView(QWidget):
             p = parse_sketch(code)
         except SketchParseError:
             p = None
-        f1 = self._feature_from_parsed(p, "f1", self.get_prompt(), summary,
+        f1 = self._feature_from_parsed(p, "f1", self._generation_prompt(), summary,
                                        carry_from=self._features_with_id("f1"))
         self._index_features(self.get_code(), self._features)   # état AVANT (undo)
         # Décision 2026-07-05 : le code généré en débutant est réindenté AUSSI
@@ -8042,6 +8260,7 @@ class StudioView(QWidget):
         # Meme arret sain que le chemin int/avance (#24) : ce site appelait
         # encore `terminate()`, donc annuler en Debutant plantait toujours.
         self._stop_gen_worker_safely()
+        self._detach_registry_worker()
         if self._cu_worker and self._cu_worker.isRunning():
             # cancel() (kill the subprocess) instead of terminate() (which
             # crashes the app when the thread is mid-subprocess).
@@ -8055,7 +8274,7 @@ class StudioView(QWidget):
         # #12: VOLUNTARY cancellation -> neutral line in the journal (begin_phase),
         # especially NOT set_done(False) which would reveal the « Demander de l'aide
         # sur cette erreur » button (a cancellation is not an error).
-        self._beg_output_area.begin_phase(s.studio_cancel + ".", "#f97316")
+        self._beg_output_area.begin_phase(s.studio_cancelled + ".", "#f97316")
         self._restore_beginner_btn()
         # Annulation = pas de succès : on ne rouvre pas la console (la carte garde
         # son firmware précédent ; reconnecter ferait croire à un upload réussi).
@@ -8185,8 +8404,10 @@ class StudioView(QWidget):
             board_name=board_name,
             console=self._adv_console, clear=(self._current_mode != "advanced"),
             on_repair_steps=self._on_cu_repair_steps,
-            repairs_label=lambda n: lang_manager.current
-                .studio_repairs_link.format(n=n),
+            # Rend un CALLABLE (pas un texte) : le journal le rappelle au
+            # changement de langue (audit 2026-11-06, log_widget.py:330).
+            repairs_label=lambda n: (
+                lambda: lang_manager.current.studio_repairs_link.format(n=n)),
             on_finished=self._on_ia_upload_finished,
         )
 
@@ -8212,7 +8433,7 @@ class StudioView(QWidget):
         s = lang_manager.current
         # #12: voluntary cancellation = neutral line (begin_phase), not
         # set_done(False) which would show the « Demander de l'aide » button.
-        self._output_area.begin_phase(s.studio_cancel + ".", "#f97316")
+        self._output_area.begin_phase(s.studio_cancelled + ".", "#f97316")
         # Restaure le BON bouton (IA ou stable) selon l'upload en cours.
         (self._cu_active_restore or self._restore_compile_btn)()
         # Annulation = pas de succès : on ne rouvre pas la console (cohérent avec
@@ -8773,10 +8994,13 @@ class StudioView(QWidget):
             s.studio_gen_slow_soft if kind == "soft" else s.studio_gen_slow_hard,
             theme_manager.current.signal_warn)
 
-    def _start_gen_loader(self):
+    def _start_gen_loader(self, notice: str | None = None):
         """Resets the current mode's journal and starts the animated line
         « Génération en cours… » (uniform across all modes), SYNCHRONOUS with the veil
-        (same timer/frame). The editor blocking is ensured by the veil."""
+        (same timer/frame). The editor blocking is ensured by the veil.
+
+        `notice` : avis écrit juste APRÈS le vidage du journal, avant la ligne
+        animée (« Coulisses du prompt » modifiées)."""
         # Force-disconnect the serial console for the whole generation: a live
         # connection holds the COM port (which the upload that may follow needs
         # free) and would keep streaming the OLD program's output into the
@@ -8790,6 +9014,8 @@ class StudioView(QWidget):
             self._beg_output_area if self._current_mode == "beginner"
             else self._output_area)
         self._gen_loader_journal.clear()
+        if notice:
+            self._gen_loader_journal.begin_phase(notice, "#f59e0b")
         self._ensure_loader_timer()
         self._install_gen_slow_watchdog()
 
@@ -9757,6 +9983,11 @@ class StudioView(QWidget):
         self._beg_output_area.clear()
         self._output_area.clear()
         self._last_repair_steps = []
+        # L'instantane « avec commentaires » est celui du projet precedent :
+        # `_full_code_for` (donc la sauvegarde) le re-injecterait dans le code
+        # du projet suivant (audit 2026-11-06 #13).
+        for _t in ("ia", "stable"):
+            self._reset_comments_state(_t)
         # ⛔ LE MONITEUR SERIE DU PROJET PRECEDENT. Il vivait dans
         # `load_project` SEULE : ouvrir un autre projet fermait le port,
         # CREER un nouveau projet le laissait ouvert -- et il continuait de
@@ -9781,6 +10012,14 @@ class StudioView(QWidget):
                 return
             if action == "save":
                 self.save_project()
+                # Ecriture echouee (verrou, droits, disque plein) : on ne
+                # remplace pas l'editeur, sinon les modifs sont perdues (#12).
+                if self._dirty:
+                    return
+        # Une generation / verification / upload en cours livrerait son
+        # resultat dans le projet qu'on ouvre (audit 2026-11-06 #7).
+        if self._gen_busy is not None or self._beginner_running:
+            self._cancel_generation()
 
         # Écran du projet PRÉCÉDENT : bannière, journaux, historique de
         # réparation. Placé APRÈS le contrôle de sauvegarde — seul endroit
@@ -9919,15 +10158,18 @@ class StudioView(QWidget):
         """
         if self._current_project is not None:
             return True
+        self._untitled_error = ""
         ptype = self._infer_project_type()
-        base_dir = type_dir(ptype)
-        base_dir.mkdir(parents=True, exist_ok=True)
-        name = project_manager.unique_name("Sans-titre", base_dir)
         try:
+            base_dir = type_dir(ptype)
+            base_dir.mkdir(parents=True, exist_ok=True)
+            name = project_manager.unique_name(_untitled_name(), base_dir)
             project = project_manager.create(
                 name, ptype, initial_code=self.get_code()
             )
         except Exception as e:
+            # Gardée pour le Débutant, qui n'affiche pas _lbl_gen_error.
+            self._untitled_error = str(e)
             self._show_gen_error(str(e))
             return False
         self._current_project = project
@@ -9954,6 +10196,8 @@ class StudioView(QWidget):
                 # silently losing the edits.
                 if self._dirty:
                     return
+        if self._gen_busy is not None or self._beginner_running:
+            self._cancel_generation()     # cf. load_project (audit #7)
 
         # Même écran à nettoyer que lors de l'ouverture d'un projet, et par
         # le MÊME chemin — c'est tout l'objet du #96 : cette remise à zéro-ci
@@ -10041,7 +10285,8 @@ class StudioView(QWidget):
         validates without changing, nothing is saved."""
         self._name_edit.setVisible(True)
         self._lbl_project_name.setVisible(False)   # name <-> editing exclusive
-        default_name = self._current_project.name if self._current_project else "Sans-titre"
+        default_name = (self._current_project.name if self._current_project
+                        else _untitled_name())
         self._name_edit.setText(default_name)
         self._name_edit.selectAll()
         self._name_edit.setFocus(Qt.FocusReason.MouseFocusReason)
@@ -10248,7 +10493,7 @@ class StudioView(QWidget):
             }
             project_manager.save(
                 self._current_project,
-                code=self.get_code(),
+                code=self._full_code_for("ia"),
                 mode=self._current_mode,
                 board_env=board_manager.env or "",
                 board_model=board_manager.model or "",
@@ -10257,7 +10502,7 @@ class StudioView(QWidget):
                 features=self._features,
                 wiring_resolutions=wiring_res_serialized,
                 wiring_implicit_actions=implicit_actions_serialized,
-                stable_code=self._stable_panel.editor.toPlainText(),
+                stable_code=self._full_code_for("stable"),
                 stable_features=self._stable_features,
             )
         except Exception as e:

@@ -53,7 +53,7 @@ def _label_for(type_id: str, lang: str) -> str:
     from .replacement_catalog import label_of
     if type_id.startswith(TYPE_PREFIX) or type_id in _TYPE_LABEL:
         return _label(type_id, lang)
-    return label_of(type_id) or type_id
+    return label_of(type_id, lang) or type_id
 
 
 def _all_library_items(lang: str) -> list[PickerItem]:

@@ -529,18 +529,33 @@ s'affiche en haut de la vue.
 
 ## 13. Modèle IA et backends
 
-L'onglet **Modèle IA** permet de choisir le moteur de génération. Deux
-backends ont leur propre implémentation, et tous les autres passent par une
-couche **OpenAI-compatible** :
+L'onglet **Modèle IA** propose **trois** choix : le premier est local, les
+deux autres distants.
 
-| Backend                | Description                                               | Clé API |
-| ---------------------- | --------------------------------------------------------- | ------- |
-| **Ollama**             | serveur local (`localhost:11434`), modèle au choix        | non     |
-| **Fournisseur cloud**  | couche OpenAI-compatible, 8 préréglages                   | oui     |
+| Choix                 | Description                                                                                 | Compte / clé |
+| --------------------- | ------------------------------------------------------------------------------------------- | ------------ |
+| **Local**             | liste déroulante **Moteur** : Ollama (`127.0.0.1:11434`) ou LM Studio (`127.0.0.1:1234`)     | non          |
+| **Cloud (clé perso)** | couche OpenAI-compatible, 8 préréglages                                                     | clé d'API    |
+| **Compte ChatGPT**    | forfait ChatGPT **payant**, par connexion OAuth, sans clé                                   | compte       |
 
-Le backend par défaut est **Ollama** : il ne demande ni compte ni clé d'API.
-Une configuration enregistrée sur un moteur que la version installée ne
+Le choix par défaut est **Local / Ollama** : il ne demande ni compte ni clé
+d'API. Une configuration enregistrée sur un moteur que la version installée ne
 propose plus bascule sur Ollama, en le disant une fois.
+
+Les deux moteurs locaux ont chacun leur implémentation et offrent les **mêmes
+gestes** : modèles installés, téléchargement, Charger / Décharger, taille de
+contexte. Tous les fournisseurs cloud passent par la couche
+**OpenAI-compatible**, et le compte ChatGPT par une sous-classe de cette
+couche.
+
+⚠️ **Une seule différence voulue entre les deux moteurs locaux** : « pas
+chargé » est **rouge** chez LM Studio, où une génération échouerait, et
+**gris** chez Ollama, qui charge seul à la première demande — juste plus
+lentement.
+
+⚠️ **Essai réel en attente pour le compte ChatGPT** : OpenAI refuse les
+comptes **gratuits** (constaté sur l'écran de consentement) ; la génération et
+le renouvellement du jeton restent à confirmer sur un compte payant.
 
 Les huit préréglages cloud : **Gemini**, **OpenAI**, **Anthropic**,
 **Mistral**, **DeepSeek**, **Qwen Coder**, **Groq**, **OpenRouter** — plus
@@ -782,7 +797,8 @@ PromptuinoUI/
 │   ├── explain_code_dialog.py · lint_code_dialog.py       # Outils IA
 │   ├── repair_code_dialog.py · add_comments_dialog.py
 │   ├── simulate_code_dialog.py
-│   ├── ai_backends/                # openai_compat · providers · ollama_backend · factory · base
+│   ├── ai_backends/                # openai_compat · providers · ollama_backend ·
+│   │                               # lmstudio_backend · chatgpt_plan · factory · base
 │   ├── ai_config.py                # Backend actif + clés (keyring)
 │   ├── rag.py                      # Retrieval-augmented generation
 │   ├── serial_monitor.py           # Moniteur série

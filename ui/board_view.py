@@ -305,7 +305,7 @@ class BoardView(QWidget):
             env, model = result
             board_manager.set_board_connected(env, model)   # -> green status
         else:
-            board_manager.set_connected(False)              # -> « aucune carte » state
+            board_manager.clear_selection()                 # -> « aucune carte » state, manual env/model/port forgotten
 
     # ── Initial state sync ────────────────────────────────────
 

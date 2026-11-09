@@ -52,6 +52,9 @@ class LogWidget(QWidget):
         # Anchor position of a « live line » (animated loader updated in
         # place, cf. set_live_line). None = no live line in progress.
         self._live_anchor: int | None = None
+        # End of the live line's own text: what is written AFTER it (RAG
+        # diagnostics, warnings) must survive the next tick.
+        self._live_end: int | None = None
         self._auto_scroll = True   # driven by the « défilement auto » checkbox
         self._bottom_overlay = None   # fixed control strip at the bottom of the log
         # The frame (border + background) is carried by THE WIDGET (not the QTextEdit):
@@ -84,6 +87,7 @@ class LogWidget(QWidget):
         # revealed after a compilation that triggered auto repairs.
         # Stays visible after the upload (consultable on demand).
         self._repairs_btn = QPushButton()
+        self._repairs_label = None   # callable relabel (cf. show_repairs_action)
         self._repairs_btn.setVisible(False)
         self._repairs_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._repairs_btn.clicked.connect(
@@ -152,6 +156,7 @@ class LogWidget(QWidget):
         self._repairs_btn.setVisible(False)
         self._last_error_text = ""
         self._live_anchor = None
+        self._live_end = None
 
     def hide_actions(self):
         """Hide the action buttons (error-help, corrections) WITHOUT touching the
@@ -167,24 +172,27 @@ class LogWidget(QWidget):
         log (an animated loader, e.g.): the 1st call anchors it, the following
         ones replace its content without stacking lines. Use only when
         nothing else writes to the log at the same time (otherwise the anchor
-        comes loose). `commit_live_line` freezes it; `clear_live_line` removes it."""
+        comes loose). `commit_live_line` freezes it; `clear_live_line` removes it.
+        Only the live line's own text is replaced: lines written after it stay."""
         cursor = self._text.textCursor()
         if self._live_anchor is None:
             cursor.movePosition(QTextCursor.MoveOperation.End)
             if not self._text.document().isEmpty():
                 cursor.insertBlock()          # fresh line for the live line
             self._live_anchor = cursor.position()
+            self._live_end = self._live_anchor
         cursor.setPosition(self._live_anchor)
-        cursor.movePosition(QTextCursor.MoveOperation.End,
-                            QTextCursor.MoveMode.KeepAnchor)
+        cursor.setPosition(self._live_end, QTextCursor.MoveMode.KeepAnchor)
         cursor.removeSelectedText()
         cursor.insertHtml(html)
+        self._live_end = cursor.position()
         self._scroll_bottom()
 
     def commit_live_line(self):
         """Freeze the live line (it becomes permanent content; the next
         begin_phase/append will be added AFTER)."""
         self._live_anchor = None
+        self._live_end = None
 
     def clear_live_line(self):
         """Remove the live line from the log (no-op if there is none)."""
@@ -192,10 +200,12 @@ class LogWidget(QWidget):
             return
         cursor = self._text.textCursor()
         cursor.setPosition(self._live_anchor)
-        cursor.movePosition(QTextCursor.MoveOperation.End,
-                            QTextCursor.MoveMode.KeepAnchor)
+        cursor.setPosition(self._live_end if self._live_end is not None
+                           else self._live_anchor,
+                           QTextCursor.MoveMode.KeepAnchor)
         cursor.removeSelectedText()
         self._live_anchor = None
+        self._live_end = None
 
     def begin_phase(self, title: str, color: str = "#3b82f6"):
         """Insert a visual phase separator into the log."""
@@ -228,10 +238,16 @@ class LogWidget(QWidget):
             )
         self._scroll_bottom()
 
-    def show_repairs_action(self, label: str):
+    def show_repairs_action(self, label):
         """Reveal the « voir les corrections automatiques » button with `label`.
-        The click emits `action_clicked("repairs")`."""
-        self._repairs_btn.setText(label)
+        The click emits `action_clicked("repairs")`.
+
+        `label` is a string, or a zero-argument callable returning it in the
+        CURRENT language: the callable is called again on a language change
+        (audit 2026-11-06, basse : un texte deja formate ne peut pas etre
+        retraduit, le bouton restait dans la langue d'avant)."""
+        self._repairs_label = label if callable(label) else None
+        self._repairs_btn.setText(label() if callable(label) else label)
         self._repairs_btn.setVisible(True)
 
     def append_serial(self, text: str):
@@ -328,8 +344,11 @@ class LogWidget(QWidget):
             self.help_with_error_requested.emit(self._last_error_text)
 
     def _apply_lang(self, s: Strings):
-        """Refresh the button label on a language change."""
+        """Refresh the button labels on a language change."""
         self._help_btn.setText(s.chat_help_error_button)
+        relabel = self._repairs_label
+        if relabel is not None:
+            self._repairs_btn.setText(relabel())
 
     def apply_theme(self, c: ColorScheme):
         self._muted_color = c.text_secondary

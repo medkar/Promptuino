@@ -250,7 +250,7 @@ class TutorialOverlay(QWidget):
         self._bubble.setStyleSheet(
             f"#TutoBubble {{ background:{c.surface}; "
             f"border:1px solid {c.signal_ok}; border-radius:10px; }}"
-            f"#TutoText {{ color:#ffffff; font-size:11pt; background:transparent; }}"
+            f"#TutoText {{ color:{c.text_primary}; font-size:11pt; background:transparent; }}"
             f"#TutoCounter {{ color:{c.text_secondary}; font-size:9pt; "
             f"background:transparent; }}"
         )

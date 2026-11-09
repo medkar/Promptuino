@@ -40,6 +40,25 @@ MAX_COMPONENTS_TOTAL = 16    # strict project limit (= 2 BB max x 8)
                               # the 12 "user components".
 MAX_SERVOS = 6               # strict limit: max 6 servos per project
 
+
+class PlacementLimitError(RuntimeError):
+    """A project exceeds an editorial limit of the placement (servos, total
+    components, room on two breadboards).
+
+    Typed so the pipeline can turn it into a NAMED warning (TODO #124,
+    2026-11-07): as a bare RuntimeError it ended in the generic « Impossible
+    de générer le schéma », which tells a student neither what was too much
+    nor what to do. `code` is the warning code, `count`/`limit` its params.
+    The message stays French: it only goes to the log.
+    """
+
+    def __init__(self, code: str, message: str, count: int = 0,
+                 limit: int = 0):
+        super().__init__(message)
+        self.code = code
+        self.count = count
+        self.limit = limit
+
 # Cols used for default placement
 # BB1 (right of Arduino): pins on col 'c' (left tie-strip), wires arrive col 'a'
 # BB2 (left of Arduino, mirror): pins on col 'h' (right tie-strip), wires arrive col 'j'
@@ -109,11 +128,12 @@ OFF_BB_BREADBOARD_IDX = -1   # marker in PlacedComponent.breadboard_idx
 # (driver -> [motors]) that structure the off-BB placement into columns.
 MOTOR_TYPES = {"dc_motor", "stepper_motor", "nema17"}
 DRIVER_TYPES_OFF_BB = {"l298n", "uln2003", "l293d_module"}
-DRIVER_TYPES_ON_BB = {"a4988", "tb6612fng", "drv8833", "l293d"}
+DRIVER_TYPES_ON_BB = {"a4988", "tb6612fng", "drv8833", "l293d",
+                      "drv8825", "tmc2209", "stspin220"}
 DRIVER_TYPES = DRIVER_TYPES_OFF_BB | DRIVER_TYPES_ON_BB
 # Motor power pins (battery side) — used to attach a
 # battery_external to its target driver(s).
-BATTERY_POWER_PINS = {"VS", "VCC", "VM", "VMOT", "VDD"}
+BATTERY_POWER_PINS = {"VS", "VCC", "VM", "VMOT", "VMOTOR", "VDD"}
 
 # Off-BB layout in 2 anchored rows:
 #   - TOP row: batteries (centered on Arduino, or fixed X for rail-aligned)
@@ -220,6 +240,9 @@ class PlacedScene:
     # Original netlist kept for contextual renders (battery voltage
     # range, etc.). List of dicts [{"ref":..., "type":..., "pins":[...]}].
     netlist_components: list[dict] = field(default_factory=list)
+    # Nets dont le routage a echoue (renseigne par `route_wires`) : le schema
+    # est alors INCOMPLET et doit le dire (warning `unrouted_wires`).
+    routing_failures: list[str] = field(default_factory=list)
 
 
 # ─── Row estimation ──────────────────────────────────────────────
@@ -270,6 +293,7 @@ def _identify_pairs(typed_entries: list,
 
     resistor_refs = [(ref, type_id, e) for (ref, type_id, e) in typed_entries
                      if type_id == "resistor"]
+    entry_by_ref = {ref: e for (ref, _t, e) in typed_entries}
 
     for ref, type_id, _entry in typed_entries:
         if type_id not in PAIRED_MAIN_TYPES:
@@ -286,7 +310,14 @@ def _identify_pairs(typed_entries: list,
                 if p["net"] in r_nets:
                     main_to_r[ref] = r_ref
                     r_to_main[r_ref] = ref
-                    main_pin_with_r[ref] = i
+                    # `i` est la position dans la NETLIST ; le placement
+                    # lit un indice du CATALOGUE. Les deux ordres different
+                    # (DS18B20 : VCC/DATA/GND contre VCC/GND/DATA) : on
+                    # traduit par nom de broche, repli sur la position.
+                    cat = getattr(entry_by_ref.get(ref), "pin_labels", None) or {}
+                    main_pin_with_r[ref] = next(
+                        (ci for ci, name in cat.items()
+                         if name == p.get("name")), i)
                     break
             if ref in main_to_r:
                 break
@@ -457,7 +488,8 @@ def _allocate_by_battery_groups(
         elif _slots(bb_left) < MAX_COMPONENTS_PER_BB:
             bb_left.append(entry)
         else:
-            raise RuntimeError(
+            raise PlacementLimitError(
+                "breadboards_full",
                 f"Allocation 2-BB battery split : trop de composants libres "
                 f"({entry[0]} ne tient sur aucune BB)"
             )
@@ -1066,7 +1098,8 @@ def place_components_on_breadboard(
     current = spaces[0] + 1
     for i, ((ref, type_id, entry), rows_used) in enumerate(zip(main_entries, comp_rows)):
         if current + rows_used - 1 > bb.rows:
-            raise RuntimeError(
+            raise PlacementLimitError(
+                "breadboards_full",
                 f"Composant {ref} ({entry.name}) ne tient pas sur BB de "
                 f"{bb.rows} rangees a partir de la rangee {current}"
             )
@@ -1176,8 +1209,10 @@ def place_scene(
 
     servo_entries = [(r, t, e) for (r, t, e) in typed_entries if t == "servo"]
     if len(servo_entries) > MAX_SERVOS:
-        raise RuntimeError(
-            f"Trop de servos : {len(servo_entries)} > {MAX_SERVOS}"
+        raise PlacementLimitError(
+            "too_many_servos",
+            f"Trop de servos : {len(servo_entries)} > {MAX_SERVOS}",
+            count=len(servo_entries), limit=MAX_SERVOS,
         )
 
     # For the row computation AND for the per-BB limit, we exclude the
@@ -1192,8 +1227,10 @@ def place_scene(
     # 3. Strict limit on the total number of row slots + max servos
     n_slots = len(_row_significant_entries(typed_entries))
     if n_slots > MAX_COMPONENTS_TOTAL:
-        raise RuntimeError(
-            f"Projet trop grand : {n_slots} slots > limite {MAX_COMPONENTS_TOTAL}"
+        raise PlacementLimitError(
+            "too_many_components",
+            f"Projet trop grand : {n_slots} slots > limite {MAX_COMPONENTS_TOTAL}",
+            count=n_slots, limit=MAX_COMPONENTS_TOTAL,
         )
 
     # 4. Decision 1 or 2 BB according to the number of row-significant slots.
@@ -1268,7 +1305,8 @@ def place_scene(
         cap1 = MAX_COMPONENTS_PER_BB - _slots(bb1_required)
         other_slots = _slots(other_entries)
         if cap0 < 0 or cap1 < 0 or other_slots > cap0 + cap1:
-            raise RuntimeError(
+            raise PlacementLimitError(
+                "breadboards_full",
                 f"Allocation impossible : servos={len(servo_entries)} "
                 f"I2C={len(i2c_main_entries)} autres={other_slots} slots "
                 f"depasse {MAX_COMPONENTS_PER_BB} par BB"
@@ -1323,7 +1361,8 @@ def place_scene(
                 bb1_extras.extend(group)
                 cap1_used += slots_needed
             else:
-                raise RuntimeError(
+                raise PlacementLimitError(
+                    "breadboards_full",
                     f"Allocation impossible : groupe {[e[0] for e in group]} "
                     f"({slots_needed} slots) ne tient ni sur BB0 "
                     f"(restant {cap0 - cap0_used}) ni sur BB1 "

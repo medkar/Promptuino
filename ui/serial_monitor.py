@@ -10,6 +10,7 @@ Automatic connection managed by the parent (StudioView).
 Changing the baud rate during an active connection closes and reopens it.
 """
 
+import codecs
 import re
 from typing import Callable, Optional
 
@@ -36,6 +37,18 @@ from . import arduino_cli
 _BAUD_RATES   = ["300", "1200", "2400", "4800", "9600", "19200", "38400", "57600", "115200"]
 _DEFAULT_BAUD = "9600"
 _WORKER_WAIT_MS = 1000
+_MAX_LINES = 10000
+
+# Workers whose wait() timed out: referenced here until their thread ends.
+_STILL_RUNNING: list = []
+
+
+def _reap(w) -> None:
+    try:
+        _STILL_RUNNING.remove(w)
+    except ValueError:
+        pass
+    w.deleteLater()
 
 
 # ── Serial reader worker ───────────────────────────────────────────────────
@@ -78,12 +91,17 @@ class _SerialReaderWorker(QThread):
             return
         try:
             self._ser = serial.Serial(self._port, self._baud, timeout=0.1)
+            # Incremental: a multi-byte char (é) split between two reads must
+            # not become two « � ».
+            decoder = codecs.getincrementaldecoder('utf-8')(errors='replace')
             while self._running:
                 try:
                     waiting = self._ser.in_waiting
                     if waiting:
                         raw = self._ser.read(waiting)
-                        self.data_received.emit(raw.decode('utf-8', errors='replace'))
+                        text = decoder.decode(raw)
+                        if text:
+                            self.data_received.emit(text)
                 except Exception:
                     break
                 self.msleep(20)
@@ -192,6 +210,9 @@ class SerialMonitorWidget(QWidget):
         # ── Display area ──
         self._display = QPlainTextEdit()
         self._display.setReadOnly(True)
+        # Bounded: a sketch printing every 10 ms for a whole lesson grew the
+        # document without limit (memory, slower inserts). Oldest lines go.
+        self._display.setMaximumBlockCount(_MAX_LINES)
         self._display.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
         )
@@ -377,6 +398,9 @@ class SerialMonitorWidget(QWidget):
                 self.suggest_baud(m.group(1))
         port = board_manager.port or arduino_cli._find_port_auto()
         if not port:
+            # Say it: the « Connecter » button used to do nothing at all.
+            self._display.appendPlainText(
+                f"⚠ {lang_manager.current.studio_err_no_port}")
             return
         baud = int(self._baud_combo.currentText())
         self._worker = _SerialReaderWorker(port, baud)
@@ -407,8 +431,14 @@ class SerialMonitorWidget(QWidget):
                 except TypeError:
                     pass
             w.stop()
-            w.wait(_WORKER_WAIT_MS)
-            w.deleteLater()
+            if w.wait(_WORKER_WAIT_MS):
+                w.deleteLater()
+            else:
+                # Still running (port slow to open / busy): destroying a live
+                # QThread aborts the process. Keep it alive and let it free
+                # itself once it really finishes.
+                _STILL_RUNNING.append(w)
+                w.finished.connect(lambda w=w: _reap(w))
         self._set_ui_connected(False)
 
     # ── Internal slots ────────────────────────────────────────────────────────
@@ -452,12 +482,34 @@ class SerialMonitorWidget(QWidget):
 
     def _on_error(self, msg: str):
         self._display.appendPlainText(f"⚠ {msg}")
-        self._worker = None
+        self._release_worker()
         self._set_ui_connected(False)
 
     def _on_disconnected(self):
-        self._worker = None
+        self._release_worker()
         self._set_ui_connected(False)
+
+    def _release_worker(self):
+        """Drops the worker that just reported an error / its end.
+
+        Both signals are emitted from INSIDE run() (the finally block), so
+        the thread is still finishing when the slot runs: dropping the last
+        Python reference right away could destroy a live QThread (process
+        abort). Same parking as close_port until it really finishes."""
+        w = self._worker
+        self._worker = None
+        if w is None:
+            return
+        try:
+            running = w.isRunning()
+        except RuntimeError:        # C++ object already gone
+            return
+        if running:
+            if w not in _STILL_RUNNING:
+                _STILL_RUNNING.append(w)
+                w.finished.connect(lambda w=w: _reap(w))
+        else:
+            w.deleteLater()
 
     def _on_send(self):
         text = self._send_input.text().strip()

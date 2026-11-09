@@ -54,63 +54,19 @@ sys.path.insert(0, str(REPO_ROOT))
 # régression sur la batterie A, la bande « nommé » gagne +4, et le plafond de
 # bruit passe de 0,543 à 0,495 — sous le plancher de 0,50.
 # Mesure : docs/superpowers/measures/2026-08-26-65-budget-de-tokens.md
-_DESCRIPTION_TOKEN_BUDGET = 64
-
-_truncation_tokenizer = None
-
-
-def _truncate_to_tokens(text: str, budget: int) -> str:
-    """Coupe `text` à `budget` tokens, sur une frontière de token.
-
-    Compte en TOKENS et non en caractères : c'est le budget en tokens qui est
-    la ressource rare, et un plafond en caractères se décale d'une langue à
-    l'autre — le corpus est multilingue.
-
-    Utilise un tokenizer DÉDIÉ, sans troncature, plutôt que celui de `ui.rag` :
-    celui-ci est un singleton de module configuré à 128 tokens, et le
-    déconfigurer le temps d'un calcul laisserait le runtime sans troncature si
-    ce script échouait en cours de route.
-
-    ⚠️ `no_truncation()` est indispensable, pas décoratif : `tokenizer.json`
-    embarque `truncation: max_length 128`, donc un tokenizer fraîchement chargé
-    tronque DÉJÀ. Inoffensif tant que le budget est inférieur à 128 — le point
-    de coupe reste dans la fenêtre — mais un budget plus grand serait
-    silencieusement ramené à 128, et le plafond mentirait sur sa propre valeur.
-    """
-    global _truncation_tokenizer
-    if _truncation_tokenizer is None:
-        from tokenizers import Tokenizer
-        from ui.rag import _TOKENIZER_PATH
-        _truncation_tokenizer = Tokenizer.from_file(str(_TOKENIZER_PATH))
-        _truncation_tokenizer.no_truncation()
-    enc = _truncation_tokenizer.encode(text)
-    if len(enc.ids) <= budget:
-        return text
-    return text[:enc.offsets[budget - 1][1]]
-
-
-def _embedding_text(entry: dict) -> str:
-    """Text used for embedding: description (capped, see above) + keywords,
-    with each non-lower keyword duplicated in lowercase form.
-
-    Why duplicate: paraphrase-multilingual-MiniLM tokenizes case-sensitively.
-    With only "OLED" in keywords, "écran oled" (lowercase user typing) drops
-    from 0.43 to 0.20. Full lowercasing fixes that case but degrades model
-    numbers like "DHT22" that the encoder treats as named entities. Keeping
-    both variants in the surface form gets the best of both worlds —
-    upper-case acronyms still match strongly, and lowercase queries still
-    find their target.
-    """
-    description = _truncate_to_tokens(entry.get("description", "") or "",
-                                      _DESCRIPTION_TOKEN_BUDGET)
-    keywords = entry.get("keywords", []) or []
-    expanded: list[str] = []
-    for k in keywords:
-        expanded.append(k)
-        kl = k.lower()
-        if kl != k:
-            expanded.append(kl)
-    return f"{description} {' '.join(expanded)}".strip()
+# ⛔ LA REGLE DU TEXTE D'EMBEDDING VIT DANS `ui/embedding_text.py`, PAS ICI.
+# Elle y a demenage le 2026-11-05 (TODO #120) parce que le controle d'accord
+# modele/matrice a besoin de la MEME regle pour encoder un texte temoin : deux
+# copies auraient derive, et un texte qui differe d'un mot rend un vecteur
+# different -- donc un « desaccord » sur un modele sain.
+#
+# ⚠️ Les alias ci-dessous gardent les noms que ce script utilisait, pour que le
+# deplacement ne change RIEN a ce qu'il produit. Verifie bit a bit : l'empreinte
+# des textes de `embeddings.fingerprint.json` est inchangee apres le
+# deplacement (`test_the_moved_rule_produces_the_same_texts`).
+from ui.embedding_text import (DESCRIPTION_TOKEN_BUDGET as _DESCRIPTION_TOKEN_BUDGET,
+                               embedding_text as _embedding_text,
+                               truncate_to_tokens as _truncate_to_tokens)
 
 
 def _encode_batched(texts: list[str], batch_size: int = 16) -> np.ndarray:

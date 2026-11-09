@@ -699,6 +699,10 @@ class LibraryView(QWidget):
     def _on_search_text_changed(self, text: str):
         q = text.strip()
         self._current_query = q
+        if not q or len(q) < SEARCH_MIN_CHARS:
+            # The search in flight no longer answers anything on screen:
+            # invalidate it, or its late result replaced the list anyway.
+            self._search_request_id += 1
         if not q:
             # Re-display the installed libraries without waiting
             self._search_timer.stop()

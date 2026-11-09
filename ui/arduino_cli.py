@@ -73,16 +73,43 @@ def _core_installed(core_id: str, config_file: str) -> bool:
     return False
 
 
+# Installing a core downloads the toolchain (hundreds of MB on a slow
+# network): the 180 s of a compile/search would kill it half-way.
+_INSTALL_TIMEOUT = 1800
+_LIB_INSTALL_TIMEOUT = 600
+
+
 def _install_core(core_id: str, config_file: str) -> tuple[bool, str]:
     """Install the platform. Update the index first (in case it is
     empty on a fresh install). Returns (ok, output)."""
-    _run(['arduino-cli', 'core', 'update-index', '--config-file', config_file])
+    _run(['arduino-cli', 'core', 'update-index', '--config-file', config_file],
+         timeout=_INSTALL_TIMEOUT)
     ret, out = _run([
         'arduino-cli', 'core', 'install',
         '--config-file', config_file,
         core_id,
-    ])
+    ], timeout=_INSTALL_TIMEOUT)
     return ret == 0, out
+
+
+_PROGRESS_RE = re.compile(r"\d+(?:\.\d+)?\s*[KMG]?i?B\s*/\s*\d+(?:\.\d+)?\s*[KMG]?i?B|\d+\.\d+%")
+
+
+def summarize_core_install(out: str) -> str:
+    """Ce qu'un humain lit d'une installation de cœur REUSSIE : les lignes
+    « … installed », une fois chacune. arduino-cli redessine ses barres de
+    progression avec des retours chariot ; une fois aplaties, elles
+    remplissaient le journal du Debutant. Pure."""
+    vues, gardees = set(), []
+    for brut in re.split(r"[\r\n]+", _strip_ansi(out or "")):
+        ligne = brut.strip()
+        if not ligne or _PROGRESS_RE.search(ligne):
+            continue
+        if not ligne.endswith("installed") or ligne in vues:
+            continue
+        vues.add(ligne)
+        gardees.append(ligne)
+    return "\n".join(gardees)
 
 
 # ── Library detection ─────────────────────────────────────────────────────────
@@ -374,7 +401,7 @@ def _try_install_lib(name: str, config_file: str,
                 'arduino-cli', 'lib', 'install',
                 '--config-file', config_file,
                 candidate,
-            ])
+            ], timeout=_LIB_INSTALL_TIMEOUT)
             if ret != 0:
                 continue
 
@@ -531,11 +558,18 @@ def _merge_windows(line_nos: list[int], total: int,
 def _strip_strings_comments(code: str) -> str:
     """Strips comments and string/char literals so as NOT to count the
     braces/parentheses they contain (e.g. `Serial.println("}")`)."""
-    code = re.sub(r'//[^\n]*', '', code)
-    code = re.sub(r'/\*.*?\*/', '', code, flags=re.DOTALL)
-    code = re.sub(r'"(?:\\.|[^"\\])*"', '', code)
-    code = re.sub(r"'(?:\\.|[^'\\])*'", '', code)
-    return code
+    # ONE pass, leftmost match wins: a `//` INSIDE a string
+    # (`"http://x.com"`) must not be taken for a comment -- removing comments
+    # first truncated the line and left its `(` unclosed (audit 2026-11-06).
+    return _STRINGS_COMMENTS_RE.sub('', code)
+
+
+_STRINGS_COMMENTS_RE = re.compile(
+    r'"(?:\\.|[^"\\\n])*"'        # string literal
+    r"|'(?:\\.|[^'\\\n])*'"       # char literal
+    r'|//[^\n]*'                  # line comment
+    r'|/\*.*?\*/',                # block comment
+    re.DOTALL)
 
 
 def _is_structurally_balanced(code: str) -> bool:
@@ -754,7 +788,8 @@ def _resolve_cmd(cmd: list[str]) -> list[str]:
     return cmd
 
 
-def _run(cmd: list[str], cwd: str | None = None, register=None) -> tuple[int, str]:
+def _run(cmd: list[str], cwd: str | None = None, register=None,
+         timeout: int = 180) -> tuple[int, str]:
     """Runs a command, returns (return_code, cleaned stdout+stderr output).
 
     `register` (optional callback) receives the live `Popen` so the caller can
@@ -774,7 +809,7 @@ def _run(cmd: list[str], cwd: str | None = None, register=None) -> tuple[int, st
     if register is not None:
         register(proc)
     try:
-        out, err = proc.communicate(timeout=180)
+        out, err = proc.communicate(timeout=timeout)
     except subprocess.TimeoutExpired:
         proc.kill()
         proc.communicate()
@@ -905,9 +940,22 @@ class CompileUploadWorker(QThread):
             if core_id and not _core_installed(core_id, cli_cfg):
                 self.status.emit("core", 0, MAX_FIX_ATTEMPTS)
                 self.output.emit(f"→ core install {core_id!r}")
-                ok, install_out = _install_core(core_id, cli_cfg)
+                try:
+                    ok, install_out = _install_core(core_id, cli_cfg)
+                except subprocess.TimeoutExpired:
+                    if not self._cancelled:
+                        self.done.emit(
+                            False,
+                            f"{s.studio_err_core_install} '{core_id}' "
+                            f"(timeout {_INSTALL_TIMEOUT // 60} min)",
+                        )
+                    return
                 if install_out:
-                    self.output.emit(install_out)
+                    # Sortie brute seulement en cas d'ECHEC (diagnostic) ; sur
+                    # un succes, le journal d'un debutant recevait des dizaines
+                    # de barres de progression collees (vu le 2026-11-07).
+                    self.output.emit(install_out if not ok
+                                     else summarize_core_install(install_out))
                 if not ok:
                     self.done.emit(
                         False, f"{s.studio_err_core_install} '{core_id}'"
@@ -980,6 +1028,11 @@ class CompileUploadWorker(QThread):
                     if repair_log:
                         repair_log[-1]["final_ok"] = compile_ok   # False here
                         self.repair_steps.emit(repair_log)
+                    # Same revert as the final failure: a repair may have added
+                    # this very #include, do not leave the half-repaired code.
+                    if not self._verify_only and current_code != original_code:
+                        current_code = original_code
+                        self.code_updated.emit(original_code)
                     self.done.emit(False, f"{s.studio_err_missing_lib} '{lib_name}'")
                     return
 

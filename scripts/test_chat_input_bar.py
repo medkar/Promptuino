@@ -93,23 +93,65 @@ def _make_view():
     return view, _qapp
 
 
-def test_no_send_button():
+def _view_with_backend():
+    """Un moteur factice : la saisie est active, et l'envoi s'arrete avant
+    tout appel reel (`evaluate_turn` et `_start_stream` remplaces)."""
     view, _ = _make_view()
-    assert not hasattr(view, "_send_btn"), "le bouton envoyer doit etre supprime"
-    print("  [OK] bouton envoyer supprime")
+    view.set_backend(object())
+    envois = []
+    view.pre_send_hook = lambda: envois.append("hook")
+    view.controller.evaluate_turn = lambda texte: ("stream", texte)
+    view._start_stream = lambda decision: envois.append(decision)
+    return view, envois
+
+
+def test_a_small_icon_send_button_sends_the_prompt():
+    """Demande de l'auteur (2026-11-06) : « un bouton dans le chat pour
+    valider un prompt, pour l'instant seul entree fonctionne, petit avec une
+    icone, pas du texte ». ⚠️ Inverse `test_no_send_button` (juin 2026, la
+    barre arrondie avait retire le bouton) : c'est l'auteur qui le redemande.
+    Le clic suit EXACTEMENT le chemin d'Entree (`_on_send_clicked`)."""
+    view, envois = _view_with_backend()
+    btn = view._send_btn
+    assert btn.text() == "" and not btn.icon().isNull(), "une icone, pas du texte"
+    assert btn.width() <= 32 and btn.height() <= 32, (btn.width(), btn.height())
+    assert btn.toolTip(), "l'infobulle dit ce que fait le bouton"
+    view._input.setPlainText("allume la LED")
+    btn.click()
+    assert envois == ["hook", ("stream", "allume la LED")], envois
+    assert view._input.toPlainText() == ""
+    print("  [OK] petit bouton icone : le clic envoie comme Entree")
+
+
+def test_the_send_button_waits_for_text_and_a_backend():
+    view, _ = _make_view()
+    assert not view._send_btn.isEnabled(), "sans moteur"
+    view.set_backend(object())
+    assert not view._send_btn.isEnabled(), "champ vide"
+    view._input.setPlainText("   ")
+    assert not view._send_btn.isEnabled(), "des espaces ne sont pas un prompt"
+    view._input.setPlainText("bonjour")
+    assert view._send_btn.isEnabled()
+    view._input.clear()
+    assert not view._send_btn.isEnabled()
+    print("  [OK] Envoyer actif seulement avec du texte et un moteur")
 
 
 def test_stop_button_hidden_then_streaming():
+    """Envoyer et Stop occupent la meme place : l'un ou l'autre."""
     view, _ = _make_view()
     assert view._stop_btn.isHidden() is True
+    assert view._send_btn.isHidden() is False
     view._set_streaming_ui(True)
     assert view._stop_btn.isHidden() is False
+    assert view._send_btn.isHidden() is True
     assert view._input.isEnabled() is False
     assert view._attach_btn.isEnabled() is False
     view._set_streaming_ui(False)
     assert view._stop_btn.isHidden() is True
+    assert view._send_btn.isHidden() is False
     assert view._attach_btn.isEnabled() is True
-    print("  [OK] Stop visible <=> stream (via _set_streaming_ui)")
+    print("  [OK] Stop visible <=> stream, Envoyer sinon (via _set_streaming_ui)")
 
 
 def test_chip_reflects_shared_context():
@@ -241,10 +283,10 @@ def test_typing_indicator_show_remove():
 
 def test_view_builds_with_all_elements():
     view, _ = _make_view()
-    for attr in ("_input", "_stop_btn", "_attach_btn", "_attach_chip",
-                 "_chip_lbl", "_model_lbl"):
+    # `_send_btn` est revenu le 2026-11-06 (demande de l'auteur).
+    for attr in ("_input", "_send_btn", "_stop_btn", "_attach_btn",
+                 "_attach_chip", "_chip_lbl", "_model_lbl"):
         assert hasattr(view, attr), f"{attr} manquant"
-    assert not hasattr(view, "_send_btn")
     view._apply_theme()   # ne doit pas lever
     print("  [OK] vue construite avec tous les éléments + thème OK")
 
@@ -278,6 +320,39 @@ def test_stop_finalizes_immediately():
     print("  [OK] stop : input réactivé immédiatement + partiel commité + worker détaché")
 
 
+def test_new_conversation_works_during_the_first_answer():
+    """Vu le 2026-11-07 en pilotant la vraie fenetre : l'historique n'est
+    rempli qu'a la FIN d'une reponse, donc pendant la toute premiere,
+    « Nouvelle conversation » sortait aussitot et la reponse continuait."""
+    import ui.chat.chat_view as cvmod
+    view, _ = _make_view()
+    assert view.controller.history == []
+
+    from PyQt6.QtCore import QObject, pyqtSignal
+
+    class _W(QObject):
+        chunk_received = pyqtSignal(str)
+        stream_finished = pyqtSignal()
+        stream_error = pyqtSignal(str)
+        finished = pyqtSignal()
+        arrete = False
+        def request_stop(self): _W.arrete = True
+    w = _W()
+    _keep_alive.append(w)
+    view._worker = w
+    view._set_streaming_ui(True)
+    ancien = cvmod.ask_yes_no
+    cvmod.ask_yes_no = lambda *a, **k: True
+    try:
+        view._on_reset_clicked()
+    finally:
+        cvmod.ask_yes_no = ancien
+    assert _W.arrete, "le flux en cours n'a pas ete arrete"
+    assert view._worker is None
+    assert not view._stop_btn.isVisibleTo(view) and view._input.isEnabled() is not False
+    print("  [OK] Nouvelle conversation arrete la 1re reponse en cours")
+
+
 def main() -> int:
     tests = [
         test_combined_material_no_attachment,
@@ -285,7 +360,8 @@ def main() -> int:
         test_combined_material_attachment_only,
         test_reset_clears_attachment,
         test_i18n_keys_present_all_langs,
-        test_no_send_button,
+        test_a_small_icon_send_button_sends_the_prompt,
+        test_the_send_button_waits_for_text_and_a_backend,
         test_stop_button_hidden_then_streaming,
         test_chip_reflects_shared_context,
         test_clear_attachment_emits_detach,
@@ -298,6 +374,7 @@ def main() -> int:
         test_typing_indicator_show_remove,
         test_view_builds_with_all_elements,
         test_stop_finalizes_immediately,
+        test_new_conversation_works_during_the_first_answer,
     ]
     print("[test_chat_input_bar]\n")
     failed = 0

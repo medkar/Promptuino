@@ -41,18 +41,52 @@ DEFAULT_TURN_PENALTY = 2000
 DEFAULT_MAX_EXPANSIONS = 2_000_000
 
 
+# Echecs de routage de l'appel en cours (reinitialise par `route_wires`).
+_FAILURES: list[str] = []
+
+
+def _v3_fail(msg: str) -> None:
+    """Journalise un echec de routage ET le retient : sans cela l'echec
+    n'etait qu'un print sur stdout, invisible en app empaquetee."""
+    print(msg)
+    label = msg.split("]", 1)[-1].strip().split(":", 1)[0].strip()
+    # « I2C-A SDA », « GND R8-3 bridge » -> 1er mot ; « D2 », « 5V » tels quels.
+    _FAILURES.append(label.split(" ")[0] if label else "?")
+
+
 _I2C_PIN_NAMES = {"SDA", "SCL"}
 _I2C_PHYSICAL_PINS_FOR_BUS: dict[str, list[str]] = {
     "SDA": ["SDA", "A4"],
     "SCL": ["SCL", "A5"],
 }
 
+# Cartes dont le bus I2C est physiquement sur A4/A5 (stem du SVG de carte).
+_A4_A5_I2C_BOARD_STEMS = {"uno_r3", "uno_r4", "nano"}
+# Cartes dont le bus I2C est AILLEURS : leurs broches, en-tete SDA/SCL compris.
+_I2C_PINS_BY_STEM: dict[str, dict[str, list[str]]] = {
+    "mega_2560": {"SDA": ["SDA", "D20"], "SCL": ["SCL", "D21"]},
+    "leonardo":  {"SDA": ["SDA", "D2"],  "SCL": ["SCL", "D3"]},
+}
+
 
 def _i2c_physical_pins(board_loader, bus: str) -> list[str]:
     """Physical board pins for the requested I2C bus, ordered by preference.
     Filters out pins that don't exist on the board."""
-    return [p for p in _I2C_PHYSICAL_PINS_FOR_BUS.get(bus, [])
-            if board_loader.has_pin(p)]
+    pins = _I2C_PHYSICAL_PINS_FOR_BUS.get(bus, [])
+    # A4/A5 ne sont le bus I2C que sur les cartes dont SDA/SCL SONT A4/A5
+    # (Uno R3/R4, Nano). Sur Mega (D20/D21) et Leonardo (D2/D3) ce sont de
+    # simples entrees analogiques : un 2e module y serait cable pour rien.
+    stem = getattr(getattr(board_loader, "svg_path", None), "stem", "")
+    if stem in _I2C_PINS_BY_STEM:
+        # La carte a SES broches I2C (Mega D20/D21, Leonardo D2/D3) : c'est
+        # sous ce nom que la netlist les ecrit desormais
+        # (`markers._remap_i2c_to_board`), et un 2e module doit pouvoir s'y
+        # raccorder par l'en-tete SDA/SCL (2026-11-07 : le BME280 d'une Mega
+        # restait sans fil I2C).
+        pins = _I2C_PINS_BY_STEM[stem].get(bus, [])
+    elif stem not in _A4_A5_I2C_BOARD_STEMS:
+        pins = [p for p in pins if p not in ("A4", "A5")]
+    return [p for p in pins if board_loader.has_pin(p)]
 
 
 def _i2c_bus_rows(host_consumers, default=(1, 2)) -> tuple[int, int]:
@@ -503,123 +537,6 @@ def _external_batteries_info(scene, netlist_components, grid: OccupancyGrid):
     return infos
 
 
-def _external_battery_plus_info(scene, netlist_components, grid: OccupancyGrid):
-    """If a `battery_external` is in the netlist + its '+' pin has a usable
-    canvas position, returns a dict with:
-      - bat_plus_cell, bat_plus_canvas: A* endpoint of the '+' pin
-      - arduino_side, bat_side: 'left'/'right'
-      - bb_idx: host BB
-      - bat_plus_rail_id: 'V+_<bat_side>'
-      - bat_plus_rail_cells_with_canvas: holes of the battery-side V+ rail
-
-    Returns None if no battery_external, no resolvable '+' pin, or no
-    bat-side V+ rail. Cf. R8-4/R8-5.
-    """
-    from .occupancy import _endpoint_canvas, _name_to_pin_index
-    bat_comp = None
-    for c in netlist_components:
-        if c.get("type") == "battery_external":
-            bat_comp = c
-            break
-    if bat_comp is None:
-        return None
-    bat_placed = None
-    for pc in scene.placed_components:
-        if pc.component_ref == bat_comp["ref"]:
-            bat_placed = pc
-            break
-    if bat_placed is None:
-        return None
-    plus_pin_idx = _name_to_pin_index(bat_placed.catalog_entry, "+")
-    if plus_pin_idx is None:
-        return None
-    plus_xy = _endpoint_canvas(scene, bat_placed, plus_pin_idx)
-    if plus_xy is None:
-        return None
-    plus_cell = grid.canvas_to_cell(*plus_xy)
-    primary_bb_idx = 0
-    bb_x = scene.breadboard_translates[primary_bb_idx][0]
-    board_x = scene.board_translate[0]
-    arduino_side = "left" if bb_x > board_x else "right"
-    bat_side = "right" if arduino_side == "left" else "left"
-    bat_plus_rail_id = f"V+_{bat_side}"
-    bat_plus_rail_cells = _rail_cells_for_rail_id(scene, grid, primary_bb_idx,
-                                                    bat_plus_rail_id)
-    if not bat_plus_rail_cells:
-        return None
-    return {
-        "bat_plus_cell": plus_cell,
-        "bat_plus_canvas": plus_xy,
-        "arduino_side": arduino_side,
-        "bat_side": bat_side,
-        "bb_idx": primary_bb_idx,
-        "bat_plus_rail_id": bat_plus_rail_id,
-        "bat_plus_rail_cells_with_canvas": bat_plus_rail_cells,
-    }
-
-
-def _external_battery_gnd_info(scene, netlist_components, grid: OccupancyGrid):
-    """If a `battery_external` is in the netlist + its '-' pin has a usable
-    canvas position, returns a dict with:
-      - bat_minus_cell, bat_minus_canvas: A* endpoint of the '-' pin
-      - arduino_side, bat_side: 'left'/'right'
-      - bb_idx: host BB
-      - bat_rail_cells_with_canvas: holes of the battery-side GND rail
-        (= rail opposite the Arduino, same format as _rail_cells_for_net)
-
-    Returns None if no battery_external, no resolvable '-' pin, or no
-    bat-side rail on the BB.
-    """
-    from .occupancy import _endpoint_canvas, _name_to_pin_index
-    bat_comp = None
-    for c in netlist_components:
-        if c.get("type") == "battery_external":
-            bat_comp = c
-            break
-    if bat_comp is None:
-        return None
-
-    # Locate the PlacedComponent + '-' pin
-    bat_placed = None
-    for pc in scene.placed_components:
-        if pc.component_ref == bat_comp["ref"]:
-            bat_placed = pc
-            break
-    if bat_placed is None:
-        return None
-    minus_pin_idx = _name_to_pin_index(bat_placed.catalog_entry, "-")
-    if minus_pin_idx is None:
-        return None
-    minus_xy = _endpoint_canvas(scene, bat_placed, minus_pin_idx)
-    if minus_xy is None:
-        return None
-    minus_cell = grid.canvas_to_cell(*minus_xy)
-
-    # Determine sides (cf. power_rail_for_net): Arduino-side rail = side of
-    # the BB facing the board. bat_side = opposite.
-    primary_bb_idx = 0
-    bb_x = scene.breadboard_translates[primary_bb_idx][0]
-    board_x = scene.board_translate[0]
-    arduino_side = "left" if bb_x > board_x else "right"
-    bat_side = "right" if arduino_side == "left" else "left"
-    bat_rail_id = f"GND_{bat_side}"
-
-    bat_rail_cells = _rail_cells_for_rail_id(scene, grid, primary_bb_idx,
-                                              bat_rail_id)
-    if not bat_rail_cells:
-        return None
-
-    return {
-        "bat_minus_cell": minus_cell,
-        "bat_minus_canvas": minus_xy,
-        "arduino_side": arduino_side,
-        "bat_side": bat_side,
-        "bb_idx": primary_bb_idx,
-        "bat_rail_id": bat_rail_id,
-        "bat_rail_cells_with_canvas": bat_rail_cells,
-    }
-
-
 def _build_gnd_bridge_wire(scene, grid: OccupancyGrid, net_id: int,
                              color: str,
                              arduino_rail_row_n: tuple[tuple[int, int], tuple[float, float]],
@@ -809,6 +726,13 @@ def _preroute_i2c_buses(scene, netlist_components, grid: OccupancyGrid,
             net = pin_data.get("net", "")
             if not net:
                 continue
+            # Le NOM de la broche ne suffit pas : le SS du MFRC522 s'appelle
+            # SDA sur la carte mais est sur D10 (SPI). Seul un net qui EST le
+            # bus (SDA/SCL ou leur alias A4/A5) releve du cablage I2C.
+            if (net not in _I2C_PHYSICAL_PINS_FOR_BUS.get(label, ())
+                    and net not in _i2c_physical_pins(scene.board_loader,
+                                                      label)):
+                continue
             i2c_by_bus.setdefault(label, []).append((placed, pin_idx, net))
 
     wires: list[Wire] = []
@@ -848,6 +772,17 @@ def _preroute_i2c_buses(scene, netlist_components, grid: OccupancyGrid,
             d_right = bx_max - px
             d_top = py - by_min
             d_bottom = by_max - py
+            # Meme regle que l'etape 6 de l'occupation : jamais un chemin
+            # droit qui recouvre une autre broche (board_pin_exit_side).
+            from .occupancy import board_pin_exit_side
+            autres = [xy for nom, xy in scene.board_loader.pin_positions(
+                scene.board_translate).items() if nom != phys_pin]
+            cote = board_pin_exit_side(px, py, (bx_min, by_min, bx_max, by_max),
+                                       autres)
+            d_left = 0 if cote == "left" else float("inf")
+            d_right = 0 if cote == "right" else float("inf")
+            d_top = 0 if cote == "top" else float("inf")
+            d_bottom = 0 if cote == "bottom" else float("inf")
             d_min = min(d_left, d_right, d_top, d_bottom)
             if d_min == d_left:
                 exit_x, exit_y = bx_min - 2, py
@@ -889,7 +824,7 @@ def _preroute_i2c_buses(scene, netlist_components, grid: OccupancyGrid,
                                 turn_penalty=turn_penalty,
                                 max_expansions=DEFAULT_MAX_EXPANSIONS)
                 if cells is None:
-                    print(f"[v3 FAIL] I2C-A {bus}: {pin_name} -> "
+                    _v3_fail(f"[v3 FAIL] I2C-A {bus}: {pin_name} -> "
                           f"target_cell={target_cell}")
                     continue
                 path = _cells_to_canvas_path(cells, grid,
@@ -940,7 +875,7 @@ def _preroute_i2c_buses(scene, netlist_components, grid: OccupancyGrid,
                 if p.breadboard_idx == host_bb_idx)
             n_needed = 1 + host_consumer_count
             if n_needed > len(bus_side_cols):
-                print(f"[v3 FAIL] I2C-B {bus}: trop de consumers "
+                _v3_fail(f"[v3 FAIL] I2C-B {bus}: trop de consumers "
                       f"({host_consumer_count}) pour un seul tie-strip "
                       f"({len(bus_side_cols) - 1} jumpers max)")
                 continue
@@ -970,7 +905,7 @@ def _preroute_i2c_buses(scene, netlist_components, grid: OccupancyGrid,
                             turn_penalty=turn_penalty,
                             max_expansions=DEFAULT_MAX_EXPANSIONS)
             if cells is None:
-                print(f"[v3 FAIL] I2C-B {bus}: arduino "
+                _v3_fail(f"[v3 FAIL] I2C-B {bus}: arduino "
                       f"{phys_pins[0]} -> bus entry {entry_cell}")
                 continue
             path = _cells_to_canvas_path(cells, grid,
@@ -985,12 +920,12 @@ def _preroute_i2c_buses(scene, netlist_components, grid: OccupancyGrid,
             jumper_cells = list(bus_cells[1:])
             for placed, pin_idx, net in items:
                 if placed.breadboard_idx != host_bb_idx:
-                    print(f"[v3 FAIL] I2C-B {bus}: consumer "
+                    _v3_fail(f"[v3 FAIL] I2C-B {bus}: consumer "
                           f"{placed.component_ref} on BB{placed.breadboard_idx} "
                           f"!= host BB{host_bb_idx}")
                     continue
                 if not jumper_cells:
-                    print(f"[v3 FAIL] I2C-B {bus}: plus de jumper cells "
+                    _v3_fail(f"[v3 FAIL] I2C-B {bus}: plus de jumper cells "
                           f"libres pour {placed.component_ref}")
                     continue
                 jumper_cell, jumper_xy = jumper_cells.pop(0)
@@ -1002,7 +937,7 @@ def _preroute_i2c_buses(scene, netlist_components, grid: OccupancyGrid,
                                 turn_penalty=turn_penalty,
                                 max_expansions=DEFAULT_MAX_EXPANSIONS)
                 if cells is None:
-                    print(f"[v3 FAIL] I2C-B {bus}: bus {jumper_cell} -> "
+                    _v3_fail(f"[v3 FAIL] I2C-B {bus}: bus {jumper_cell} -> "
                           f"target_cell={target_cell}")
                     continue
                 path = _cells_to_canvas_path(cells, grid,
@@ -1035,6 +970,14 @@ def route_wires(scene, netlist_components,
     Signature identical to `layout.routing.route_wires`.
     """
     # ─── Pipeline v3 ──────────────────────────────────────────────────────
+    _FAILURES.clear()
+    wires = _route_wires_impl(scene, netlist_components, cell_size,
+                              turn_penalty)
+    scene.routing_failures = list(dict.fromkeys(_FAILURES))
+    return wires
+
+
+def _route_wires_impl(scene, netlist_components, cell_size, turn_penalty):
     grid, net_to_id = build_occupancy_grid(
         scene, netlist_components, cell_size=cell_size
     )
@@ -1214,7 +1157,7 @@ def route_wires(scene, netlist_components,
                           max_expansions=DEFAULT_MAX_EXPANSIONS,
                           extra_blocked=all_rail_cells_set - {row1_cell})
             if cells is None:
-                print(f"[v3 FAIL] {net}: Arduino -> above-BB col (row1 vertical)")
+                _v3_fail(f"[v3 FAIL] {net}: Arduino -> above-BB col (row1 vertical)")
                 continue
             # Vertical descent on rail_col, directly to the row 1 hole. No
             # intermediate hole on rail_col between above_cell and
@@ -1317,8 +1260,8 @@ def route_wires(scene, netlist_components,
             # rail (R8-6 generalized) instead of making a long detour to
             # BB0. Reserve row N-1 (= cross-BB bridge tap that will be added
             # after the consumer loop).
-            from .occupancy import _NET_TO_RAIL as _NET_TO_RAIL_MAP
-            rail_kind_pwr = _NET_TO_RAIL_MAP.get(net)
+            from .occupancy import rail_kind_for_net
+            rail_kind_pwr = rail_kind_for_net(scene, net)
             if rail_kind_pwr is not None and not is_bat_plus:
                 placed_by_ref_mb = {pc.component_ref: pc
                                      for pc in scene.placed_components}
@@ -1374,7 +1317,7 @@ def route_wires(scene, netlist_components,
                 available = [c for c in consumer_rail_cells
                               if c not in used_rail_cells]
                 if not available:
-                    print(f"[v3 FAIL] {net}: plus de rail libre pour target_cell={target_cell}")
+                    _v3_fail(f"[v3 FAIL] {net}: plus de rail libre pour target_cell={target_cell}")
                     continue
                 # Pick the rail cell closest to the target. R8-6: may be on
                 # arduino-side OR bat-side depending on Manhattan.
@@ -1412,7 +1355,7 @@ def route_wires(scene, netlist_components,
                                    max_expansions=DEFAULT_MAX_EXPANSIONS,
                                    extra_blocked=all_rail_cells_set - {chosen})
                     if cells is None:
-                        print(f"[v3 FAIL] {net}: outside-BB -> target_cell={target_cell} (corner)")
+                        _v3_fail(f"[v3 FAIL] {net}: outside-BB -> target_cell={target_cell} (corner)")
                         continue
                     # Prepend: chosen (rail row 1/N hole) -> vertical
                     # descent/ascent on rail_col up to outside_cell exclusive.
@@ -1433,7 +1376,7 @@ def route_wires(scene, netlist_components,
                                    max_expansions=DEFAULT_MAX_EXPANSIONS,
                                    extra_blocked=all_rail_cells_set - {chosen})
                     if cells is None:
-                        print(f"[v3 FAIL] {net}: rail -> target_cell={target_cell}")
+                        _v3_fail(f"[v3 FAIL] {net}: rail -> target_cell={target_cell}")
                         continue
                 used_rail_cells.add(chosen)
                 start_canvas_xy = consumer_rail_canvas_by_cell.get(cells[0])
@@ -1471,7 +1414,7 @@ def route_wires(scene, netlist_components,
                 arduino_rail_cells_can = _rail_cells_for_rail_id(
                     scene, grid, host_bb_idx, arduino_rail_id)
                 if not arduino_rail_cells_can:
-                    print(f"[v3 FAIL] GND R8-3 bridge: arduino-side rail "
+                    _v3_fail(f"[v3 FAIL] GND R8-3 bridge: arduino-side rail "
                           f"introuvable pour BB{host_bb_idx}")
                     continue
                 arduino_row_n_cell, arduino_row_n_canvas = arduino_rail_cells_can[-1]
@@ -1513,7 +1456,7 @@ def route_wires(scene, netlist_components,
                                            max_expansions=DEFAULT_MAX_EXPANSIONS,
                                            extra_blocked=all_rail_cells_set - {bat_chosen})
                         if cells_bat is None:
-                            print(f"[v3 FAIL] GND: outside-BB -> bat '-' "
+                            _v3_fail(f"[v3 FAIL] GND: outside-BB -> bat '-' "
                                   f"target_cell={bat_minus_cell} (R8-2 corner)")
                         else:
                             prepend_bat: list[tuple[int, int]] = [bat_chosen]
@@ -1545,7 +1488,7 @@ def route_wires(scene, netlist_components,
                                            max_expansions=DEFAULT_MAX_EXPANSIONS,
                                            extra_blocked=all_rail_cells_set - {bat_chosen})
                         if cells_bat is None:
-                            print(f"[v3 FAIL] GND: bat-rail -> bat '-' "
+                            _v3_fail(f"[v3 FAIL] GND: bat-rail -> bat '-' "
                                   f"target_cell={bat_minus_cell} (R8-2 mid-row)")
                         else:
                             start_canvas_bat = bat_rail_canvas_by_cell.get(cells_bat[0])
@@ -1579,7 +1522,7 @@ def route_wires(scene, netlist_components,
                         turn_penalty=turn_penalty,
                     )
                     if bridge_result is None:
-                        print(f"[v3 FAIL] GND R8-3 bridge BB{host_bb_idx}: "
+                        _v3_fail(f"[v3 FAIL] GND R8-3 bridge BB{host_bb_idx}: "
                               "A* below-BB arduino-side -> bat-side")
                     else:
                         bridge_wire, bridge_cells = bridge_result
@@ -1605,9 +1548,9 @@ def route_wires(scene, netlist_components,
                             consumer_bbs.add(placed_c.breadboard_idx)
                             break
                 if len(consumer_bbs) >= 2:
-                    from .occupancy import _NET_TO_RAIL
+                    from .occupancy import rail_kind_for_net
                     primary_cb = bb_idx_for_rail
-                    rail_kind = _NET_TO_RAIL.get(net)
+                    rail_kind = rail_kind_for_net(scene, net)
                     if rail_kind is None:
                         continue
                     primary_rail_id = f"{rail_kind}_{ 'left' if scene.breadboard_translates[primary_cb][0] > scene.board_translate[0] else 'right'}"
@@ -1651,7 +1594,7 @@ def route_wires(scene, netlist_components,
                                 stagger_other=other_has_bat,
                             )
                             if br is None:
-                                print(f"[v3 FAIL] {net} cross-BB bridge "
+                                _v3_fail(f"[v3 FAIL] {net} cross-BB bridge "
                                       f"BB{primary_cb}<->BB{other_cb}")
                             else:
                                 bridge_wire, bridge_cells = br
@@ -1665,7 +1608,7 @@ def route_wires(scene, netlist_components,
                               ne.net_id, turn_penalty=turn_penalty,
                               max_expansions=DEFAULT_MAX_EXPANSIONS)
                 if cells is None:
-                    print(f"[v3 FAIL] {net}: src -> target_cell={target_cell}")
+                    _v3_fail(f"[v3 FAIL] {net}: src -> target_cell={target_cell}")
                     continue
                 start_xy = source_canvas_per_net.get(net)
                 end_xy = target_canvas_per_net_cell.get((net, target_cell))

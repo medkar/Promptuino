@@ -23,20 +23,53 @@ _SERVICE    = "promptuino"
 from .paths import DATA_DIR
 CONFIG_PATH = DATA_DIR / "config.json"
 
-# Valid context sizes (tokens) for the local Ollama chat. The IA-tab slider
-# offers these steps; the setter snaps any stored value to the nearest one.
-OLLAMA_NUM_CTX_STEPS = (2048, 4096, 8192, 16384, 32768)
-_OLLAMA_NUM_CTX_DEFAULT = 8192
+# Taille de contexte des moteurs locaux (decision de l'auteur, 2026-11-06) :
+# la MEME regle pour Ollama et LM Studio, de `CTX_PROMPTUINO` au maximum du
+# modele, par pas de `PAS`. Le maximum depend du modele : il s'applique a
+# l'usage (`contexte.ramener`), pas ici. Remplace les cinq paliers
+# 2 048..32 768 d'Ollama, et le 8 192 par defaut : une valeur plus petite
+# enregistree avant passe au plancher a la lecture.
+from .contexte import CTX_PROMPTUINO as _CTX_DEFAULT, PAS as _CTX_PAS  # noqa: E402
+from .reflexion import NIVEAU_CHATGPT_DEFAUT, niveau_chatgpt  # noqa: E402
+
+_OLLAMA_NUM_CTX_DEFAULT = _CTX_DEFAULT
+
+
+def _write_config_atomic(data: dict) -> None:
+    """Ecrit config.json d'un coup : fichier temporaire du MEME dossier, puis
+    os.replace (meme discipline que ui/session.py). Une ecriture en place
+    coupee par un plantage laissait un fichier tronque, que `_load` avalait
+    en silence : tous les reglages IA revenaient aux defauts (audit
+    2026-11-06). Lit `CONFIG_PATH` a l'appel, pour que les tests le
+    detournent."""
+    import os
+    import tempfile
+    path = Path(CONFIG_PATH)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_name = tempfile.mkstemp(dir=str(path.parent), prefix=".config-",
+                                    suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+        os.replace(tmp_name, path)
+    except BaseException:
+        try:
+            os.unlink(tmp_name)
+        except OSError:
+            pass
+        raise
 
 
 def _snap_num_ctx(value) -> int:
-    """Snap an arbitrary value to the nearest valid Ollama context step."""
+    """Sur un pas, jamais sous le plancher ; illisible -> le plancher."""
     try:
-        v = int(value)
+        v = int(value) // _CTX_PAS * _CTX_PAS
     except (TypeError, ValueError):
-        return _OLLAMA_NUM_CTX_DEFAULT
-    return min(OLLAMA_NUM_CTX_STEPS, key=lambda step: abs(step - v))
+        return _CTX_DEFAULT
+    return max(v, _CTX_DEFAULT)
 
+
+_LMSTUDIO_BASE_URL_DEFAULT = "http://127.0.0.1:1234/v1"
 
 _DEFAULTS: dict = {
     # Ollama : le moteur local, sans compte ni cle d'API -- c'est ce que le
@@ -47,6 +80,30 @@ _DEFAULTS: dict = {
     "custom_base_url": "",
     "custom_model":    "",
     "ollama_num_ctx":  _OLLAMA_NUM_CTX_DEFAULT,
+    # LM Studio : serveur LOCAL compatible OpenAI, sans cle.
+    # ⛔ 127.0.0.1 et NON « localhost », meme si la documentation de LM Studio
+    # ecrit souvent le second : sur Windows « localhost » peut resoudre en IPv6
+    # (::1) alors que le serveur n'ecoute qu'en IPv4 -- son propre CLI
+    # documente `--bind "127.0.0.1" (default)`. Ce projet s'est deja fait
+    # prendre avec Ollama sur cette machine.
+    "lmstudio_base_url": _LMSTUDIO_BASE_URL_DEFAULT,
+    # ⛔ Aucun modele par defaut (decision du 2026-09-03) : un defaut se
+    # recopie dans la config de qui ouvre l'ecran une fois, et survit au
+    # modele qu'il nommait.
+    "lmstudio_model":    "",
+    # Le contexte auquel « Charger » demande a LM Studio de charger le modele.
+    "lmstudio_num_ctx":  _CTX_DEFAULT,
+    # Compte ChatGPT (TODO #122) : aucun modele par defaut non plus -- le
+    # catalogue depend du compte. Les JETONS ne sont jamais ici : trousseau.
+    "chatgpt_model":     "",
+    # Le guide d'OpenAI : la fenetre d'accueil ne s'affiche qu'UNE fois.
+    "chatgpt_welcome_shown": False,
+    # La reflexion (TODO #123, decisions de l'auteur du 2026-11-06) :
+    # DESACTIVEE par defaut sur les moteurs locaux, le cran du milieu pour
+    # ChatGPT. Ce que le MODELE permet se decide a l'usage (`ui.reflexion`).
+    "ollama_think":      False,
+    "lmstudio_think":    False,
+    "chatgpt_reasoning": NIVEAU_CHATGPT_DEFAUT,
 }
 
 
@@ -110,18 +167,38 @@ class AIConfig(QObject):
                     # l'annonce avec elle -- or il doit etre dit UNE fois.
                     if migre:
                         self.backend_migre_depuis_retire = True
-                        self._save_backend()
                 if "ollama_model" in saved:
                     self._data["ollama_model"] = saved["ollama_model"]
                 if isinstance(saved.get("models"), dict):
                     self._data["models"] = saved["models"]
                 self._data["custom_base_url"] = saved.get("custom_base_url", "")
                 self._data["custom_model"] = saved.get("custom_model", "")
+                # Une URL vide dans le fichier retombe sur le defaut : un
+                # champ efface ne doit pas rendre le backend inutilisable.
+                self._data["lmstudio_base_url"] = (
+                    saved.get("lmstudio_base_url") or _LMSTUDIO_BASE_URL_DEFAULT
+                )
+                self._data["lmstudio_model"] = saved.get("lmstudio_model", "")
+                self._data["chatgpt_model"] = saved.get("chatgpt_model", "")
+                self._data["chatgpt_welcome_shown"] = bool(
+                    saved.get("chatgpt_welcome_shown", False))
                 self._data["ollama_num_ctx"] = _snap_num_ctx(
                     saved.get("ollama_num_ctx", _OLLAMA_NUM_CTX_DEFAULT)
                 )
+                self._data["lmstudio_num_ctx"] = _snap_num_ctx(
+                    saved.get("lmstudio_num_ctx", _CTX_DEFAULT))
+                self._data["ollama_think"] = bool(saved.get("ollama_think", False))
+                self._data["lmstudio_think"] = bool(saved.get("lmstudio_think", False))
+                self._data["chatgpt_reasoning"] = niveau_chatgpt(
+                    saved.get("chatgpt_reasoning"))
                 # Migration: plaintext keys present → keyring → removal from the JSON
                 self._migrate_plain_keys(saved)
+                # ⚠️ Enregistrement de la migration de backend APRES le
+                # chargement de tous les champs : fait plus tot, il
+                # reecrivait le fichier avec les valeurs PAR DEFAUT et
+                # effacait tous les choix de l'utilisateur.
+                if self.backend_migre_depuis_retire:
+                    self._save_backend()
         except Exception:
             pass
 
@@ -135,9 +212,7 @@ class AIConfig(QObject):
                 migrated = True
         if migrated:
             try:
-                CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
-                with open(CONFIG_PATH, "w", encoding="utf-8") as f:
-                    json.dump(saved, f, indent=2, ensure_ascii=False)
+                _write_config_atomic(saved)
             except Exception:
                 pass
 
@@ -159,11 +234,22 @@ class AIConfig(QObject):
             existing["models"]          = self._data.get("models", {})
             existing["custom_base_url"] = self._data.get("custom_base_url", "")
             existing["custom_model"]    = self._data.get("custom_model", "")
+            existing["lmstudio_base_url"] = self._data.get(
+                "lmstudio_base_url", _LMSTUDIO_BASE_URL_DEFAULT)
+            existing["lmstudio_model"]   = self._data.get("lmstudio_model", "")
+            existing["chatgpt_model"]    = self._data.get("chatgpt_model", "")
+            existing["chatgpt_welcome_shown"] = bool(
+                self._data.get("chatgpt_welcome_shown", False))
             existing["ollama_num_ctx"] = self._data.get(
                 "ollama_num_ctx", _OLLAMA_NUM_CTX_DEFAULT
             )
-            with open(CONFIG_PATH, "w", encoding="utf-8") as f:
-                json.dump(existing, f, indent=2, ensure_ascii=False)
+            existing["lmstudio_num_ctx"] = self._data.get(
+                "lmstudio_num_ctx", _CTX_DEFAULT)
+            existing["ollama_think"] = bool(self._data.get("ollama_think", False))
+            existing["lmstudio_think"] = bool(self._data.get("lmstudio_think", False))
+            existing["chatgpt_reasoning"] = niveau_chatgpt(
+                self._data.get("chatgpt_reasoning"))
+            _write_config_atomic(existing)
         except Exception:
             pass
 
@@ -226,9 +312,15 @@ class AIConfig(QObject):
         if not _KEYRING_OK:
             return 0
         from .ai_backends.providers import PROVIDERS
+        from .chatgpt_auth import noms_dans_le_trousseau
         efface = 0
-        for p in PROVIDERS:
-            nom = f"{p.id}_api_key"
+        # La connexion ChatGPT (TODO #122) vit dans le meme service : elle
+        # part avec les cles, sinon elle survivrait a la desinstallation. Elle
+        # occupe plusieurs entrees (limite de taille de Windows).
+        # « custom » n'est pas un preset de PROVIDERS mais a sa propre cle
+        # (ia_view -> set_api_key('custom', ...)) : une cle payante distante.
+        noms = [f"{p.id}_api_key" for p in PROVIDERS] + ["custom_api_key"]
+        for nom in noms + noms_dans_le_trousseau():
             try:
                 if keyring.get_password(_SERVICE, nom):
                     keyring.delete_password(_SERVICE, nom)
@@ -282,6 +374,52 @@ class AIConfig(QObject):
             self._save_backend()
 
     @property
+    def lmstudio_base_url(self) -> str:
+        return self._data.get("lmstudio_base_url", _LMSTUDIO_BASE_URL_DEFAULT)
+
+    @lmstudio_base_url.setter
+    def lmstudio_base_url(self, value: str):
+        # Vider le champ rend le defaut, il ne casse pas le backend.
+        value = (value or "").strip() or _LMSTUDIO_BASE_URL_DEFAULT
+        if self._data.get("lmstudio_base_url") != value:
+            self._data["lmstudio_base_url"] = value
+            self._save_backend()
+
+    @property
+    def lmstudio_model(self) -> str:
+        return self._data.get("lmstudio_model", "")
+
+    @lmstudio_model.setter
+    def lmstudio_model(self, value: str):
+        if self._data.get("lmstudio_model") != value:
+            self._data["lmstudio_model"] = value
+            self._save_backend()
+            # Comme `ollama_model` : sans ce signal, la barre d'etat gardait
+            # l'ancien modele (releve par l'auteur le 2026-11-06).
+            self.changed.emit(self._data["ai_backend"])
+
+    @property
+    def chatgpt_model(self) -> str:
+        return self._data.get("chatgpt_model", "")
+
+    @chatgpt_model.setter
+    def chatgpt_model(self, value: str):
+        if self._data.get("chatgpt_model") != value:
+            self._data["chatgpt_model"] = value
+            self._save_backend()
+            self.changed.emit(self._data["ai_backend"])   # idem : barre d'etat
+
+    @property
+    def chatgpt_welcome_shown(self) -> bool:
+        return bool(self._data.get("chatgpt_welcome_shown", False))
+
+    @chatgpt_welcome_shown.setter
+    def chatgpt_welcome_shown(self, value: bool):
+        if self.chatgpt_welcome_shown != bool(value):
+            self._data["chatgpt_welcome_shown"] = bool(value)
+            self._save_backend()
+
+    @property
     def ollama_model(self) -> str:
         return self._data.get("ollama_model", "gemma4:e2b")
 
@@ -307,6 +445,71 @@ class AIConfig(QObject):
             self.changed.emit(self._data["ai_backend"])
 
     @property
+    def lmstudio_num_ctx(self) -> int:
+        return self._data.get("lmstudio_num_ctx", _CTX_DEFAULT)
+
+    @lmstudio_num_ctx.setter
+    def lmstudio_num_ctx(self, value: int):
+        snapped = _snap_num_ctx(value)
+        if self._data.get("lmstudio_num_ctx") != snapped:
+            self._data["lmstudio_num_ctx"] = snapped
+            self._save_backend()
+            self.changed.emit(self._data["ai_backend"])
+
+    # ── Reflexion (TODO #123) ────────────────────────────────
+    def _regler(self, cle: str, valeur):
+        if self._data.get(cle) != valeur:
+            self._data[cle] = valeur
+            self._save_backend()
+            self.changed.emit(self._data["ai_backend"])
+
+    @property
+    def ollama_think(self) -> bool:
+        return bool(self._data.get("ollama_think", False))
+
+    @ollama_think.setter
+    def ollama_think(self, value: bool):
+        self._regler("ollama_think", bool(value))
+
+    @property
+    def ollama_think_level(self) -> str:
+        """Niveau NOMME choisi pour un modele Ollama qui en a (« low »...),
+        "" sinon : le modele prend son niveau par defaut (2026-11-07)."""
+        v = self._data.get("ollama_think_level", "")
+        return v if isinstance(v, str) else ""
+
+    @ollama_think_level.setter
+    def ollama_think_level(self, value: str):
+        self._regler("ollama_think_level", str(value or ""))
+
+    @property
+    def lmstudio_think_level(self) -> str:
+        """Niveau choisi pour un modele LM Studio qui en a (gpt-oss), ""
+        sinon (TODO #125, 2026-11-07)."""
+        v = self._data.get("lmstudio_think_level", "")
+        return v if isinstance(v, str) else ""
+
+    @lmstudio_think_level.setter
+    def lmstudio_think_level(self, value: str):
+        self._regler("lmstudio_think_level", str(value or ""))
+
+    @property
+    def lmstudio_think(self) -> bool:
+        return bool(self._data.get("lmstudio_think", False))
+
+    @lmstudio_think.setter
+    def lmstudio_think(self, value: bool):
+        self._regler("lmstudio_think", bool(value))
+
+    @property
+    def chatgpt_reasoning(self) -> str:
+        return niveau_chatgpt(self._data.get("chatgpt_reasoning"))
+
+    @chatgpt_reasoning.setter
+    def chatgpt_reasoning(self, value: str):
+        self._regler("chatgpt_reasoning", niveau_chatgpt(value))
+
+    @property
     def keyring_available(self) -> bool:
         return _KEYRING_OK
 
@@ -319,6 +522,12 @@ class AIConfig(QObject):
             return extra.status_name
         if bid == "ollama":
             return f"Ollama ({self._data.get('ollama_model', 'gemma4:e2b')})"
+        # Releve par l'auteur le 2026-11-06 : sans cette ligne, LM Studio
+        # retombait sur son identifiant (« Modele : lmstudio »).
+        if bid == "lmstudio":
+            return f"LM Studio ({self._data.get('lmstudio_model') or '?'})"
+        if bid == "chatgpt":
+            return f"ChatGPT ({self._data.get('chatgpt_model') or '?'})"
         if bid == "custom":
             return f"Custom ({self._data.get('custom_model') or '?'})"
         from .ai_backends.providers import get_provider

@@ -13,6 +13,8 @@ netlist (in-place mutation).
 """
 from __future__ import annotations
 
+import html
+
 from PyQt6.QtCore import QEvent, QObject, QRectF, Qt, pyqtSignal
 from PyQt6.QtGui import QColor, QPainter, QPainterPath
 from PyQt6.QtWidgets import (
@@ -220,27 +222,42 @@ def _drop_orphan_companions(c: Component, netlist=None) -> None:
     pin B is on the bridge_net currently assigned to pin A of c."""
     if netlist is None:
         return
-    a_pin = c.pin("A")
-    if a_pin is None:
-        return
-    bridge_net = a_pin.net
-    if not bridge_net.startswith("NET_"):
+    # The signal pin is "A" for a LED, "+" for a buzzer/speaker, "SIG" for a
+    # servo: the series R is bridged on whichever of them carries a NET_*.
+    bridge_nets = {p.net for p in (c.pin("A"), c.pin("+"), c.pin("SIG"))
+                   if p is not None and p.net.startswith("NET_")}
+    if not bridge_nets:
         return   # no internal bridge, no inference to clean up
     to_drop = [
         rc for rc in netlist.components
         if rc.type == "resistor" and rc.inferred
         and rc.attributes.get("role") == "series"
-        and any(p.net == bridge_net for p in rc.pins)
+        and any(p.net in bridge_nets for p in rc.pins)
     ]
     dropped_refs = {rc.ref for rc in to_drop}
     for rc in to_drop:
         netlist.components.remove(rc)
     if dropped_refs:
+        # Any warning that names a dropped R (LED or buzzer series R...).
         netlist.warnings = [
             w for w in netlist.warnings
-            if not (w.code == "led_series_resistor"
-                    and w.params.get("resistor_ref") in dropped_refs)
+            if not (w.params.get("resistor_ref") in dropped_refs
+                    or set(w.refs or []) & dropped_refs)
         ]
+
+
+# Ce qui a ete LU (couleur nommee dans le prompt, signature dans le code) et
+# survit a la re-application du MEME type : valider « LED » sur une LED bleue
+# la rendait sans couleur, un servo Servo.h perdait `signature_detected`
+# (audit 2026-11-06, ambiguity_dialog.py:264). Changer de type repart de zero.
+_KEPT_ON_SAME_TYPE = ("color", "signature_detected")
+
+
+def _kept_on_same_type(c: Component, target: str) -> dict:
+    if c.type != target:
+        return {}
+    return {k: c.attributes[k] for k in _KEPT_ON_SAME_TYPE
+            if k in c.attributes}
 
 
 def _to_led(c: Component, netlist=None) -> None:
@@ -259,9 +276,10 @@ def _to_led(c: Component, netlist=None) -> None:
     net = _signal_net(c)
     if net is None:
         return
+    kept = _kept_on_same_type(c, "led")
     c.type = "led"
     c.pins = [Pin("A", net), Pin("K", "GND")]
-    c.attributes = {}
+    c.attributes = kept
 
 
 def _to_buzzer(c: Component, netlist=None) -> None:
@@ -270,9 +288,10 @@ def _to_buzzer(c: Component, netlist=None) -> None:
     _drop_orphan_companions(c, netlist)
     if arduino_pin is None:
         return
+    kept = _kept_on_same_type(c, "buzzer")
     c.type = "buzzer"
     c.pins = [Pin("+", arduino_pin), Pin("-", "GND")]
-    c.attributes = {}
+    c.attributes = kept
 
 
 def _to_servo(c: Component, netlist=None) -> None:
@@ -282,9 +301,10 @@ def _to_servo(c: Component, netlist=None) -> None:
     _drop_orphan_companions(c, netlist)
     if arduino_pin is None:
         return
+    kept = _kept_on_same_type(c, "servo")
     c.type = "servo"
     c.pins = [Pin("VCC", "5V"), Pin("GND", "GND"), Pin("SIG", arduino_pin)]
-    c.attributes = {}
+    c.attributes = kept
 
 
 def _to_module_generic(c: Component, netlist=None) -> None:
@@ -608,6 +628,13 @@ def apply_saved_resolution(component: Component, type_id: str,
         _apply_declared(component, type_id, netlist)
         component.attributes["_confidence"] = "high"
         return
+    # Validating the CURRENT type of a component that has neither a transform
+    # nor a category (the raw lib name of an unrecognized `#include`) is not a
+    # requalification: nothing to apply. Falling through to `_to_led` turned
+    # the placeholder into an unwired LED and the opt-out then froze it so.
+    if (type_id == component.type and type_id not in _DEFAULT_TRANSFORMS
+            and category_of(type_id) is None):
+        return
     # Catalog type without a dedicated transform (large scraped catalog): route
     # to the generic replacement motor rather than the _to_led
     # fallback (which would wrongly transform into a red LED).
@@ -636,6 +663,14 @@ def apply_saved_resolution(component: Component, type_id: str,
 # peut pas toucher une puce à signature (collect_ambiguous ne retourne que les
 # _confidence == "low") — seul le chemin scopé (engrenage) le peut, et il est
 # couvert par le wrapper tracked.
+
+
+def _motors_title(k: int, lang: str) -> str:
+    """« N moteurs DC détectés », au singulier pour un seul moteur."""
+    from .visual_ambiguity_catalog import dialog_label
+    if k == 1:
+        return dialog_label("motors_detected_title_one", lang)
+    return dialog_label("motors_detected_title", lang).format(k=k)
 
 
 def _humanize_pin(net: str) -> str:
@@ -1359,8 +1394,7 @@ class AmbiguityDialog(QDialog):
         lang = lang_manager.lang
         c = entry["component"]
         if c is None:
-            return dialog_label("motors_detected_title", lang).format(
-                k=len(self._original_groupings))
+            return _motors_title(len(self._original_groupings), lang)
         if (c.type == "dc_motor"
                 and c.attributes.get("signature_detected")):
             # La page des moteurs de NIVEAU 1 : son ancre est un moteur dont
@@ -1370,7 +1404,7 @@ class AmbiguityDialog(QDialog):
             k = sum(1 for m in self._ambiguous
                     if m.type == "dc_motor"
                     and m.attributes.get("signature_detected"))
-            return dialog_label("motors_detected_title", lang).format(k=k)
+            return _motors_title(k, lang)
         # Un composant groupe n'a plus d'entree a lui : il est dans la
         # section consolidee, dont le titre est rendu juste au-dessus.
         net = self._section_net(c)
@@ -1393,7 +1427,9 @@ class AmbiguityDialog(QDialog):
             k = sum(1 for g in self._original_groupings
                     if g["pwm"] in self._motor_declared_real)
             if k == n:
-                return dialog_label("rail_motors_all", lang).format(n=n)
+                return dialog_label(
+                    "rail_motors_all_one" if n == 1 else "rail_motors_all",
+                    lang).format(n=n)
             if k == 0:
                 return dialog_label("rail_motors_none", lang)
             return dialog_label("rail_motors_some", lang).format(k=k, n=n)
@@ -1766,7 +1802,11 @@ class AmbiguityDialog(QDialog):
             sig_pin = (c.pin("A") or c.pin("SIG") or
                        (c.pins[0] if c.pins else None))
             net = sig_pin.net if sig_pin else "?"
-        group = QGroupBox(_humanize_pin(net))
+        # Aucune broche cablee (placeholder d'`#include` inconnu) : le NOM du
+        # composant, comme le titre du rail (`_entry_title`) -- sinon
+        # « Broche  », vide (audit 2026-11-06, ambiguity_dialog.py:1769).
+        group = QGroupBox(_humanize_pin(net) if net and net != "?"
+                          else _type_label(c.type, lang_manager.lang))
         group_lay = QVBoxLayout(group)
         group_lay.setSpacing(6)
 
@@ -1784,8 +1824,11 @@ class AmbiguityDialog(QDialog):
             ctx_label = QLabel(
                 dialog_label("signature_excerpt", lang_manager.lang))
         elif excerpt:
+            # Echappe : le QLabel est en RichText, un « < » du prompt
+            # (« si temp < 25 ») tronquait l'extrait (audit 2026-11-06).
             ctx_label = QLabel(dialog_label(
-                "prompt_excerpt", lang_manager.lang).format(excerpt=excerpt))
+                "prompt_excerpt", lang_manager.lang).format(
+                    excerpt=html.escape(excerpt, quote=False)))
         else:
             ctx_label = QLabel(
                 dialog_label("prompt_excerpt_missing", lang_manager.lang))
@@ -1834,6 +1877,14 @@ class AmbiguityDialog(QDialog):
         # ailleurs mais pas ici -- sur une ambiguite, ce type est un defaut.
         # C'est l'appelant qui sait faire la difference, pas le picker.
         picker.select(precheck_type or "")
+        # Un choix deja fait peut n'etre propose QUE par la recherche (type
+        # hors des cards de depart) : sans card a l'ecran, la selection
+        # effective reste None, « Valider » grise, le choix invisible
+        # (regle Q9). On rejoue la recherche qui l'avait fait apparaitre.
+        if precheck_type and precheck_type not in picker.visible_type_ids():
+            from .picker_logic import _label_for
+            picker.set_query(_label_for(precheck_type, lang_manager.lang))
+            picker.select(precheck_type)
         # Enregistre AVANT l'entonnoir : `_update_ok_state` interroge les
         # pickers, et il doit voir celui-ci des le premier appel.
         self._pickers[c.ref] = picker
@@ -1916,8 +1967,7 @@ class AmbiguityDialog(QDialog):
         """
         from .visual_ambiguity_catalog import dialog_label
         lang = lang_manager.lang
-        group = QGroupBox(dialog_label("motors_detected_title", lang)
-                          .format(k=len(motors)))
+        group = QGroupBox(_motors_title(len(motors), lang))
         lay = QVBoxLayout(group)
         lay.setSpacing(6)
         info = QLabel(dialog_label("lib_motors_question", lang))
@@ -2019,7 +2069,7 @@ class AmbiguityDialog(QDialog):
         from .visual_ambiguity_catalog import dialog_label
         lang = lang_manager.lang
         k = len(self._original_groupings)
-        title = dialog_label("motors_detected_title", lang).format(k=k)
+        title = _motors_title(k, lang)
         group = QGroupBox(title)
         group_lay = QVBoxLayout(group)
         group_lay.setSpacing(6)
@@ -2040,7 +2090,9 @@ class AmbiguityDialog(QDialog):
         # Short intro: the per-motor detail (PWM + dir pins) is repeated
         # by each block of the partial subframe below, no need to
         # list it twice.
-        desc = QLabel(dialog_label("motors_groups_desc", lang))
+        desc = QLabel(dialog_label(
+            "motors_groups_desc_one" if k == 1 else "motors_groups_desc",
+            lang))
         desc.setWordWrap(True)
         desc.setTextFormat(Qt.TextFormat.RichText)
         group_lay.addWidget(desc)

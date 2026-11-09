@@ -552,8 +552,11 @@ class ComponentsView(QWidget):
         # Full refresh, not just a re-render: wiring-only component *names*
         # are baked in at build_index() time (the only localized lookup among
         # the three populations), so a language switch needs a rebuild to
-        # follow.
-        self.refresh()
+        # follow. Only if the grid exists: before the first visit, rendering
+        # here would defeat the lazy build (the first show renders it anyway,
+        # in the new language).
+        if self._rendered:
+            self.refresh()
 
     def apply_theme(self, c: ColorScheme):
         p = self.palette()

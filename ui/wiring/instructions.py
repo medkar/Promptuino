@@ -821,23 +821,31 @@ _SECTION_TITLES: dict[str, dict[str, str]] = {
         "fr": "Promptuino se limite à 2 moteurs DC dans le schéma. "
               "Les moteurs ci-dessous sont bien reconnus dans ton code "
               "mais ne sont pas câblés sur le diagramme. Pour les câbler "
-              "à la place des actuels, ouvre « Modifier les choix » et "
+              "à la place des actuels, ouvre « Modifier les composants » et "
               "décoche/recoche les moteurs voulus.",
         "en": "Promptuino is limited to 2 DC motors in the diagram. "
               "The motors below are recognized in your code but not "
               "wired on the diagram. To wire them instead of the "
-              "current ones, open “Edit choices” and uncheck/recheck "
+              "current ones, open “Edit components” and uncheck/recheck "
               "the desired motors.",
         "es": "Promptuino se limita a 2 motores DC en el esquema. "
               "Los motores siguientes están reconocidos en tu código "
               "pero no se cablean en el diagrama. Para cablearlos en "
-              "lugar de los actuales, abre «Editar opciones» y "
+              "lugar de los actuales, abre «Editar componentes» y "
               "desmarca/marca los motores deseados.",
         "it": "Promptuino è limitato a 2 motori DC nello schema. "
               "I motori sottostanti sono riconosciuti nel tuo codice "
               "ma non sono cablati sul diagramma. Per cablarli al posto "
-              "di quelli attuali, apri «Modifica scelte» e "
+              "di quelli attuali, apri «Modifica componenti» e "
               "deseleziona/seleziona i motori desiderati.",
+    },
+    # Ligne d'un moteur non cable : etait ecrite en dur en francais
+    # (audit 2026-11-06, instructions.py:1384).
+    "skipped_motor_line": {
+        "fr": "- **{ref}** : broche PWM `{ctrl}`, broches direction `{dirs}`",
+        "en": "- **{ref}**: PWM pin `{ctrl}`, direction pins `{dirs}`",
+        "es": "- **{ref}**: pin PWM `{ctrl}`, pines de dirección `{dirs}`",
+        "it": "- **{ref}**: pin PWM `{ctrl}`, pin di direzione `{dirs}`",
     },
     "no_components": {
         "fr": "_Aucun composant à câbler pour ce code._",
@@ -1020,6 +1028,20 @@ _WARNING_TEMPLATES: dict[str, dict[str, str]] = {
               "Puedes pedir ayuda en el chat.",
         "it": "Il cablaggio è stato dedotto dal codice e potrebbe non essere "
               "esatto. Puoi chiedere aiuto nella chat.",
+    },
+    "replaced_pinout_unknown": {
+        "fr": "Le brochage exact de « {name} » n'est pas connu de l'app : les "
+              "broches sont numérotées et reprennent les fils de l'ancien "
+              "composant. Vérifie-les avec sa documentation.",
+        "en": "The exact pinout of “{name}” is not known to the app: the pins "
+              "are numbered and reuse the wires of the previous component. "
+              "Check them against its documentation.",
+        "es": "La app no conoce el patillaje exacto de «{name}»: los pines "
+              "están numerados y reutilizan los cables del componente "
+              "anterior. Compruébalos con su documentación.",
+        "it": "L'app non conosce la piedinatura esatta di «{name}»: i pin sono "
+              "numerati e riusano i fili del componente precedente. "
+              "Verificali con la sua documentazione.",
     },
     "unwired_unknown_component": {
         "fr": "Composant « {name} » détecté mais son câblage n'a pas pu être "
@@ -1262,6 +1284,83 @@ _WARNING_TEMPLATES: dict[str, dict[str, str]] = {
               "**assente dallo schema**: nessun disegno disponibile per questo "
               "numero di pin. Collegalo consultando la sua documentazione.",
     },
+    # Limites editoriales du placement (TODO #124, 2026-11-07). Avant, elles
+    # finissaient sur « Impossible de générer le schéma » sans dire laquelle.
+    "too_many_servos": {
+        "fr": "**{count} servos** dans ce projet : le schéma en dessine "
+              "**{limit} au maximum**. Le code reste valable ; branche les "
+              "servos en trop comme les autres (signal, 5 V, GND) et prévois "
+              "une alimentation externe, la carte ne fournit pas assez de "
+              "courant pour autant de servos.",
+        "en": "**{count} servos** in this project: the diagram draws "
+              "**{limit} at most**. The code is still valid; wire the extra "
+              "servos like the others (signal, 5 V, GND) and plan an external "
+              "power supply, the board cannot supply enough current for that "
+              "many servos.",
+        "es": "**{count} servos** en este proyecto: el esquema dibuja "
+              "**{limit} como máximo**. El código sigue siendo válido; conecta "
+              "los servos de más como los demás (señal, 5 V, GND) y prevé una "
+              "alimentación externa, la placa no da suficiente corriente para "
+              "tantos servos.",
+        "it": "**{count} servo** in questo progetto: lo schema ne disegna "
+              "**{limit} al massimo**. Il codice resta valido; collega i servo "
+              "in più come gli altri (segnale, 5 V, GND) e prevedi "
+              "un'alimentazione esterna, la scheda non fornisce abbastanza "
+              "corrente per così tanti servo.",
+    },
+    "too_many_components": {
+        "fr": "Ce projet occupe **{count} places** sur les plaques d'essai "
+              "(résistances comprises) : le schéma en dessine **{limit} au "
+              "maximum**, sur deux plaques. Le code reste valable ; pour voir "
+              "un schéma, découpe le projet en fonctionnalités plus petites.",
+        "en": "This project takes **{count} spots** on the breadboards "
+              "(resistors included): the diagram draws **{limit} at most**, "
+              "on two breadboards. The code is still valid; to get a diagram, "
+              "split the project into smaller features.",
+        "es": "Este proyecto ocupa **{count} posiciones** en las placas de "
+              "pruebas (resistencias incluidas): el esquema dibuja **{limit} "
+              "como máximo**, en dos placas. El código sigue siendo válido; "
+              "para ver un esquema, divide el proyecto en funcionalidades más "
+              "pequeñas.",
+        "it": "Questo progetto occupa **{count} posti** sulle breadboard "
+              "(resistenze comprese): lo schema ne disegna **{limit} al "
+              "massimo**, su due breadboard. Il codice resta valido; per "
+              "vedere uno schema, dividi il progetto in funzionalità più "
+              "piccole.",
+    },
+    "breadboards_full": {
+        "fr": "Les composants de ce projet **ne tiennent pas sur deux plaques "
+              "d'essai** (servos et modules I2C doivent partager la même "
+              "plaque). Le code reste valable ; pour voir un schéma, découpe "
+              "le projet en fonctionnalités plus petites.",
+        "en": "This project's components **do not fit on two breadboards** "
+              "(servos and I2C modules must share the same breadboard). The "
+              "code is still valid; to get a diagram, split the project into "
+              "smaller features.",
+        "es": "Los componentes de este proyecto **no caben en dos placas de "
+              "pruebas** (los servos y los módulos I2C deben compartir la "
+              "misma placa). El código sigue siendo válido; para ver un "
+              "esquema, divide el proyecto en funcionalidades más pequeñas.",
+        "it": "I componenti di questo progetto **non entrano in due "
+              "breadboard** (servo e moduli I2C devono condividere la stessa "
+              "breadboard). Il codice resta valido; per vedere uno schema, "
+              "dividi il progetto in funzionalità più piccole.",
+    },
+    "unrouted_wires": {
+        "fr": "**Schéma incomplet** : le tracé de certains fils a échoué "
+              "({nets}). Ils ne sont pas dessinés — ne te fie pas au schéma "
+              "pour ces connexions, reporte-toi à la documentation de tes "
+              "composants.",
+        "en": "**Incomplete diagram**: routing failed for some wires "
+              "({nets}). They are not drawn — do not rely on the diagram for "
+              "those connections, check your components' documentation.",
+        "es": "**Esquema incompleto**: falló el trazado de algunos cables "
+              "({nets}). No están dibujados — no te fíes del esquema para "
+              "esas conexiones, consulta la documentación de tus componentes.",
+        "it": "**Schema incompleto**: il tracciato di alcuni fili è fallito "
+              "({nets}). Non sono disegnati — non fidarti dello schema per "
+              "quei collegamenti, consulta la documentazione dei componenti.",
+    },
     "unwired_component_pins": {
         "fr": "Broches à câbler toi-même selon ton montage : {pins}. "
               "Le logiciel ne peut pas deviner ce qu'elles pilotent.",
@@ -1381,8 +1480,8 @@ def render_instructions(netlist: Netlist, mode: str = "simple",
             ctrl = m.get("control_pin", "?")
             dirs = m.get("aux_dir_pins") or []
             dirs_txt = ", ".join(dirs) if dirs else "—"
-            entete.append(f"- **{m['ref']}** : broche PWM `{ctrl}`, "
-                          f"broches direction `{dirs_txt}`")
+            entete.append(_SECTION_TITLES["skipped_motor_line"][lang].format(
+                ref=m["ref"], ctrl=ctrl, dirs=dirs_txt))
 
     # L'en-tete d'abord, le cablage ensuite. Une ligne vide les separe quand
     # les deux existent, sinon le premier titre de composant se collerait a la
@@ -1495,7 +1594,7 @@ def _render_step(idx: int, comp: Component, netlist: Netlist,
     base = _render_step_simple(idx, comp, netlist, lang)
     if mode == "simple":
         return base
-    explanation = _explanation_for(comp, lang)
+    explanation = _explanation_for(comp, lang, netlist)
     if not explanation:
         return base
     return f"{base}\n   _{explanation}_"
@@ -1520,6 +1619,15 @@ def _humanize_net(net: str, netlist: Netlist | None,
     # up to an Arduino pin/rail.
     end_pin = _resolve_bridge_end(net, netlist, exclude_ref)
     if end_pin is not None:
+        # Nommer la resistance traversee (2026-11-07) : « anode → D7 », puis
+        # « resistance entre D7 et A », lu a la lettre, branche la LED
+        # directement sur D7 et laisse la resistance inutile. Seule une broche
+        # d'un AUTRE composant que la resistance est concernee.
+        r = _first_bridge_resistor(net, netlist, exclude_ref)
+        if r is not None:
+            lbl = _label("resistor", lang)
+            to = {"fr": "vers", "en": "to", "es": "hacia", "it": "verso"}.get(lang, "vers")
+            return f"{lbl} {r.ref} ({to} {end_pin})"
         return end_pin
     # 2nd attempt: name the companion component by its type + ref
     # + the specific pin it shares on this bridge. The ref disambiguates the
@@ -1543,6 +1651,20 @@ def _humanize_net(net: str, netlist: Netlist | None,
     return net
 
 
+def _first_bridge_resistor(net: str, netlist: Netlist, source_ref: str):
+    """La resistance qui partage `net` avec `source_ref` (premier pont de la
+    chaine), ou None. Meme critere que `_resolve_bridge_end`."""
+    src = netlist.by_ref(source_ref) if hasattr(netlist, "by_ref") else None
+    if src is not None and src.type == "resistor":
+        return None
+    for c in netlist.components:
+        if c.ref == source_ref or c.type != "resistor" or len(c.pins) != 2:
+            continue
+        if any(p.net == net for p in c.pins):
+            return c
+    return None
+
+
 def _resolve_bridge_end(net: str, netlist: Netlist,
                          source_ref: str) -> str | None:
     """Follows the chain of NET_* bridges through the 2-pin components
@@ -1550,9 +1672,10 @@ def _resolve_bridge_end(net: str, netlist: Netlist,
     (= Arduino pin, rail, battery). Returns that net, or None if the
     chain does not resolve (multi-pin component or more than 5 hops).
 
-    Restriction to 2-pins: for a component with N>2 pins, there is no
-    "naturally opposite" pin on the bridge -- we return None to
-    let the caller use the "cote <ref>" fallback.
+    Restriction to 2-pin RESISTORS (series R / pull-up): for any other
+    component -- N>2 pins, but also a 2-pin LED or buzzer, which is the load,
+    not a bridge -- we return None to let the caller use the "cote <ref>"
+    fallback.
     """
     visited_refs = {source_ref}
     current_net = net
@@ -1563,6 +1686,11 @@ def _resolve_bridge_end(net: str, netlist: Netlist,
                 continue
             if len(c.pins) != 2:
                 continue   # only use the 2-pins as bridges
+            if c.type != "resistor":
+                # A LED or a buzzer also has two pins, but it is not a
+                # bridge: walking through it described the series R as
+                # "between D7 and GND" (beginner wires the LED straight on D7).
+                continue
             if any(p.net == current_net for p in c.pins):
                 bridge_comp = c
                 break
@@ -1730,16 +1858,35 @@ def _render_step_simple(idx: int, comp: Component,
     return "\n".join([head, *bullets])
 
 
-def _explanation_for(comp: Component, lang: str) -> str:
+_POWER_NETS = frozenset({"GND", "5V", "3V3", "3.3V", "VCC", "VIN"})
+
+
+def _resistor_neighbour_types(comp: Component,
+                              netlist: Netlist | None) -> set[str]:
+    """Types des composants qui partagent un net de signal avec `comp`."""
+    if netlist is None:
+        return set()
+    nets = {p.net for p in comp.pins if p.net and p.net not in _POWER_NETS}
+    return {c.type for c in netlist.components
+            if c is not comp and any(p.net in nets for p in c.pins)}
+
+
+def _explanation_for(comp: Component, lang: str,
+                     netlist: Netlist | None = None) -> str:
     """Returns the pedagogical justification for this component, or ""."""
     role = (comp.attributes.get("role") or "").lower()
 
     if comp.type == "resistor":
-        if role == "series":
+        # Le texte parle d'une LED ou d'un bouton : il ne vaut que si la
+        # resistance est bien celle d'une LED ou d'un bouton. Une pull-up de
+        # DS18B20 / DHT ou la resistance serie d'un buzzer recevaient le texte
+        # du bouton ou de la LED (audit 2026-11-06, instructions.py:1739).
+        voisins = _resistor_neighbour_types(comp, netlist)
+        if role == "series" and "led" in voisins:
             return _EXPLANATIONS["led_series"][lang]
-        if role == "pullup":
+        if role == "pullup" and "button" in voisins:
             return _EXPLANATIONS["button_pullup"][lang]
-        if role == "pulldown":
+        if role == "pulldown" and "button" in voisins:
             return _EXPLANATIONS["button_pulldown"][lang]
         return ""
 

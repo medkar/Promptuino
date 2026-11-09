@@ -462,6 +462,13 @@ def _bare_studio_view():
     # le double doit porter les deux moniteurs. Sans eux, PyQt masque
     # l'AttributeError derriere « super-class __init__() was never called ».
     view._serial_monitor = view._serial_monitor_beg = _FakeSerial()
+    # Quatrieme occurrence (audit 2026-11-06 #13) : le passage commun remet aussi
+    # a zero l'etat « commentaires » (instantane du projet precedent) ; ce
+    # double n'a pas les cases a cocher.
+    view._reset_comments_state = lambda target: None
+    # Et l'etat de generation, lu par la garde de `load_project` (audit #7).
+    view._gen_busy = None
+    view._beginner_running = False
     return view
 
 
@@ -562,6 +569,7 @@ def test_the_beginner_path_hides_a_stale_banner_before_the_registry_results():
     view = _bare_studio_view()
     view._registry_banner.visible = True
     view._registry_banner.body = "message perime d'une generation devinee"
+    view._beginner_running = True    # lookup en cours (non annule, audit #6)
 
     def _explode(*args, **kwargs):
         raise _Boom()

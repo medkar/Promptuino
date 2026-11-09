@@ -32,6 +32,7 @@ Run: python scripts/test_onnx_model_conformity.py
 from __future__ import annotations
 
 import hashlib
+import pathlib
 import os
 import sys
 import tempfile
@@ -158,6 +159,162 @@ def test_the_two_constants_are_never_emptied():
     assert onnx.ONNX_MODEL_SIZE_BYTES > 1_000_000, onnx.ONNX_MODEL_SIZE_BYTES
 
 
+# ── #120 : une empreinte differente est une QUESTION, pas un verdict ───────
+# Defaut trouve le 2026-11-05 en lancant l'app : elle a propose de telecharger
+# 448 Mo alors que le modele present etait un AUTRE EXPORT du meme modele --
+# taille identique a l'octet pres, empreinte differente, et des vecteurs **bit
+# a bit identiques** a `embeddings.npy`. La garde posait une question plus
+# stricte que ce qu'elle protege.
+
+def test_a_different_export_that_agrees_is_accepted():
+    """⛔ LE CAS MESURE. Empreinte differente + vecteurs d'accord = conforme.
+
+    On simule l'accord en detournant le controle comportemental : le juger
+    pour de vrai demanderait deux exports ONNX de 448 Mo dans un test.
+    """
+    p = _fichier(_BON)
+    vrai = onnx.modele_accorde_a_la_matrice
+    onnx.modele_accorde_a_la_matrice = lambda chemin=None: (True, "")
+    try:
+        with _Decor(p, len(_BON), "0" * 64):      # empreinte qui ne colle pas
+            ok, raison = onnx.modele_conforme()
+    finally:
+        onnx.modele_accorde_a_la_matrice = vrai
+    assert ok, f"un export d'accord doit etre accepte : {raison}"
+
+
+def test_a_different_export_that_DISAGREES_is_still_refused():
+    """⛔ LA GARDE SYMETRIQUE, sans laquelle le correctif serait un no-op.
+
+    C'est le defaut que le #120 (0cd425c) existe pour fermer : un autre
+    modele + la matrice livree degradent la recherche EN SILENCE.
+    """
+    p = _fichier(_BON)
+    vrai = onnx.modele_accorde_a_la_matrice
+    onnx.modele_accorde_a_la_matrice = lambda chemin=None: (False, "vecteurs differents")
+    try:
+        with _Decor(p, len(_BON), "0" * 64):
+            ok, raison = onnx.modele_conforme()
+    finally:
+        onnx.modele_accorde_a_la_matrice = vrai
+    assert not ok
+    assert "empreinte" in raison and "vecteurs" in raison, raison
+
+
+def test_the_behavioural_check_is_only_asked_after_the_hash_fails():
+    """Le cout reste nul dans le cas courant : l'empreinte qui colle ne doit
+    JAMAIS declencher le chargement d'une session ONNX (0,92 s mesures)."""
+    p = _fichier(_BON)
+    appels = []
+    vrai = onnx.modele_accorde_a_la_matrice
+    onnx.modele_accorde_a_la_matrice = lambda chemin=None: (appels.append(1), (True, ""))[1]
+    try:
+        with _Decor(p, len(_BON), _SHA_BON):      # empreinte CORRECTE
+            ok, _ = onnx.modele_conforme()
+    finally:
+        onnx.modele_accorde_a_la_matrice = vrai
+    assert ok
+    assert appels == [], "l'empreinte qui colle ne doit rien demander de plus"
+
+
+def test_the_behavioural_check_judges_the_file_it_was_given():
+    """⛔ Defaut de MA premiere version, attrape par un test existant : le
+    controle chargeait le modele que `rag` connait, pas celui qu'on juge. Il
+    aurait declare conforme un fichier corrompu -- transformant la garde en
+    no-op au lieu de la completer."""
+    p = _fichier(b"ceci n'est pas un modele ONNX" * 50)
+    ok, raison = onnx.modele_accorde_a_la_matrice(p)
+    assert not ok, "un fichier qui n'est pas un modele ne peut pas s'accorder"
+    assert "encodeur" in raison or "impossible" in raison, raison
+
+
+def test_an_unverifiable_check_is_not_an_agreement():
+    """« Je n'ai pas pu regarder » n'est pas « d'accord ». Rendre True sur une
+    verification impossible ferait accepter n'importe quoi le jour ou la
+    matrice manque."""
+    import ui.rag as rag
+    vrai = rag._EMBEDDINGS_PATH
+    rag._EMBEDDINGS_PATH = pathlib.Path("/nexiste/pas/embeddings.npy")
+    try:
+        ok, raison = onnx.modele_accorde_a_la_matrice()
+    finally:
+        rag._EMBEDDINGS_PATH = vrai
+    assert not ok
+    assert raison, "une raison doit etre donnee"
+
+
+def test_a_raising_check_is_not_an_agreement():
+    """⛔ Garde trouvee PAR MUTATION : mon test precedent passait par un
+    retour explicite (« matrice absente ») et n'exercait JAMAIS le `except`.
+    Transformer ce `except` en `return True` ne faisait rougir personne --
+    donc une panne imprevue aurait valu « modele d'accord »."""
+    import ui.rag as rag
+    vrai = rag.encode
+
+    def _explose(_textes):
+        raise RuntimeError("onnxruntime a disparu")
+
+    rag.encode = _explose
+    try:
+        ok, raison = onnx.modele_accorde_a_la_matrice()
+    finally:
+        rag.encode = vrai
+    assert not ok, "une exception ne vaut PAS un accord"
+    assert "impossible" in raison, raison
+
+
+def test_the_check_leaves_the_runtime_encoder_as_it_found_it():
+    """Le controle bascule `rag` sur le fichier juge : il DOIT le rendre.
+    Sans ca, l'app tournerait ensuite sur l'encodeur d'un test."""
+    import ui.rag as rag
+    avant = (rag._model_path, rag._session, rag._tokenizer)
+    onnx.modele_accorde_a_la_matrice(_fichier(b"pas un modele" * 100))
+    apres = (rag._model_path, rag._session, rag._tokenizer)
+    assert avant == apres, "l'etat de `rag` a fui hors du controle"
+
+
+def test_the_moved_rule_produces_the_same_texts():
+    """⛔ La regle du texte d'embedding a DEMENAGE dans `ui/embedding_text.py`
+    pour etre partagee avec le producteur de la matrice. Preuve que le
+    deplacement n'a rien change : l'empreinte des textes de
+    `embeddings.fingerprint.json` doit tomber pile.
+
+    ⚠️ C'est la garde qui compte le plus de ce lot. J'ai failli RECOPIER cette
+    regle dans le controle, et ma copie etait fausse sur trois points (prefixe
+    du nom, mauvais tokenizer, mots-cles non doubles en minuscules) -- trois
+    ecarts invisibles a la relecture, qui auraient fait rougir un modele sain.
+    """
+    import importlib.util
+    import json
+    racine = pathlib.Path(__file__).resolve().parents[1]
+    spec = importlib.util.spec_from_file_location(
+        "b", racine / "scripts" / "build_rag_embeddings.py")
+    b = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(b)
+
+    corpus = json.loads((racine / "assets" / "rag" / "corpus.json")
+                        .read_text(encoding="utf-8"))
+    fp = json.loads((racine / "assets" / "rag" / "embeddings.fingerprint.json")
+                    .read_text(encoding="utf-8"))
+    textes = [b._embedding_text(e) for e in corpus]
+    assert b._texts_fingerprint(textes) == fp["sha256"], (
+        "le texte donne a l'encodeur a CHANGE -- la matrice ne lui correspond "
+        "plus, et le controle d'accord rougirait sur un modele sain"
+    )
+
+
+def test_the_builder_does_not_keep_its_own_copy_of_the_rule():
+    """Une copie qui traine redevient la source d'une derive."""
+    racine = pathlib.Path(__file__).resolve().parents[1]
+    src = (racine / "scripts" / "build_rag_embeddings.py").read_text(encoding="utf-8")
+    assert "from ui.embedding_text import" in src, (
+        "le builder doit IMPORTER la regle, pas la redefinir"
+    )
+    assert "expanded.append(kl)" not in src, (
+        "la construction du texte est encore ecrite dans le builder"
+    )
+
+
 TESTS = [
     test_the_expected_file_is_accepted,
     test_a_model_of_another_size_is_refused,
@@ -166,6 +323,15 @@ TESTS = [
     test_the_gate_no_longer_rests_on_is_model_available_alone,
     test_a_stale_BUNDLED_model_is_called_out,
     test_the_two_constants_are_never_emptied,
+    test_a_different_export_that_agrees_is_accepted,
+    test_a_different_export_that_DISAGREES_is_still_refused,
+    test_the_behavioural_check_is_only_asked_after_the_hash_fails,
+    test_the_behavioural_check_judges_the_file_it_was_given,
+    test_an_unverifiable_check_is_not_an_agreement,
+    test_a_raising_check_is_not_an_agreement,
+    test_the_check_leaves_the_runtime_encoder_as_it_found_it,
+    test_the_moved_rule_produces_the_same_texts,
+    test_the_builder_does_not_keep_its_own_copy_of_the_rule,
 ]
 
 

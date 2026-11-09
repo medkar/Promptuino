@@ -69,6 +69,14 @@ _I2C_PHYSICAL_PINS_FOR_BUS: dict[str, list[str]] = {
     "SCL": ["SCL", "A5"],
 }
 
+# Cartes dont le bus I2C est physiquement sur A4/A5 (stem du SVG de carte).
+_A4_A5_I2C_BOARD_STEMS = {"uno_r3", "uno_r4", "nano"}
+# Cartes dont le bus I2C est AILLEURS : leurs broches, en-tete SDA/SCL compris.
+_I2C_PINS_BY_STEM: dict[str, dict[str, list[str]]] = {
+    "mega_2560": {"SDA": ["SDA", "D20"], "SCL": ["SCL", "D21"]},
+    "leonardo":  {"SDA": ["SDA", "D2"],  "SCL": ["SCL", "D3"]},
+}
+
 # Mapping net name (from the netlist) -> board pin id (in the SVG boards)
 _NET_TO_BOARD_PIN: dict[str, str] = {
     "5V":  "V5V",
@@ -446,8 +454,21 @@ def _choose_corridor(target_row: int, bb_rows: int) -> str:
 def _i2c_physical_pins(board_loader, bus: str) -> list[str]:
     """List of the physical board pins wired to the I2C bus `bus`,
     in order of preference (filters out the non-existent ones)."""
-    return [p for p in _I2C_PHYSICAL_PINS_FOR_BUS.get(bus, [])
-            if board_loader.has_pin(p)]
+    pins = _I2C_PHYSICAL_PINS_FOR_BUS.get(bus, [])
+    # A4/A5 ne sont le bus I2C que sur les cartes dont SDA/SCL SONT A4/A5
+    # (Uno R3/R4, Nano). Sur Mega (D20/D21) et Leonardo (D2/D3) ce sont de
+    # simples entrees analogiques : un 2e module y serait cable pour rien.
+    stem = getattr(getattr(board_loader, "svg_path", None), "stem", "")
+    if stem in _I2C_PINS_BY_STEM:
+        # La carte a SES broches I2C (Mega D20/D21, Leonardo D2/D3) : c'est
+        # sous ce nom que la netlist les ecrit desormais
+        # (`markers._remap_i2c_to_board`), et un 2e module doit pouvoir s'y
+        # raccorder par l'en-tete SDA/SCL (2026-11-07 : le BME280 d'une Mega
+        # restait sans fil I2C).
+        pins = _I2C_PINS_BY_STEM[stem].get(bus, [])
+    elif stem not in _A4_A5_I2C_BOARD_STEMS:
+        pins = [p for p in pins if p not in ("A4", "A5")]
+    return [p for p in pins if board_loader.has_pin(p)]
 
 
 # Cols used for the tie-strip → consumer jumpers. A distinct col

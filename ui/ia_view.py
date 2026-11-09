@@ -25,6 +25,7 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QPushButton, QRadioButton, QButtonGroup,
     QLineEdit, QComboBox, QScrollArea, QCompleter, QSlider, QSizePolicy,
+    QStackedWidget,
 )
 
 from .theme import (
@@ -32,13 +33,24 @@ from .theme import (
     combo_qss, selection_bg, input_qss, primary_button_qss, slider_qss
 )
 from .i18n import lang_manager, Strings
-from .ai_config import ai_config, OLLAMA_NUM_CTX_STEPS
+from .ai_config import ai_config
+from . import contexte
+from .contexte_curseur import CurseurContexte
+from .molette import ComboSansMolette
+from .reflexion_interrupteur import InterrupteurReflexion
 from .ai_backends import (
     special_backends, extra_backend,
     is_installed, is_server_running, is_model_available, list_local_models,
     is_process_running, start_server,
-    get_backend_instance, PROVIDERS,
+    get_backend_instance, backend_requires_key, PROVIDERS, LOCAL_BACKENDS,
 )
+from .ai_backends import lmstudio_api
+from . import lmstudio_models
+from . import ollama_models
+from . import memoire_modeles
+from . import debordement
+from . import erreurs_chargement
+from . import reflexion
 
 
 # Model-fetch error kind -> i18n string attribute on lang_manager.current.
@@ -135,7 +147,7 @@ def _primary_btn_qss(c: ColorScheme) -> str:
     return primary_button_qss(c, padding="0 14px")
 
 
-class _ModelCombo(QComboBox):
+class _ModelCombo(ComboSansMolette):
     """Drop-down list of Ollama models. Re-queries the local server on
     each opening of the menu to reflect the models actually available
     (an `ollama pull` while the app is running becomes visible without restart)."""
@@ -184,6 +196,14 @@ class _CloudSection(QWidget):
         # Idem pour la sonde (_ProbeWorker) : reference gardee vivante,
         # nouvelle sonde laisse l'ancienne finir.
         self._probe_worker: _ProbeWorker | None = None
+        # TOUS les fils lances et pas encore finis, remplaces compris : c'est
+        # ce que `_stop_worker` doit traiter a la sortie (audit 2026-11-06).
+        self._workers_vivants: set = set()
+        # Couples (fournisseur, modele) dont la sonde est EN VOL : l'animation
+        # « Verification... » ne vaut que pour le couple AFFICHE (audit
+        # 2026-11-06 : elle survivait a un changement de fournisseur, et une
+        # sonde perimee qui revenait coupait celle encore en cours).
+        self._sondes_en_vol: set[tuple[str, str]] = set()
         # (fournisseur, modele) deja verifies dans CETTE session -- la sonde
         # coute un appel reseau reel, on ne la relance jamais pour le meme
         # couple (spec 2026-09-03, B).
@@ -239,7 +259,7 @@ class _CloudSection(QWidget):
         self._lbl_provider = QLabel()
         self._lbl_provider.setFixedWidth(70)
         provider_row.addWidget(self._lbl_provider)
-        self._provider_combo = QComboBox()
+        self._provider_combo = ComboSansMolette()
         self._provider_combo.setFixedHeight(34)
         self._provider_combo.setCursor(Qt.CursorShape.PointingHandCursor)
         for preset in PROVIDERS:
@@ -277,7 +297,7 @@ class _CloudSection(QWidget):
         self._lbl_model = QLabel()
         self._lbl_model.setFixedWidth(70)
         model_row.addWidget(self._lbl_model)
-        self._model_combo = QComboBox()
+        self._model_combo = ComboSansMolette()
         self._model_combo.setEditable(True)
         self._model_combo.setFixedHeight(34)
         self._model_combo.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
@@ -431,19 +451,34 @@ class _CloudSection(QWidget):
         # Schedule deferred deletion so superseded workers are freed promptly.
         worker.finished.connect(worker.deleteLater)
         self._models_worker = worker
+        self._workers_vivants.add(worker)
         worker.start()
 
     def _clear_worker(self, worker: "_ModelsWorker"):
+        self._workers_vivants.discard(worker)
         if self._models_worker is worker:
             self._models_worker = None
 
     def _stop_worker(self):
-        """Stop the in-flight models fetch AND probe on app exit (avoid
-        destroying a running QThread). Mirrors the pattern in library_view.py."""
-        for w in (self._models_worker, self._probe_worker):
-            if w is not None and w.isRunning():
-                w.requestInterruption()
-                w.wait(2000)
+        """Stop the in-flight models fetches AND probes on app exit (avoid
+        destroying a running QThread).
+
+        TOUS les fils encore vivants, pas seulement le dernier de chaque
+        sorte : un fil REMPLACE tournait encore, sans reference. Et `run()`
+        ne lit jamais `requestInterruption` -- une sonde bloque jusqu'a 90 s.
+        Celui qui tourne encore apres 2 s est DETACHE (plus de parent, plus
+        de proprietaire Python) : detruire la fenetre ne le detruit plus en
+        pleine course, ce qui tuait l'app a la sortie (0xC0000409, audit
+        2026-11-06). Le processus qui se termine l'emporte."""
+        from PyQt6 import sip
+        for w in list(self._workers_vivants):
+            if sip.isdeleted(w) or not w.isRunning():
+                continue
+            w.requestInterruption()
+            if not w.wait(2000):
+                w.setParent(None)
+                sip.transferto(w, None)
+        self._workers_vivants.clear()
 
     # ── Async model probe ───────────────────────────────────────────
 
@@ -468,6 +503,7 @@ class _CloudSection(QWidget):
                 self._publish_probe_state(provider_id, verdict[0])
             return
         self._probed_pairs.add(key)
+        self._sondes_en_vol.add(key)
         # La pastille ne sait plus rien tant que la sonde tourne : la laisser
         # VERTE pendant les 30 s d'un modele lent, c'est affirmer un acces
         # qu'on est justement en train de verifier. `None` = grise, la valeur
@@ -480,6 +516,7 @@ class _CloudSection(QWidget):
         worker.finished.connect(lambda w=worker: self._clear_probe_worker(w))
         worker.finished.connect(worker.deleteLater)
         self._probe_worker = worker
+        self._workers_vivants.add(worker)
         worker.start()
 
     def _start_checking_animation(self):
@@ -531,7 +568,12 @@ class _CloudSection(QWidget):
             ai_status.set_state("cloud_key_ok" if ok
                                 else "cloud_model_unreachable")
 
+    def _sonde_affichee_en_vol(self) -> bool:
+        return (self.selected_provider_id(), self._model_text()) \
+            in self._sondes_en_vol
+
     def _clear_probe_worker(self, worker: "_ProbeWorker"):
+        self._workers_vivants.discard(worker)
         if self._probe_worker is worker:
             self._probe_worker = None
 
@@ -540,14 +582,17 @@ class _CloudSection(QWidget):
         ce qui est affiché (fournisseur ET texte du modèle inchangés depuis
         le déclenchement). Sinon, silence : l'utilisateur regarde déjà
         autre chose."""
+        self._sondes_en_vol.discard((provider_id, model))
         if provider_id != self.selected_provider_id() or \
                 model != self._model_text():
             # Résultat obsolète : on ne l'affiche pas, mais on le RETIENT
             # (il reste vrai pour son couple), et on ne laisse surtout pas
-            # « Vérification du modèle… » en place.
+            # « Vérification du modèle… » en place -- SAUF si la sonde du
+            # couple affiché tourne encore : elle a droit à son animation.
             self._probe_verdicts[(provider_id, model)] = (ok, message)
-            self._stop_checking_animation()
-            self._refresh_model_status()
+            if not self._sonde_affichee_en_vol():
+                self._stop_checking_animation()
+                self._refresh_model_status()
             return
         # Retenu plutôt qu'écrit : `_refresh_model_status` le réaffichera
         # tant que le couple concerné est celui affiché, et le laissera
@@ -582,7 +627,12 @@ class _CloudSection(QWidget):
             # Auto-clear only for the benign "empty" case; real errors stay
             # visible until the next fetch so the user knows what went wrong.
             if error_kind in ("", "empty"):
-                QTimer.singleShot(4000, lambda: self._lbl_models_status.setText(""))
+                # N'efface que SON message : un verdict de sonde arrivé
+                # entre-temps restait effacé sans condition (audit 2026-11-06).
+                vide = self._lbl_models_status.text()
+                QTimer.singleShot(4000, lambda: (
+                    self._lbl_models_status.text() == vide
+                    and self._lbl_models_status.setText("")))
             return
 
         # Preferred selection: saved model for this provider, else the value
@@ -633,6 +683,11 @@ class _CloudSection(QWidget):
 
         self._refresh_link()
         self._refresh_model_field_state()
+        # L'animation d'une sonde d'un AUTRE couple réécrivait le statut
+        # 400 ms plus tard (audit 2026-11-06) : elle s'arrête ici, sauf si le
+        # couple maintenant affiché est lui-même en vérification.
+        if not self._sonde_affichee_en_vol():
+            self._stop_checking_animation()
         self._refresh_model_status()
 
     def _refresh_model_field_state(self):
@@ -758,6 +813,12 @@ class _CloudSection(QWidget):
         # listing du fournisseur ne dit pas ce qui est accessible, seul un
         # appel reel le dit.
         self._start_model_probe(pid, model)
+        # Le modele enregistre doit AUSSI etre celui de l'instance active : le
+        # chat garde sinon le moteur construit avec l'ancien (la generation,
+        # qui relit la config a chaque fois, utiliserait le nouveau). Meme
+        # condition que `_on_save` : seule la section active recree.
+        if self.radio.isChecked():
+            self.activated.emit()
 
     def _confirm_saved(self):
         """Affiche le ✓ de confirmation d'enregistrement.
@@ -793,6 +854,12 @@ class _CloudSection(QWidget):
         # correction de la clé — il aurait fallu redémarrer l'app.
         self._probed_pairs = {(p, m) for (p, m) in self._probed_pairs
                               if p != pid}
+        # Les VERDICTS aussi : sans ca, celui de l'ancienne cle restait affiche
+        # (« n'a pas repondu — API key not valid » devant une cle bonne) et
+        # pilotait la pastille -- verte devant une cle refusee, dans le cas
+        # inverse -- jusqu'a ce qu'un autre geste relance une sonde.
+        self._probe_verdicts = {k: v for k, v in self._probe_verdicts.items()
+                                if k[0] != pid}
 
         self._refresh_model_field_state()
         self._confirm_saved()
@@ -800,6 +867,8 @@ class _CloudSection(QWidget):
         # Now that the key is saved, (re)fetch the model list for this provider.
         if key:
             self._start_models_fetch(pid)
+            # ... et re-verifier le modele avec la NOUVELLE cle.
+            self._start_model_probe(pid, model)
 
         # If this section is the active backend, rebuild it so the new
         # credentials/model take effect immediately.
@@ -850,11 +919,17 @@ class _CloudSection(QWidget):
         self._key_input.setPlaceholderText(s.ia_api_key_placeholder)
         self._btn_save.setText(s.ia_save_key)
         self._lbl_model.setText(s.ia_model_label)
-        if self._model_combo.lineEdit() is not None:
-            self._model_combo.lineEdit().setPlaceholderText(s.ia_model_placeholder)
+        # L'invite dépend de la présence d'une clé (QA AI3bis) : la poser ici
+        # sans condition écrasait celle du « sans clé » dès la construction
+        # (audit 2026-11-06).
+        self._refresh_model_field_state()
         self._lbl_disclaimer.setText(s.ia_model_disclaimer)
         self._lbl_base.setText(s.ia_base_url_label)
         self._refresh_link()
+        # Le statut du modèle aussi, dans la nouvelle langue -- sauf pendant
+        # une vérification : l'animation le réécrit elle-même.
+        if self._probe_timer is None:
+            self._refresh_model_status()
 
 
 # ── Section backend (Ollama + optional extras) ──────────────────────────────
@@ -868,6 +943,9 @@ class _BackendSection(QWidget):
 
     # Emitted (Ollama only) when the user chooses another model.
     model_changed = pyqtSignal(str)
+    # Le reglage du contexte a change (2026-11-06) : le moteur actif doit
+    # etre relu. Meme signal sur la page LM Studio.
+    reglage_change = pyqtSignal()
 
     def __init__(self, backend_id: str, parent=None):
         super().__init__(parent)
@@ -943,39 +1021,71 @@ class _BackendSection(QWidget):
             self._lbl_model_status = QLabel()
             content_layout.addWidget(self._lbl_model_status)
 
+            # Charger / decharger (2026-11-06) : le MEME geste que la page
+            # LM Studio, a la demande de l'auteur. ⚠️ Gris, pas rouge :
+            # Ollama charge seul a la premiere demande, « pas charge » n'est
+            # pas une panne -- c'est la seule difference voulue entre les deux.
+            self._lbl_memoire = QLabel()
+            self._lbl_memoire.setWordWrap(True)
+            self._lbl_memoire.hide()
+            content_layout.addWidget(self._lbl_memoire)
+            rang_mem = QHBoxLayout()
+            rang_mem.setContentsMargins(0, 4, 0, 0)
+            # Deux boutons, comme la page LM Studio : « Charger pour
+            # Promptuino » / « Recharger » (charge au reglage), et « Decharger ».
+            self._btn_charger_mem = QPushButton()
+            self._btn_charger_mem.setCursor(Qt.CursorShape.PointingHandCursor)
+            self._btn_charger_mem.setAutoDefault(False)
+            self._btn_charger_mem.clicked.connect(self._charger_memoire)
+            self._btn_charger_mem.hide()
+            rang_mem.addWidget(self._btn_charger_mem)
+            self._btn_decharger_mem = QPushButton()
+            self._btn_decharger_mem.setCursor(Qt.CursorShape.PointingHandCursor)
+            self._btn_decharger_mem.setAutoDefault(False)
+            self._btn_decharger_mem.clicked.connect(self._decharger_memoire)
+            self._btn_decharger_mem.hide()
+            rang_mem.addWidget(self._btn_decharger_mem)
+            rang_mem.addStretch(1)
+            content_layout.addLayout(rang_mem)
+            self._lbl_memoire_err = QLabel()
+            self._lbl_memoire_err.setWordWrap(True)
+            self._lbl_memoire_err.hide()
+            content_layout.addWidget(self._lbl_memoire_err)
+            # Ce que le chargement a libere ailleurs (decision de l'auteur,
+            # 2026-11-06) : dit, jamais fait en silence.
+            self._lbl_libere = QLabel()
+            self._lbl_libere.setWordWrap(True)
+            self._lbl_libere.hide()
+            content_layout.addWidget(self._lbl_libere)
+            # {"charge", "ctx"} ; None = on ne sait pas, donc on se tait.
+            self._memoire: "dict | None" = None
+            self._geste_en_cours = False
+
+            # La taille de contexte : le MEME widget que la page LM Studio
+            # (decision de l'auteur, 2026-11-06), bornes par le modele choisi.
             content_layout.addSpacing(12)
-            self._lbl_ctx_label = QLabel()
-            content_layout.addWidget(self._lbl_ctx_label)
+            self._ctx_max: "int | None" = None
+            self._ctx = CurseurContexte()
+            self._ctx.regler(None, ai_config.ollama_num_ctx)
+            self._ctx.valeur_validee.connect(self._on_ctx_valide)
+            content_layout.addWidget(self._ctx)
 
-            ctx_row = QHBoxLayout()
-            ctx_row.setContentsMargins(0, 0, 0, 0)
-            ctx_row.setSpacing(8)
-            self._ctx_slider = QSlider(Qt.Orientation.Horizontal)
-            self._ctx_slider.setMinimum(0)
-            self._ctx_slider.setMaximum(len(OLLAMA_NUM_CTX_STEPS) - 1)
-            self._ctx_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
-            self._ctx_slider.setTickInterval(1)
-            self._ctx_slider.setPageStep(1)
-            self._ctx_slider.setSingleStep(1)
-            self._ctx_slider.setFixedWidth(168)
-            try:
-                idx = OLLAMA_NUM_CTX_STEPS.index(ai_config.ollama_num_ctx)
-            except ValueError:
-                idx = OLLAMA_NUM_CTX_STEPS.index(8192)
-            self._ctx_slider.setValue(idx)
-            self._ctx_slider.setCursor(Qt.CursorShape.PointingHandCursor)
-            self._ctx_slider.valueChanged.connect(self._on_ctx_changed)
-            ctx_row.addWidget(self._ctx_slider)
-
-            self._lbl_ctx_value = QLabel(f"{OLLAMA_NUM_CTX_STEPS[idx] // 1024}k tokens")
-            self._lbl_ctx_value.setMinimumWidth(80)
-            ctx_row.addWidget(self._lbl_ctx_value)
-            ctx_row.addStretch()
-            content_layout.addLayout(ctx_row)
-
-            self._lbl_ctx_help = QLabel()
-            self._lbl_ctx_help.setWordWrap(True)
-            content_layout.addWidget(self._lbl_ctx_help)
+            # La reflexion (TODO #123) : le MEME interrupteur que LM Studio,
+            # a la meme place, desactive par defaut.
+            content_layout.addSpacing(10)
+            self._think = InterrupteurReflexion()
+            self._think.regler(None, ai_config.ollama_think)
+            self._think.bascule.connect(self._on_think)
+            content_layout.addWidget(self._think)
+            # Le niveau d'effort (P4, 2026-11-07) : seulement pour un modele
+            # qui annonce des niveaux nommes (gpt-oss).
+            from .thinking_niveaux import CurseurNiveaux
+            self._niveaux = CurseurNiveaux()
+            self._niveaux.niveau_choisi.connect(self._on_niveau)
+            content_layout.addWidget(self._niveaux)
+            # La pastille du chat ou de la generation a pu changer le reglage.
+            from .thinking_etat import thinking_etat
+            thinking_etat.change.connect(self._suivre_thinking)
 
         else:
             # ── Optional extra backend: availability indicator ──────
@@ -1007,15 +1117,42 @@ class _BackendSection(QWidget):
             return
         ai_config.ollama_model = model   # persists + emits ai_config.changed
         s = lang_manager.current
-        self._lbl_model_status.setText(f'<span style="color:{theme_manager.current.signal_ok};">✓ {s.ia_key_saved}</span>')
+        # `ia_saved` et non `ia_key_saved` : Ollama n'a pas de clé, et la
+        # section Cloud dit `ia_saved` pour le même geste (audit 2026-11-06).
+        self._lbl_model_status.setText(f'<span style="color:{theme_manager.current.signal_ok};">✓ {s.ia_saved}</span>')
         QTimer.singleShot(3000, lambda: self._lbl_model_status.setText(""))
         self.refresh_availability()
         self.model_changed.emit(model)
 
-    def _on_ctx_changed(self, idx: int):
-        value = OLLAMA_NUM_CTX_STEPS[idx]
-        self._lbl_ctx_value.setText(f"{value // 1024}k tokens")
-        ai_config.ollama_num_ctx = value
+    def _on_ctx_valide(self, valeur: int):
+        """Enregistre, puis redit l'etat memoire : un modele charge a une
+        autre taille propose alors « Recharger ». La generation et le chat
+        lisent le reglage en direct ; Ollama recharge seul a la demande
+        suivante."""
+        ai_config.ollama_num_ctx = valeur
+        self._rendre_memoire()
+        self.reglage_change.emit()
+
+    def _on_think(self, coche: bool):
+        """Enregistre. Le moteur Ollama lit le reglage en direct, comme le
+        contexte : il s'applique a la demande suivante."""
+        ai_config.ollama_think = coche
+        self.reglage_change.emit()
+
+    def _on_niveau(self, niveau: str):
+        from .thinking_etat import thinking_etat
+        thinking_etat.choisir_niveau(niveau)
+
+    def _suivre_thinking(self):
+        """Reflete le reglage partage, SANS reseau : la capacite deja lue
+        par l'interrupteur suffit."""
+        cap = self._think._cap
+        self._think.regler(cap, ai_config.ollama_think)
+        niveaux = cap.niveaux if cap is not None else ()
+        actuel = (ai_config.ollama_think_level
+                  if ai_config.ollama_think_level in niveaux
+                  else (cap.allumer if cap is not None else ""))
+        self._niveaux.regler(niveaux, actuel)
 
     # ── Public API ───────────────────────────────────────────
 
@@ -1095,7 +1232,36 @@ class _BackendSection(QWidget):
             elif not is_model_available(model):
                 self._availability_state = ("ollama_model_missing", model)
             else:
-                self._availability_state = ("ollama_ok", None)
+                # Le maximum du modele borne le curseur (decision de
+                # l'auteur, 2026-11-06) ; sous le plancher, il est INUTILISABLE
+                # et le message dit pourquoi. `/api/show`, local et rapide.
+                self._ctx_max = ollama_models.contexte_max(model)
+                if contexte.utilisable(self._ctx_max):
+                    self._availability_state = ("ollama_ok", None)
+                else:
+                    self._availability_state = ("ollama_ctx_too_small",
+                                                str(self._ctx_max))
+            if self._availability_state[0] not in ("ollama_ok",
+                                                   "ollama_ctx_too_small"):
+                self._ctx_max = None        # serveur ou modele absent : inconnu
+            if self._availability_state[0] == "ollama_ctx_too_small":
+                self._ctx.bloquer(self._ctx_max)
+            else:
+                # Affiche le reglage BORNE au modele, sans l'enregistrer :
+                # revenir a un plus grand modele retrouve la valeur choisie.
+                self._ctx.regler(self._ctx_max, ai_config.ollama_num_ctx)
+            # `/api/ps`, local et rapide comme les deux appels ci-dessus.
+            self._memoire = (ollama_models.en_memoire(model)
+                             if self._availability_state[0] == "ollama_ok"
+                             else None)
+            # Ce que le modele permet (`/api/show`, local et rapide) : grise
+            # l'interrupteur s'il ne sait pas reflechir ou ne sait que ca.
+            cap = (ollama_models.reflexion_modele(model)
+                   if self._availability_state[0] in ("ollama_ok",
+                                                      "ollama_ctx_too_small")
+                   else None)
+            self._think.regler(cap, ai_config.ollama_think)
+            self._suivre_thinking()
         else:
             # Backend facultatif : par la FABRIQUE, qui seule sait s'il
             # existe. S'il a disparu entre-temps, il est simplement indisponible.
@@ -1109,7 +1275,7 @@ class _BackendSection(QWidget):
         # backend, et publier celle d'un backend non selectionne mentirait.
         if self.backend_id == ai_config.backend_id:
             from .ai_status import ai_status
-            ai_status.set_state(self._availability_state[0])
+            ai_status.set_state(self.etat_publie())
 
         self._render_availability()
 
@@ -1138,6 +1304,17 @@ class _BackendSection(QWidget):
                 f'<span style="color:{theme_manager.current.signal_warn};">&#9679; '
                 f'{s.ia_ollama_model_missing} {extra}</span>'
             )
+        elif kind == "ollama_ctx_too_small":
+            # Decision de l'auteur : dire que le modele est INUTILISABLE, et
+            # preciser que c'est son contexte qui est trop petit.
+            txt = (f'<span style="color:{theme_manager.current.signal_error};">'
+                   f'&#9679; {s.ctx_unusable.format(n=extra, min=contexte.CTX_PROMPTUINO)}'
+                   f'</span>')
+        elif kind == "ollama_ok" and self._deborde_ollama():
+            # Branche mais LENT (2026-11-06) : une partie du modele n'est pas
+            # dans la VRAM -- Ollama le dit lui-meme (`size_vram < size`).
+            txt = (f'<span style="color:{theme_manager.current.signal_warn};">'
+                   f'&#9679; {s.slow_overflow}</span>')
         elif kind == "ollama_ok":
             txt = f'<span style="color:{theme_manager.current.signal_ok};">&#9679; {s.ia_ollama_running}</span>'
         elif kind in ("extra_ok", "extra_missing"):
@@ -1166,6 +1343,140 @@ class _BackendSection(QWidget):
         except TypeError:
             pass            # aucune connexion encore posee
         self._lbl_availability.linkActivated.connect(self._on_availability_link)
+        if self._is_ollama:
+            self._rendre_memoire()
+
+    # ── Charger / decharger (2026-11-06) ──────────────────────────
+
+    def _rendre_memoire(self):
+        """Depuis le cache, sans appel. Rien tant que le serveur ou le modele
+        manquent, ni quand `/api/ps` se tait : on n'affirme pas « pas
+        charge » sur une ignorance. Trois cas, comme la page LM Studio :
+        pas charge, charge au reglage, charge a une AUTRE taille."""
+        s = lang_manager.current
+        visible = (self._availability_state is not None
+                   and self._availability_state[0] == "ollama_ok"
+                   and self._memoire is not None)
+        self._lbl_memoire.setVisible(visible)
+        self._btn_charger_mem.setVisible(False)
+        self._btn_decharger_mem.setVisible(False)
+        if not visible:
+            return
+        voulu = contexte.ramener(ai_config.ollama_num_ctx, self._ctx_max)
+        if not self._memoire["charge"]:
+            self._lbl_memoire.setText(s.om_not_loaded)
+            self._btn_charger_mem.setVisible(True)
+            texte = s.lms_load_for_app
+        else:
+            ctx = self._memoire["ctx"]
+            self._btn_decharger_mem.setVisible(True)
+            texte = s.ctx_reload
+            if ctx is None:
+                self._lbl_memoire.setText(s.om_loaded_unknown)
+            elif contexte.accorde(ctx, voulu):
+                self._lbl_memoire.setText(s.om_loaded.format(n=ctx))
+            else:
+                self._lbl_memoire.setText(s.ctx_differs.format(
+                    charge=ctx, voulu=voulu))
+                self._btn_charger_mem.setVisible(True)
+        if not self._geste_en_cours:
+            self._btn_charger_mem.setText(texte)
+        self._btn_charger_mem.setToolTip(s.om_load_tip)
+        self._btn_decharger_mem.setText(s.lms_unload)
+
+    def _modele_memoire(self) -> str:
+        return self._model_combo.currentText().strip() or ai_config.ollama_model
+
+    def _charger_memoire(self):
+        # Pendant un chargement, le MEME bouton dit « Annuler » (2026-11-07) :
+        # couper la requete fait abandonner le chargement au serveur (mesure).
+        if self._geste_en_cours and getattr(self, "_coupure_chg", None):
+            self._chg_annule = True
+            self._coupure_chg.couper()
+            return
+        modele = self._modele_memoire()
+        if self._geste_en_cours or not modele:
+            return
+        from .ai_backends.coupure import Coupure
+        coupure = self._coupure_chg = Coupure(unique=True)
+        self._chg_annule = False
+
+        def tache():
+            # ⛔ Le contexte de la GENERATION, par sa propre methode -- le
+            # reglage, borne au maximum du modele. Mesure du 2026-11-06 : un
+            # autre `num_ctx` recharge le modele (7,7 s), donc un bouton qui
+            # chargerait a un autre chiffre ne ferait gagner aucun temps.
+            from .ai_backends import ollama_backend
+            ctx = ollama_backend.OllamaBackend(modele).generation_context()
+            # D'abord les AUTRES modeles, sur les deux moteurs (2026-11-06).
+            liberes = memoire_modeles.liberer_autres(
+                "ollama", modele, ai_config.lmstudio_base_url)
+            if coupure.annulee:                  # annule pendant la liberation
+                return False, "", liberes
+            ok, msg = ollama_models.charger(modele, ctx, coupure=coupure)
+            return ok, msg, liberes
+        self._lancer_geste_memoire("charger", tache)
+        self._btn_charger_mem.setText(lang_manager.current.md_cancel)
+        self._btn_charger_mem.setToolTip(
+            lang_manager.current.lms_loading.format(m=modele))
+        self._btn_charger_mem.setEnabled(True)   # c'est lui qui annule
+
+    def _decharger_memoire(self):
+        modele = self._modele_memoire()
+        if self._geste_en_cours or not modele:
+            return
+        self._lancer_geste_memoire("decharger",
+                                   lambda: ollama_models.decharger(modele))
+
+    def _lancer_geste_memoire(self, etiquette: str, tache):
+        from .taches_fond import lancer_en_fond
+        self._geste_en_cours = True
+        self._btn_charger_mem.setEnabled(False)
+        self._btn_decharger_mem.setEnabled(False)
+        self._lbl_memoire_err.hide()
+        self._lbl_libere.hide()
+        lancer_en_fond(etiquette, tache, self._apres_geste_memoire)
+
+    def _apres_geste_memoire(self, paquet):
+        etiquette, r = paquet
+        s = lang_manager.current
+        if not isinstance(r, tuple):
+            r = (False, str(r))
+        ok, msg = r[0], r[1]
+        libere = memoire_modeles.phrase(r[2] if len(r) > 2 else [], s.mem_freed)
+        self._lbl_libere.setText(libere)
+        self._lbl_libere.setVisible(bool(libere))
+        self._geste_en_cours = False
+        self._btn_charger_mem.setEnabled(True)
+        self._btn_decharger_mem.setEnabled(True)
+        annule = etiquette == "charger" and getattr(self, "_chg_annule", False)
+        self._coupure_chg = None
+        self._chg_annule = False
+        if annule:
+            # Un choix, pas une panne : pas de rouge.
+            texte = " ".join(t for t in (libere, s.load_cancelled) if t)
+            self._lbl_libere.setText(texte)
+            self._lbl_libere.setVisible(True)
+        elif not ok:
+            # Jamais le texte brut d'Ollama : une phrase simple (2026-11-06).
+            self._lbl_memoire_err.setText(erreurs_chargement.message(
+                "ollama", msg, s, decharge=(etiquette == "decharger")))
+            self._lbl_memoire_err.show()
+        self.refresh_availability()
+
+    def _deborde_ollama(self) -> bool:
+        m = getattr(self, "_memoire", None)
+        return bool(m and m.get("charge") and m.get("deborde"))
+
+    def etat_publie(self) -> "str | None":
+        """L'etat que la pastille affiche : celui de la page, sauf qu'un
+        modele qui a deborde de la carte passe en ORANGE (branche mais lent)."""
+        if self._availability_state is None:
+            return None
+        kind = self._availability_state[0]
+        if kind == "ollama_ok" and self._deborde_ollama():
+            return "ollama_slow"
+        return kind
 
     _LIEN_DEMARRER_OLLAMA = "promptuino:start-ollama"
 
@@ -1198,13 +1509,16 @@ class _BackendSection(QWidget):
             self._lbl_model_label.setStyleSheet(f"color: {c.text_secondary}; font-size: 10pt;")
             self._model_combo.setStyleSheet(combo_qss(c))
             self._lbl_model_status.setStyleSheet("font-size: 9pt;")
-            self._lbl_ctx_label.setStyleSheet(
-                f"color: {c.text_secondary}; font-size: 10pt; font-weight: 600;")
-            self._lbl_ctx_value.setStyleSheet(
-                f"color: {c.text_primary}; font-size: 9pt;")
-            self._lbl_ctx_help.setStyleSheet(
+            self._ctx.apply_theme(c)
+            self._think.apply_theme(c)
+            self._niveaux.apply_theme(c)
+            self._lbl_memoire.setStyleSheet(
                 f"color: {c.text_secondary}; font-size: 9pt;")
-            self._ctx_slider.setStyleSheet(slider_qss(c))
+            self._btn_charger_mem.setStyleSheet(secondary_button_qss(c))
+            self._btn_decharger_mem.setStyleSheet(secondary_button_qss(c))
+            self._lbl_libere.setStyleSheet(f"color: {c.text_secondary}; font-size: 9pt;")
+            self._lbl_memoire_err.setStyleSheet(
+                f"color: {c.signal_error}; font-size: 9pt;")
             # Oubli releve par l'utilisateur : le bouton etait le seul
             # widget NU de la section. Primaire, comme << Enregistrer >>
             # de la section cloud -- c'est l'action principale du rang.
@@ -1226,11 +1540,706 @@ class _BackendSection(QWidget):
         if self._is_ollama:
             self._lbl_model_label.setText(s.ia_ollama_model_label)
             self._btn_dl_model.setText(s.md_manage)
-            self._lbl_ctx_label.setText(s.ia_ollama_ctx_label)
-            self._lbl_ctx_help.setText(s.ia_ollama_ctx_help)
+            self._ctx.apply_lang(s)
+            self._think.apply_lang(s)
+            self._niveaux.apply_lang(s)
         # No refresh_availability here: would make a blocking HTTP call
         # to Ollama (up to 3 s) on every language change.
         self._render_availability()
+
+
+# Les moteurs locaux, dans l'ordre d'affichage de la liste.
+# ⚠️ Des MARQUES : non traduites, comme le « Ollama (local) » ecrit en dur
+# dans `_BackendSection.apply_lang` depuis toujours.
+_LOCAL_LABELS = {"ollama": "Ollama", "lmstudio": "LM Studio"}
+
+# En dessous, le contexte charge est trop petit pour le travail de l'app.
+# ⚠️ Ce n'est pas un seuil calibre sur un echantillon. Il vit dans
+# `lmstudio_models` parce que le bouton « Charger » demande ce meme nombre :
+# deux constantes pourraient diverger, et l'ecran dirait « trop petit » d'un
+# modele que l'app vient elle-meme de charger.
+from .lmstudio_models import CTX_PROMPTUINO as _LMSTUDIO_CTX_MIN  # noqa: E402
+
+
+class _LMStudioPage(QWidget):
+    """Les champs de LM Studio : une PAGE de la section Local, sans radio.
+
+    ⛔ **Pas de curseur de contexte**, et c'est une decision : LM Studio fixe
+    le contexte **au chargement du modele**. Son API compatible OpenAI ne
+    permet pas de le changer ; son API native v1, si -- d'ou le bouton
+    « Charger pour Promptuino », qui charge le modele choisi a
+    `CTX_PROMPTUINO`. Un curseur promettrait un reglage qui ne s'applique
+    qu'a un rechargement.
+
+    ✅ **La gestion des modeles est la** (TODO #121, 2026-11-06) : l'auteur a
+    leve la reserve du 2026-11-04. Le bouton « Modeles… » ouvre
+    `LMStudioModelsDialog` (lister, telecharger, charger, decharger).
+
+    Expose la meme surface que `_BackendSection` (`backend_id`,
+    `_availability_state`, `apply_theme`, `apply_lang`, `refresh_availability`,
+    `load_key`) parce que `IAView` et la pastille les lisent indifferemment.
+    """
+
+    model_changed = pyqtSignal(str)
+    reglage_change = pyqtSignal()        # le contexte regle a change
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.backend_id = "lmstudio"
+        # Meme role que dans `_BackendSection` : le cache que la pastille lit
+        # sans jamais mesurer (TODO #80).
+        self._availability_state: "tuple[str, str | None] | None" = None
+        self._build()
+        self.apply_theme(theme_manager.current)
+        self.apply_lang(lang_manager.current)
+
+    def _build(self):
+        root = QVBoxLayout(self)
+        root.setContentsMargins(0, 0, 0, 0)
+        root.setSpacing(0)
+
+        self._lbl_subtitle = QLabel()
+        self._lbl_subtitle.setWordWrap(True)
+        root.addWidget(self._lbl_subtitle)
+        root.addSpacing(10)
+
+        # ── Adresse du serveur ───────────────────────────────
+        url_row = QHBoxLayout()
+        url_row.setContentsMargins(0, 0, 0, 0)
+        url_row.setSpacing(8)
+        self._lbl_url = QLabel()
+        self._lbl_url.setFixedWidth(56)
+        url_row.addWidget(self._lbl_url)
+        self._url_input = QLineEdit()
+        self._url_input.setFixedHeight(34)
+        # Vider le champ rend le defaut : `ai_config` s'en charge, donc on ne
+        # peut pas se retrouver avec un backend sans adresse.
+        self._url_input.editingFinished.connect(self._on_url_edited)
+        url_row.addWidget(self._url_input, stretch=1)
+        root.addLayout(url_row)
+        root.addSpacing(6)
+
+        # ── Modele ───────────────────────────────────────────
+        model_row = QHBoxLayout()
+        model_row.setContentsMargins(0, 0, 0, 0)
+        model_row.setSpacing(8)
+        self._lbl_model = QLabel()
+        self._lbl_model.setFixedWidth(56)
+        model_row.addWidget(self._lbl_model)
+        self._model_combo = _ModelCombo(self._populate_models)
+        self._model_combo.setFixedHeight(34)
+        self._model_combo.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._model_combo.textActivated.connect(self._on_model_selected)
+        model_row.addWidget(self._model_combo, stretch=1)
+        self._btn_models = QPushButton()
+        self._btn_models.setFixedHeight(34)
+        self._btn_models.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_models.setAutoDefault(False)
+        self._btn_models.clicked.connect(self._ouvrir_gestion)
+        model_row.addWidget(self._btn_models)
+        root.addLayout(model_row)
+        root.addSpacing(6)
+
+        self._lbl_availability = QLabel()
+        self._lbl_availability.setWordWrap(True)
+        self._lbl_availability.setTextFormat(Qt.TextFormat.RichText)
+        self._lbl_availability.setOpenExternalLinks(True)
+        root.addWidget(self._lbl_availability)
+
+        # Le contexte charge, AVANT les boutons : l'etat d'abord, le geste
+        # ensuite -- le meme ordre que la page Ollama (2026-11-06).
+        root.addSpacing(4)
+        self._lbl_ctx = QLabel()
+        self._lbl_ctx.setWordWrap(True)
+        root.addWidget(self._lbl_ctx)
+
+        # « Aucun modele charge » et « contexte trop petit » etaient des
+        # culs-de-sac : le message renvoyait vers LM Studio. Mesure du
+        # 2026-11-04 : une requete sur un modele non charge ECHOUE. Le bouton
+        # fait le geste depuis ici, au contexte dont l'app a besoin.
+        rang_charger = QHBoxLayout()
+        rang_charger.setContentsMargins(0, 4, 0, 0)
+        self._btn_charger = QPushButton()
+        self._btn_charger.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_charger.setAutoDefault(False)
+        self._btn_charger.clicked.connect(self._charger_pour_promptuino)
+        self._btn_charger.hide()
+        rang_charger.addWidget(self._btn_charger)
+        # QA AV1 du 2026-11-06 : « Charger » etait sur la page, « Decharger »
+        # seulement dans la fenetre. Les deux gestes, au meme endroit.
+        self._btn_decharger = QPushButton()
+        self._btn_decharger.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_decharger.setAutoDefault(False)
+        self._btn_decharger.clicked.connect(self._decharger_le_modele)
+        self._btn_decharger.hide()
+        rang_charger.addWidget(self._btn_decharger)
+        rang_charger.addStretch(1)
+        root.addLayout(rang_charger)
+        self._lbl_charge_err = QLabel()
+        self._lbl_charge_err.setWordWrap(True)
+        self._lbl_charge_err.hide()
+        root.addWidget(self._lbl_charge_err)
+        self._lbl_libere = QLabel()        # ce que le chargement a libere
+        self._lbl_libere.setWordWrap(True)
+        self._lbl_libere.hide()
+        root.addWidget(self._lbl_libere)
+        self._chargement_en_cours = False
+
+        # La taille de contexte : le MEME widget que la page Ollama, a la
+        # meme place (decision de l'auteur, 2026-11-06). Elle s'applique au
+        # CHARGEMENT : un modele deja charge a une autre taille propose
+        # « Recharger ».
+        root.addSpacing(12)
+        self._ctx_max: "int | None" = None
+        self._deborde: "bool | None" = None
+        self._verification = 0
+        self._ctx = CurseurContexte()
+        self._ctx.regler(None, ai_config.lmstudio_num_ctx)
+        self._ctx.valeur_validee.connect(self._on_ctx_valide)
+        root.addWidget(self._ctx)
+
+        # La reflexion (TODO #123) : le MEME interrupteur que la page Ollama.
+        root.addSpacing(10)
+        self._think = InterrupteurReflexion()
+        self._think.regler(None, ai_config.lmstudio_think)
+        self._think.bascule.connect(self._on_think)
+        root.addWidget(self._think)
+        # Le niveau d'effort (P4) : toujours visible, GRISE -- l'API que
+        # l'app utilise n'accepte pas de niveaux (TODO #125).
+        from .thinking_niveaux import CurseurNiveaux
+        self._niveaux = CurseurNiveaux()
+        self._niveaux.niveau_choisi.connect(self._on_niveau)
+        root.addWidget(self._niveaux)
+        # La pastille du chat ou de la generation a pu changer le reglage.
+        from .thinking_etat import thinking_etat
+        thinking_etat.change.connect(self._suivre_thinking)
+
+    # ── Saisie ───────────────────────────────────────────────
+
+    def _on_url_edited(self):
+        avant = ai_config.lmstudio_base_url
+        ai_config.lmstudio_base_url = self._url_input.text()
+        # Le champ peut avoir ete vide : on reaffiche ce qui a ete retenu.
+        self._url_input.setText(ai_config.lmstudio_base_url)
+        self.refresh_availability()
+        if ai_config.lmstudio_base_url != avant:
+            # Le moteur LM Studio fige son adresse a la construction : sans
+            # ceci le chat continuait d'appeler l'ancienne.
+            self.reglage_change.emit()
+
+    def _populate_models(self):
+        """Les modeles CONVERSATIONNELS du serveur, plus celui qui est
+        enregistre meme s'il a disparu (sinon la selection sauterait).
+
+        ⛔ La liste vient de l'API NATIVE et non de `/v1/models`, parce que
+        seule la premiere donne le `type` : le Gemma 4 E4B sort en `vlm` et un
+        filtre par nom ne saurait pas le garder.
+        """
+        saved = ai_config.lmstudio_model
+        modeles = lmstudio_api.chat_models(ai_config.lmstudio_base_url)
+        if saved and saved not in modeles:
+            modeles = [saved] + modeles
+        self._model_combo.blockSignals(True)
+        self._model_combo.clear()
+        self._model_combo.addItems(modeles)
+        if saved in modeles:
+            self._model_combo.setCurrentText(saved)
+        self._model_combo.blockSignals(False)
+
+    def _on_model_selected(self, text: str):
+        modele = text.strip()
+        if not modele:
+            return
+        ai_config.lmstudio_model = modele
+        self.refresh_availability()
+        self.model_changed.emit(modele)
+
+    # ── Gestion des modeles (TODO #121) ──────────────────────
+
+    def _modele_choisi(self) -> str:
+        return (self._model_combo.currentText().strip()
+                or ai_config.lmstudio_model)
+
+    def _ouvrir_gestion(self):
+        """A la fermeture, la liste et l'etat sont relus : un modele a pu
+        etre telecharge, charge ou decharge entre-temps."""
+        from .lmstudio_models_dialog import LMStudioModelsDialog
+        dlg = LMStudioModelsDialog(ai_config.lmstudio_base_url, self)
+        dlg.modeles_changes.connect(self._populate_models)
+        dlg.exec()
+        self._populate_models()
+        self.refresh_availability()
+
+    def _charger_pour_promptuino(self):
+        # Pendant un chargement, le MEME bouton dit « Annuler » (2026-11-07) :
+        # couper la requete fait abandonner le chargement a LM Studio (mesure).
+        if self._chargement_en_cours and getattr(self, "_coupure_chg", None):
+            self._chg_annule = True
+            self._coupure_chg.couper()
+            return
+        modele = self._modele_choisi()
+        if not modele or self._chargement_en_cours:
+            return
+        from .lmstudio_models_dialog import lancer_en_fond
+        from .ai_backends.coupure import Coupure
+        coupure = self._coupure_chg = Coupure(unique=True)
+        self._chg_annule = False
+        self._chargement_en_cours = True
+        self._btn_charger.setEnabled(True)          # c'est lui qui annule
+        self._btn_charger.setText(lang_manager.current.md_cancel)
+        self._btn_charger.setToolTip(
+            lang_manager.current.lms_loading.format(m=modele))
+        self._btn_decharger.setEnabled(False)
+        self._lbl_charge_err.hide()
+        self._lbl_libere.hide()
+        url = ai_config.lmstudio_base_url
+        voulu = self._voulu()             # le reglage, borne au modele
+
+        def tache():
+            etat = lmstudio_models.etat_api(url)
+            if etat != "ok":
+                return ("bloque", etat)
+            # D'abord les AUTRES modeles, sur les deux moteurs (2026-11-06).
+            liberes = memoire_modeles.liberer_autres("lmstudio", modele, url)
+            if coupure.annulee:                  # annule pendant la liberation
+                return ("annule", "", liberes)
+            ok, msg = lmstudio_models.charger(url, modele, voulu, coupure=coupure)
+            if coupure.annulee:
+                return ("annule", "", liberes)
+            return ("ok", "", liberes) if ok else ("echec", msg, liberes)
+
+        lancer_en_fond("charger", tache, self._apres_chargement)
+
+    def _decharger_le_modele(self):
+        """Libere TOUTES les instances du modele choisi, et seulement elles :
+        les autres modeles charges dans LM Studio ne sont jamais touches."""
+        modele = self._modele_choisi()
+        if not modele or self._chargement_en_cours:
+            return
+        from .lmstudio_models_dialog import lancer_en_fond
+        self._chargement_en_cours = True
+        self._btn_charger.setEnabled(False)
+        self._btn_decharger.setEnabled(False)
+        self._lbl_charge_err.hide()
+        url = ai_config.lmstudio_base_url
+
+        def tache():
+            etat = lmstudio_models.etat_api(url)
+            if etat != "ok":
+                return ("bloque", etat)
+            fiche = next((f for f in lmstudio_models.modeles_installes(url)
+                          if f["cle"] == modele), None)
+            for instance, _ctx in (fiche["instances"] if fiche else []):
+                ok, msg = lmstudio_models.decharger(url, instance)
+                if not ok:
+                    return ("echec_decharge", msg)
+            return ("ok", "")
+
+        lancer_en_fond("decharger", tache, self._apres_chargement)
+
+    def _apres_chargement(self, paquet):
+        _etiquette, r = paquet
+        s = lang_manager.current
+        if not isinstance(r, tuple):
+            r = ("echec", str(r))
+        issue, detail = r[0], r[1]
+        libere = memoire_modeles.phrase(r[2] if len(r) > 2 else [], s.mem_freed)
+        self._lbl_libere.setText(libere)
+        self._lbl_libere.setVisible(bool(libere))
+        self._chargement_en_cours = False
+        self._coupure_chg = None
+        self._chg_annule = False
+        self._btn_charger.setEnabled(True)
+        self._btn_decharger.setEnabled(True)
+        self._btn_charger.setText(s.lms_load_for_app)
+        if issue == "annule":
+            # Un choix, pas une panne : pas de rouge.
+            self._lbl_libere.setText(
+                " ".join(t for t in (libere, s.load_cancelled) if t))
+            self._lbl_libere.setVisible(True)
+            texte = ""
+        elif issue == "bloque":
+            texte = (s.lms_need_update if detail == "ancien"
+                     else s.ia_lmstudio_server_down)
+        elif issue == "echec":
+            # Jamais le texte brut de LM Studio : une phrase simple (2026-11-06).
+            texte = erreurs_chargement.message("lmstudio", detail, s)
+        elif issue == "echec_decharge":
+            texte = erreurs_chargement.message("lmstudio", detail, s, decharge=True)
+        else:
+            texte = ""
+        self._lbl_charge_err.setText(texte)
+        self._lbl_charge_err.setVisible(bool(texte))
+        self.refresh_availability()
+
+    # ── API publique, celle que `IAView` attend ──────────────
+
+    def load_key(self):
+        """LM Studio n'a PAS de cle. Le nom vient de la surface commune avec
+        `_BackendSection` ; ici on (re)charge l'adresse et les modeles."""
+        self._url_input.setText(ai_config.lmstudio_base_url)
+        self._populate_models()
+
+    def showEvent(self, ev):
+        super().showEvent(ev)
+        QTimer.singleShot(0, self.refresh_availability)
+
+    def refresh_availability(self):
+        """Recalcule l'etat, en TROIS temps -- et l'ordre est le sujet.
+
+        ⛔ « Serveur eteint » et « aucun modele charge » ne demandent PAS le
+        meme geste, et confondre les deux etait le cul-de-sac que le #79 a
+        ferme pour Ollama. Mesure du 2026-11-04 : une requete sur un modele
+        non charge ECHOUE (« No models loaded »), donc le second cas est bien
+        une panne et non un detail.
+        """
+        url = ai_config.lmstudio_base_url
+        modele = (self._model_combo.currentText().strip()
+                  or ai_config.lmstudio_model)
+
+        cap = None                        # la reflexion : inconnue par defaut
+        self._ctx_max = None
+        self._deborde = None              # inconnu jusqu'a la verification
+        self._verification += 1           # une verif en vol devient perimee
+        if not lmstudio_api.server_responds(url):
+            self._availability_state = ("lmstudio_server_down", None)
+        else:
+            # Le maximum du modele borne le curseur (decision de l'auteur,
+            # 2026-11-06) ; sous le plancher, il est INUTILISABLE. API v1 :
+            # un LM Studio plus ancien ne le dit pas -> inconnu, pas inutilisable.
+            f = lmstudio_models.fiche(url, modele) if modele else None
+            self._ctx_max = f["ctx_max"] if f else None
+            cap = reflexion.depuis_lmstudio(f.get("reflexion")) if f else None
+            if not contexte.utilisable(self._ctx_max):
+                self._availability_state = ("lmstudio_model_unusable",
+                                            str(self._ctx_max))
+            elif not modele or not lmstudio_api.is_loaded(url, modele):
+                self._availability_state = ("lmstudio_no_model", None)
+            else:
+                ctx = lmstudio_api.loaded_context(url, modele)
+                self._availability_state = self._etat_charge(ctx)
+
+        if self._availability_state[0] == "lmstudio_model_unusable":
+            self._ctx.bloquer(self._ctx_max)
+        else:
+            # Le reglage BORNE au modele, affiche sans etre enregistre.
+            self._ctx.regler(self._ctx_max, ai_config.lmstudio_num_ctx)
+        self._think.regler(cap, ai_config.lmstudio_think)
+        self._suivre_thinking()
+        self._publier_et_rendre()
+        self._verifier_debordement()
+
+    _CHARGES = ("lmstudio_ok", "lmstudio_ctx_differs", "lmstudio_ctx_small")
+
+    def _verifier_debordement(self):
+        """Le modele charge a-t-il deborde de la carte ? (2026-11-06)
+        Dans un fil : la requete WMI coute environ une seconde."""
+        kind, extra = self._availability_state or (None, None)
+        if kind not in self._CHARGES or not extra:
+            return
+        from .taches_fond import lancer_en_fond
+        numero, ctx = self._verification, int(extra)
+        lancer_en_fond("debordement",
+                       lambda: (numero, debordement.lmstudio_deborde(ctx)),
+                       self._apres_debordement)
+
+    def _apres_debordement(self, paquet):
+        _etiquette, r = paquet
+        if not isinstance(r, tuple) or r[0] != self._verification:
+            return                        # resultat d'un etat perime
+        self._deborde = r[1] if isinstance(r[1], bool) else None
+        self._publier_et_rendre()
+
+    def etat_publie(self) -> "str | None":
+        """L'etat que la pastille affiche : un modele charge qui a deborde
+        de la carte passe en ORANGE (branche mais lent)."""
+        if self._availability_state is None:
+            return None
+        kind = self._availability_state[0]
+        if self._deborde and kind in self._CHARGES:
+            return "lmstudio_slow"
+        return kind
+
+    def _voulu(self) -> int:
+        return contexte.ramener(ai_config.lmstudio_num_ctx, self._ctx_max)
+
+    def _etat_charge(self, ctx: "int | None") -> tuple:
+        """Le modele choisi est charge a `ctx` tokens : quel etat ?"""
+        if ctx is None:
+            # Charge, mais le contexte n'est pas lisible. On ne devine pas :
+            # l'etat est sain, le contexte sera dit « inconnu ».
+            return ("lmstudio_ok", None)
+        if ctx < _LMSTUDIO_CTX_MIN:
+            return ("lmstudio_ctx_small", str(ctx))
+        if not contexte.accorde(ctx, self._voulu()):
+            # Il marche, mais pas a la taille reglee : « Recharger ».
+            return ("lmstudio_ctx_differs", str(ctx))
+        return ("lmstudio_ok", str(ctx))
+
+    def _publier_et_rendre(self):
+        if self.backend_id == ai_config.backend_id:
+            from .ai_status import ai_status
+            ai_status.set_state(self.etat_publie())
+        self._render_availability()
+
+    def _on_ctx_valide(self, valeur: int):
+        """Enregistre ; un modele charge a une autre taille propose alors
+        « Recharger ». Aucun appel reseau : l'etat est recalcule depuis le
+        contexte charge deja lu."""
+        ai_config.lmstudio_num_ctx = valeur
+        kind, extra = self._availability_state or (None, None)
+        if kind in ("lmstudio_ok", "lmstudio_ctx_differs") and extra:
+            self._availability_state = self._etat_charge(int(extra))
+            self._publier_et_rendre()
+        else:
+            self._render_availability()
+        self.reglage_change.emit()
+
+    def _on_think(self, coche: bool):
+        """Enregistre ; `reglage_change` recree le moteur actif, qui porte
+        le reglage depuis sa construction."""
+        ai_config.lmstudio_think = coche
+        self.reglage_change.emit()
+
+    def _on_niveau(self, niveau: str):
+        from .thinking_etat import thinking_etat
+        thinking_etat.choisir_niveau(niveau)
+
+    def _suivre_thinking(self):
+        """Reflete le reglage partage, SANS reseau (TODO #125) : la
+        capacite deja lue par l'interrupteur suffit."""
+        cap = self._think._cap
+        self._think.regler(cap, ai_config.lmstudio_think)
+        niveaux = cap.niveaux if cap is not None else ()
+        actuel = (ai_config.lmstudio_think_level
+                  if ai_config.lmstudio_think_level in niveaux
+                  else (cap.allumer if cap is not None else ""))
+        self._niveaux.regler(niveaux, actuel)
+
+    def _render_availability(self):
+        """Reaffiche depuis le cache, sans aucun appel -- donc sur mesure pour
+        `apply_lang`."""
+        if self._availability_state is None:
+            return
+        s = lang_manager.current
+        c = theme_manager.current
+        kind, extra = self._availability_state
+        choisi = bool(self._modele_choisi())
+
+        if kind == "lmstudio_server_down":
+            # ⚠️ On ne SAIT PAS distinguer « pas installe » de « installe mais
+            # serveur arrete » sans deviner un chemin d'installation, propre a
+            # chaque systeme. On nomme donc les DEUX gestes plutot que
+            # d'affirmer lequel manque -- et le lien d'installation couvre le
+            # cas que le message principal laisserait en cul-de-sac.
+            txt = (f'<span style="color:{c.signal_error};">&#9679; '
+                   f'{s.ia_lmstudio_server_down}</span><br>'
+                   f'<span style="color:{c.text_secondary};">'
+                   f'{s.ia_lmstudio_not_installed}</span>')
+        elif kind == "lmstudio_model_unusable":
+            # Decision de l'auteur : dire que le modele est INUTILISABLE, et
+            # preciser que c'est son contexte qui est trop petit.
+            txt = (f'<span style="color:{c.signal_error};">&#9679; '
+                   f'{s.ctx_unusable.format(n=extra, min=contexte.CTX_PROMPTUINO)}'
+                   f'</span>')
+        elif kind == "lmstudio_no_model":
+            txt = (f'<span style="color:{c.signal_error};">&#9679; '
+                   f'{s.ia_lmstudio_no_model_loaded}</span>')
+        elif self._deborde and kind in self._CHARGES:
+            # Branche mais LENT (2026-11-06) : partage graphique ou couches
+            # sur le processeur (`ui/debordement.py`).
+            txt = (f'<span style="color:{c.signal_warn};">&#9679; '
+                   f'{s.slow_overflow}</span>')
+        else:
+            txt = (f'<span style="color:{c.signal_ok};">&#9679; '
+                   f'{s.ia_lmstudio_ok}</span>')
+        self._lbl_availability.setText(txt)
+
+        # Charger : pas charge, ou charge trop petit. Recharger : charge a une
+        # autre taille que le reglage. Jamais serveur eteint ni inutilisable.
+        self._btn_charger.setVisible(
+            kind in ("lmstudio_no_model", "lmstudio_ctx_small",
+                     "lmstudio_ctx_differs") and choisi)
+        if not self._chargement_en_cours:
+            self._btn_charger.setText(s.ctx_reload if kind == "lmstudio_ctx_differs"
+                                      else s.lms_load_for_app)
+        self._btn_charger.setToolTip(s.lms_load_tip.format(n=self._voulu()))
+        # Le modele choisi est en memoire : on peut l'en retirer.
+        self._btn_decharger.setVisible(
+            kind in ("lmstudio_ok", "lmstudio_ctx_small",
+                     "lmstudio_ctx_differs") and choisi)
+        self._btn_decharger.setText(s.lms_unload)
+
+        # Le contexte, dit separement : il ne change pas la disponibilite.
+        if kind in ("lmstudio_server_down", "lmstudio_no_model",
+                    "lmstudio_model_unusable"):
+            self._lbl_ctx.setText("")
+        elif extra is None:
+            self._lbl_ctx.setText(s.ia_lmstudio_ctx_unknown)
+        elif kind == "lmstudio_ctx_small":
+            self._lbl_ctx.setText(s.ia_lmstudio_ctx_too_small.format(n=extra))
+        elif kind == "lmstudio_ctx_differs":
+            self._lbl_ctx.setText(s.ctx_differs.format(charge=extra,
+                                                       voulu=self._voulu()))
+        else:
+            self._lbl_ctx.setText(s.ia_lmstudio_ctx_loaded.format(n=extra))
+
+    # ── Theme / langue ───────────────────────────────────────
+
+    def apply_theme(self, c: ColorScheme):
+        self._lbl_subtitle.setStyleSheet(
+            f"color: {c.text_secondary}; font-size: 10pt;")
+        for lbl in (self._lbl_url, self._lbl_model):
+            lbl.setStyleSheet(f"color: {c.text_secondary}; font-size: 10pt;")
+        self._url_input.setStyleSheet(input_qss(c))
+        self._model_combo.setStyleSheet(combo_qss(c))
+        self._lbl_ctx.setStyleSheet(
+            f"color: {c.text_secondary}; font-size: 9pt;")
+        self._btn_models.setStyleSheet(_primary_btn_qss(c))
+        self._btn_charger.setStyleSheet(secondary_button_qss(c))
+        self._btn_decharger.setStyleSheet(secondary_button_qss(c))
+        self._lbl_libere.setStyleSheet(f"color: {c.text_secondary}; font-size: 9pt;")
+        self._ctx.apply_theme(c)
+        self._think.apply_theme(c)
+        self._niveaux.apply_theme(c)
+        self._lbl_charge_err.setStyleSheet(
+            f"color: {c.signal_error}; font-size: 9pt;")
+        self._render_availability()
+
+    def apply_lang(self, s: Strings):
+        self._lbl_subtitle.setText(s.ia_lmstudio_subtitle)
+        self._lbl_url.setText(s.ia_lmstudio_url_label)
+        self._lbl_model.setText(s.ia_ollama_model_label)   # « Modele », commun
+        self._btn_models.setText(s.md_manage)              # « Modeles… », commun
+        self._ctx.apply_lang(s)
+        self._think.apply_lang(s)
+        self._niveaux.apply_lang(s)
+        self._render_availability()
+
+
+class _LocalSection(QWidget):
+    """UN radio « Local », une liste de moteurs, et une page par moteur.
+
+    ⛔ **Le contenu d'Ollama n'est PAS reecrit.** On reutilise
+    `_BackendSection("ollama")` telle quelle, radio MASQUE : ses champs, son
+    `num_ctx`, ses trois etats de serveur et ses messages ne bougent pas d'une
+    ligne. Les redessiner pour « unifier » aurait risque un chantier qui
+    marche, sans rien apporter a l'utilisateur.
+
+    ⚠️ Les backends FACULTATIFS (`ui.ai_backends.dev`) ne sont PAS ici : ils
+    gardent leur propre radio. Decision de l'utilisateur du 2026-11-04 --
+    l'ecran a trois radios n'existe que sur une machine de developpement,
+    puisque le paquet n'est pas publie, donc la « coherence » que je plaidais
+    ne concernait personne.
+    """
+
+    engine_activated = pyqtSignal(str)       # un moteur a ete choisi
+    ollama_model_changed = pyqtSignal(str)   # relais vers IAView
+    # Un reglage d'un moteur local a change (modele LM Studio, contexte) :
+    # IAView recree le moteur actif s'il s'agit de celui-la.
+    moteur_regle = pyqtSignal(str)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.pages: dict = {}
+        self._build()
+        self.apply_theme(theme_manager.current)
+        self.apply_lang(lang_manager.current)
+
+    def _build(self):
+        root = QVBoxLayout(self)
+        root.setContentsMargins(0, 0, 0, 0)
+        root.setSpacing(0)
+
+        self.radio = QRadioButton()
+        self.radio.setCursor(Qt.CursorShape.PointingHandCursor)
+        root.addWidget(self.radio)
+        root.addSpacing(6)
+
+        contenu = QWidget()
+        cl = QVBoxLayout(contenu)
+        cl.setContentsMargins(28, 0, 0, 0)
+        cl.setSpacing(0)
+
+        # ── La liste des moteurs ─────────────────────────────
+        rang = QHBoxLayout()
+        rang.setContentsMargins(0, 0, 0, 0)
+        rang.setSpacing(8)
+        self._lbl_engine = QLabel()
+        self._lbl_engine.setFixedWidth(56)
+        rang.addWidget(self._lbl_engine)
+        self._combo = ComboSansMolette()
+        self._combo.setFixedHeight(34)
+        self._combo.setCursor(Qt.CursorShape.PointingHandCursor)
+        rang.addWidget(self._combo, stretch=1)
+        rang.addStretch()
+        cl.addLayout(rang)
+        cl.addSpacing(12)
+
+        # ── Une page par moteur ──────────────────────────────
+        self._stack = QStackedWidget()
+        for backend_id in LOCAL_BACKENDS:
+            if backend_id == "ollama":
+                page = _BackendSection("ollama")
+                # Son radio appartenait a l'ancien ecran : la section devient
+                # un contenu, le choix passe par la liste.
+                page.radio.setVisible(False)
+                page.model_changed.connect(self.ollama_model_changed.emit)
+            else:
+                page = _LMStudioPage()
+                # ⛔ Ce signal n'etait branche a RIEN (trouve le 2026-11-06) :
+                # choisir un autre modele LM Studio ne recreait pas le moteur
+                # actif, le chat et la generation gardaient l'ancien.
+                page.model_changed.connect(
+                    lambda _m, b=backend_id: self.moteur_regle.emit(b))
+            page.reglage_change.connect(
+                lambda b=backend_id: self.moteur_regle.emit(b))
+            self.pages[backend_id] = page
+            self._stack.addWidget(page)
+            self._combo.addItem(_LOCAL_LABELS.get(backend_id, backend_id),
+                                backend_id)
+        cl.addWidget(self._stack)
+
+        root.addWidget(contenu)
+        self._combo.currentIndexChanged.connect(self._on_engine_changed)
+
+    # ── Slots ────────────────────────────────────────────────
+
+    def _on_engine_changed(self, _idx: int):
+        backend_id = self.current_id()
+        self._stack.setCurrentWidget(self.pages[backend_id])
+        # Changer de moteur dans la liste VAUT le choisir -- sinon la liste
+        # afficherait un moteur que l'app n'utilise pas, ce que rien ne
+        # signalerait.
+        self.engine_activated.emit(backend_id)
+
+    # ── API publique ─────────────────────────────────────────
+
+    def current_id(self) -> str:
+        return self._combo.currentData() or LOCAL_BACKENDS[0]
+
+    def select_engine(self, backend_id: str) -> None:
+        """Pointe la liste SANS activer : sert au chargement de l'etat."""
+        if backend_id not in self.pages:
+            return
+        idx = self._combo.findData(backend_id)
+        if idx < 0:
+            return
+        self._combo.blockSignals(True)
+        self._combo.setCurrentIndex(idx)
+        self._combo.blockSignals(False)
+        self._stack.setCurrentWidget(self.pages[backend_id])
+
+    def apply_theme(self, c: ColorScheme):
+        self.radio.setStyleSheet(
+            radio_checkbox_qss(c, font_pt=14, font_weight=700))
+        self._lbl_engine.setStyleSheet(
+            f"color: {c.text_secondary}; font-size: 10pt;")
+        self._combo.setStyleSheet(combo_qss(c))
+
+    def apply_lang(self, s: Strings):
+        self.radio.setText(s.ia_local_title)
+        self._lbl_engine.setText(s.ia_local_engine_label)
 
 
 # ── Main view ─────────────────────────────────────────────────────────────
@@ -1241,7 +2250,13 @@ class IAView(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self._sections: dict[str, _BackendSection] = {}
+        # ⚠️ Pas seulement des `_BackendSection` : depuis la section Local,
+        # ce dictionnaire contient aussi des PAGES (`_LMStudioPage`). Ce
+        # qu'elles ont en commun est une SURFACE (`backend_id`,
+        # `_availability_state`, `apply_theme`, `apply_lang`, `load_key`,
+        # `refresh_availability`), pas une classe -- et `.radio` n'en fait
+        # PAS partie.
+        self._sections: dict = {}
         self._cloud: _CloudSection | None = None
         self._active_backend = None
         self._build()
@@ -1280,7 +2295,15 @@ class IAView(QWidget):
         container = QWidget()
         container_layout = QHBoxLayout(container)
         container_layout.setContentsMargins(0, 0, 0, 0)
-        container_layout.addWidget(self._card, alignment=Qt.AlignmentFlag.AlignHCenter)
+        # ⛔ Centree par des ESPACES ELASTIQUES, pas par `AlignHCenter` : Qt
+        # calcule la hauteur d'un element aligne sur TOUTE la largeur du
+        # conteneur (1 186 px) au lieu des 540 de la carte -- les textes qui
+        # passent a la ligne y tiennent en moins de lignes, la carte restait
+        # trop basse et le bas de la page Local etait COUPE (capture de
+        # l'auteur du 2026-11-06 : 890 px annonces pour 939 necessaires).
+        container_layout.addStretch(1)
+        container_layout.addWidget(self._card)
+        container_layout.addStretch(1)
         self._scroll.setWidget(container)
 
         layout = QVBoxLayout(self._card)
@@ -1290,28 +2313,62 @@ class IAView(QWidget):
         self._group = QButtonGroup(self)
         idx = 0
 
-        # 1. Cloud (bring-your-own-key)
+        # ORDRE decide par l'auteur le 2026-11-06 : Compte ChatGPT, puis
+        # Local, puis Cloud (cle d'API) en dernier.
+        #
+        # 1. Compte ChatGPT (TODO #122) : un choix a part entiere -- decision
+        #    de l'auteur du 2026-11-06, de preference a une entree de plus
+        #    dans la liste des fournisseurs Cloud.
+        from .chatgpt_section import ChatGPTSection
+        self._chatgpt = ChatGPTSection()
+        self._chatgpt.connecte.connect(self._activer_chatgpt)
+        self._chatgpt.model_changed.connect(self._on_chatgpt_model_changed)
+        # Le niveau de reflexion (TODO #123) : le moteur le porte depuis sa
+        # construction, il est donc recree comme pour un autre modele.
+        self._chatgpt.reglage_change.connect(
+            lambda: self._on_chatgpt_model_changed(ai_config.chatgpt_model))
+        self._sections["chatgpt"] = self._chatgpt
+        self._group.addButton(self._chatgpt.radio, idx)
+        idx += 1
+        layout.addWidget(self._chatgpt)
+        self._add_separator(layout)
+
+        # 2. Les backends FACULTATIFS (`ui.ai_backends.dev`) : chacun garde
+        #    son propre radio. ⚠️ Decision de l'utilisateur du 2026-11-04 --
+        #    l'ecran a trois radios n'existe que sur une machine de
+        #    developpement, le paquet n'etant pas publie.
+        #    Une FONCTION evaluee ICI, pas une constante figee a l'import.
+        for backend_id in special_backends():
+            if backend_id in LOCAL_BACKENDS:
+                continue          # Ollama vit dans la section Local, en dessous
+            section = _BackendSection(backend_id)
+            self._sections[backend_id] = section
+            self._group.addButton(section.radio, idx)
+            idx += 1
+            layout.addWidget(section)
+            self._add_separator(layout)
+
+        # 3. Local : UN radio, une liste de moteurs, une page par moteur.
+        self._local = _LocalSection()
+        self._local.engine_activated.connect(self._activer_moteur_local)
+        self._local.ollama_model_changed.connect(self._on_ollama_model_changed)
+        self._local.moteur_regle.connect(self._on_moteur_regle)
+        self._group.addButton(self._local.radio, idx)
+        idx += 1
+        # ⚠️ Les pages entrent dans `_sections` : c'est ce dictionnaire que la
+        # pastille (`_publier_etat`), le theme et la langue parcourent. Les y
+        # oublier rendrait LM Studio invisible a ces trois chemins.
+        for backend_id, page in self._local.pages.items():
+            self._sections[backend_id] = page
+        layout.addWidget(self._local)
+        self._add_separator(layout)
+
+        # 4. Cloud (bring-your-own-key), en dernier.
         self._cloud = _CloudSection()
         self._cloud.activated.connect(self._activate_cloud)
         self._group.addButton(self._cloud.radio, idx)
         idx += 1
         layout.addWidget(self._cloud)
-        self._add_separator(layout)
-
-        # Les backends non-cloud : Ollama, plus les facultatifs eventuels.
-        # Une FONCTION evaluee ICI, pas une constante figee a l'import.
-        _ids = special_backends()
-        for i, backend_id in enumerate(_ids):
-            section = _BackendSection(backend_id)
-            self._sections[backend_id] = section
-            self._group.addButton(section.radio, idx)
-            idx += 1
-            if backend_id == "ollama":
-                section.model_changed.connect(self._on_ollama_model_changed)
-            layout.addWidget(section)
-            # No separator after the last backend section (nothing follows it).
-            if i < len(_ids) - 1:
-                self._add_separator(layout)
 
         layout.addStretch()
 
@@ -1333,7 +2390,22 @@ class IAView(QWidget):
             section.load_key()
 
         active_id = ai_config.backend_id
-        if active_id in self._sections:
+        if active_id in LOCAL_BACKENDS:
+            # ⛔ `ai_config.backend_id` porte l'id CONCRET (`ollama`,
+            # `lmstudio`), jamais « local » : le radio n'est qu'un
+            # regroupement visuel. C'est ce qui evite toute migration de
+            # configuration -- un fichier existant marche tel quel.
+            self._local.radio.setChecked(True)
+            self._local.select_engine(active_id)
+            # La page LM Studio ne mesurait son etat qu'a son premier
+            # affichage : moteur actif, serveur eteint, la pastille restait
+            # grise tant que l'onglet n'etait pas ouvert (audit 2026-11-06,
+            # contraire au TODO #80). Differe d'un tour de boucle, pour ne
+            # pas allonger la construction ; la page publie elle-meme.
+            page = self._local.pages.get(active_id)
+            if page is not None and page._availability_state is None:
+                QTimer.singleShot(0, page.refresh_availability)
+        elif active_id in self._sections:
             self._sections[active_id].radio.setChecked(True)
         elif self._is_cloud_id(active_id):
             # Cloud provider (registry id or "custom"): select the Cloud radio
@@ -1353,6 +2425,10 @@ class IAView(QWidget):
         if btn is self._cloud.radio:
             self._activate_cloud()
             return
+        if btn is self._local.radio:
+            # Cocher « Local » active le moteur que la liste montre deja.
+            self._activer_moteur_local(self._local.current_id())
+            return
 
         checked_id = self._get_checked_id()
         if not checked_id or checked_id == ai_config.backend_id:
@@ -1360,6 +2436,33 @@ class IAView(QWidget):
         ai_config.backend_id = checked_id
         backend = get_backend_instance(ai_config.backend_id)
         self._active_backend = backend
+        self._publier_etat()
+        self.backend_activated.emit(backend)
+
+    def _activer_moteur_local(self, backend_id: str) -> None:
+        """Active un moteur de la liste « Local ».
+
+        ⚠️ Appele par DEUX chemins qui doivent faire la meme chose : cocher le
+        radio, et changer la liste alors qu'il est deja coche. Les laisser
+        diverger ferait afficher un moteur que l'app n'utilise pas, ce que
+        rien ne signalerait.
+        """
+        if not backend_id or backend_id not in LOCAL_BACKENDS:
+            return
+        # Le radio peut ne pas etre coche si l'utilisateur a change la liste
+        # depuis un autre backend actif : choisir un moteur, c'est choisir
+        # « Local ».
+        if not self._local.radio.isChecked():
+            self._local.radio.setChecked(True)
+        if backend_id == ai_config.backend_id:
+            return
+        ai_config.backend_id = backend_id
+        backend = get_backend_instance(backend_id)
+        self._active_backend = backend
+        # La page recalcule son etat : c'est elle qui alimente la pastille.
+        page = self._local.pages.get(backend_id)
+        if page is not None:
+            page.refresh_availability()
         self._publier_etat()
         self.backend_activated.emit(backend)
 
@@ -1378,7 +2481,9 @@ class IAView(QWidget):
         bid = ai_config.backend_id
         section = self._sections.get(bid)
         if section is not None and section._availability_state is not None:
-            ai_status.set_state(section._availability_state[0])
+            publie = getattr(section, "etat_publie", None)
+            ai_status.set_state(publie() if publie
+                                else section._availability_state[0])
             return
         # ⚠️ La clé ne suffit PLUS. `is_available()` exige clé + URL + MODÈLE,
         # et depuis la suppression du modèle par défaut (spec 2026-09-03) une
@@ -1387,14 +2492,39 @@ class IAView(QWidget):
         # échouera sur « Aucun modèle IA disponible ». Mieux vaut du rouge en
         # trop que du vert menteur (revue finale 2026-09-03).
         if bid == "custom":
-            configure = bool(ai_config.custom_base_url and ai_config.custom_model)
             modele = ai_config.custom_model
+            url_ok = bool(ai_config.custom_base_url)
         elif any(p.id == bid for p in PROVIDERS):
             modele = ai_config.model_for(bid)
-            configure = bool(ai_config.api_key(bid) and modele)
+            url_ok = True                  # l'URL vient du preset
         else:
             ai_status.set_state(None)      # on ne sait pas -> pastille grise
             return
+        # ⛔ LES MEMES TROIS QUESTIONS QUE `is_available()`, et la cle par la
+        # MEME source : `backend_requires_key`.
+        #
+        # C'etait le defaut du brief LM Studio : deux endroits repondaient a
+        # « cette configuration est-elle complete ? » et se contredisaient.
+        # `is_available()` exigeait une cle de TOUT LE MONDE ; ici, « custom »
+        # etait declare configure sans cle. Un serveur local sans cle avait
+        # donc une pastille non rouge et une generation MORTE -- `is_available()`
+        # garde la generation elle-meme, la reparation, l'explication d'erreur
+        # et le lint, et aucun de ces chemins ne dit pourquoi il ne fait rien.
+        #
+        # ⛔ J'AI D'ABORD DELEGUE A `backend.is_available()`, ce qui rendait le
+        # desaccord impossible au lieu d'improbable -- et c'etait un piege,
+        # mesure : quand `_active_backend` est None (le constructeur appelle
+        # cette methode AVANT de le poser), il faut construire l'instance, et
+        # `get_backend_instance` lit le singleton `ui.ai_config.ai_config` en
+        # direct. Les tests qui substituent `ia_view.ai_config` ne peuvent pas
+        # l'intercepter : `test_model_probe` est alors parti lire la VRAIE
+        # configuration et le VRAI trousseau. Partager la REGLE, pas
+        # l'instance.
+        #
+        # Le `or` court-circuite : sans exigence de cle, le trousseau n'est
+        # meme pas lu.
+        cle_ok = (not backend_requires_key(bid)) or bool(ai_config.api_key(bid))
+        configure = bool(url_ok and modele and cle_ok)
         if not configure:
             ai_status.set_state("cloud_key_missing")
             return
@@ -1425,6 +2555,33 @@ class IAView(QWidget):
         self._publier_etat()
         self.backend_activated.emit(backend)
 
+    def _activer_chatgpt(self):
+        """Une connexion vient de reussir : se connecter, c'est choisir ce
+        moteur. Meme chemin qu'un clic sur le radio."""
+        if not self._chatgpt.radio.isChecked():
+            self._chatgpt.radio.setChecked(True)
+        self._on_radio_clicked(self._chatgpt.radio)
+
+    def _on_chatgpt_model_changed(self, model: str):
+        """Meme raison que pour Ollama : l'instance active doit porter le
+        modele choisi, sinon le chat et la generation garderaient l'ancien."""
+        if ai_config.backend_id == "chatgpt":
+            backend = get_backend_instance("chatgpt")
+            self._active_backend = backend
+            self._publier_etat()
+            self.backend_activated.emit(backend)
+
+    def _on_moteur_regle(self, backend_id: str):
+        """Un reglage d'un moteur local a change (modele LM Studio, taille de
+        contexte). S'il est le moteur actif, l'instance est recreee : le
+        moteur LM Studio fige son modele et sa fenetre a la construction, et
+        le chat comme la generation doivent porter les nouveaux."""
+        if ai_config.backend_id == backend_id:
+            backend = get_backend_instance(backend_id)
+            self._active_backend = backend
+            self._publier_etat()
+            self.backend_activated.emit(backend)
+
     def _on_ollama_model_changed(self, model: str):
         """The user chose another Ollama model in the list.
         If Ollama is the active backend, reloads the instance so that the
@@ -1449,9 +2606,21 @@ class IAView(QWidget):
         return self._active_backend
 
     def _get_checked_id(self) -> str:
-        """Return the backend id of the checked non-cloud section (Ollama /
-        optional extras). Cloud is handled separately via the combo."""
+        """L'id du backend coche hors cloud : un backend FACULTATIF, ou le
+        moteur que la section « Local » montre.
+
+        ⛔ N'itere PLUS `self._sections` a la recherche d'un `.radio`. Depuis
+        la section Local, ce dictionnaire contient aussi des PAGES -- et
+        `_LMStudioPage` n'a pas de radio : la boucle d'origine levait un
+        AttributeError, que PyQt aurait masque en « super-class __init__()
+        was never called ». Trouve en relisant les usages apres le
+        branchement, pas a l'execution.
+        """
+        if self._local.radio.isChecked():
+            return self._local.current_id()
         for backend_id, section in self._sections.items():
+            if backend_id in LOCAL_BACKENDS:
+                continue          # une page, pas une section a radio
             if section.radio.isChecked():
                 return backend_id
         return ""
@@ -1475,6 +2644,7 @@ class IAView(QWidget):
         self._apply_sep_color(c)
 
         self._cloud.apply_theme(c)
+        self._local.apply_theme(c)
         for section in self._sections.values():
             section.apply_theme(c)
 
@@ -1482,5 +2652,6 @@ class IAView(QWidget):
 
     def apply_lang(self, s: Strings):
         self._cloud.apply_lang(s)
+        self._local.apply_lang(s)
         for section in self._sections.values():
             section.apply_lang(s)

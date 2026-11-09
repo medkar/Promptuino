@@ -188,6 +188,17 @@ def vram_totale() -> "int | None":
         return None
 
 
+def go_carte(vram: int) -> str:
+    """La memoire de la carte, comme Windows et le fabricant l'annoncent.
+
+    ⛔ PAS en milliards d'octets : la RTX 5060 Ti « 16 Go » de l'auteur
+    (16 311 Mio selon nvidia-smi) s'affichait « 17.1 Go », repete sur chaque
+    ligne de la fenetre « Modeles… » -- lu comme la taille des modeles (QA du
+    2026-11-06). Le Go d'une carte graphique est un Gio : arrondi a l'entier.
+    """
+    return f"{round(vram / 2**30)} Go"
+
+
 def tient_en_vram(taille_modele: int, vram: "int | None") -> "bool | None":
     """True / False / None quand on ne sait pas.
 
@@ -320,3 +331,146 @@ def telecharger(nom: str, progression, arret) -> "str | None":
     finally:
         resp.close()
     return None
+
+
+# ─── Charger / decharger en memoire (2026-11-06) ─────────────────────────
+# Voulu par l'auteur : le meme geste que pour LM Studio, sur les deux moteurs.
+# MESURES DU 2026-11-06 sur Ollama 0.40.5 (llama3.1:8b), avant d'ecrire une
+# ligne d'interface :
+# - charger = `POST /api/generate` SANS prompt -> `done_reason: "load"`
+#   (~30 s a froid pour 4,9 Go).
+# - `keep_alive: -1` -> `expires_at` en 2319 ; une demande ORDINAIRE ensuite
+#   (sans keep_alive) ne le raccourcit PAS : le modele reste jusqu'a
+#   « Decharger ».
+# - ⛔ une demande avec un AUTRE `num_ctx` RECHARGE le modele (7,7 s), qui
+#   repart alors sur les 5 min par defaut. L'appelant passe donc le contexte
+#   de la GENERATION (`OllamaBackend.generation_context`), source unique.
+# - decharger = `keep_alive: 0` -> `done_reason: "unload"`, `/api/ps` vide
+#   aussitot.
+# - `/api/ps` donne `context_length` ; un vieil Ollama ne le donne pas : on
+#   se tait plutot que d'inventer un chiffre.
+
+from .lmstudio_models import _requete    # meme contrat : jamais d'exception
+
+_TIMEOUT_CHARGEMENT = 300     # un gros modele a froid peut prendre longtemps
+
+
+def _message(rep: dict) -> str:
+    err = rep.get("error")
+    if isinstance(err, dict):
+        return str(err.get("message") or "")
+    return str(err) if err else ""
+
+
+def _avec_etiquette(nom: str) -> str:
+    """`mistral` et `mistral:latest` sont le MEME modele ; `/api/ps` rend
+    toujours la forme etiquetee."""
+    nom = (nom or "").strip()
+    return nom if ":" in nom else f"{nom}:latest"
+
+
+def modeles_charges(*, transport=None) -> dict:
+    """`{nom: contexte ou None}` des modeles en memoire ; `{}` si muet."""
+    statut, rep = _requete("GET", f"{BASE_URL}/api/ps", None, 5, transport)
+    if statut != 200:
+        return {}
+    charges = {}
+    for m in rep.get("models") or []:
+        if not isinstance(m, dict) or not (m.get("name") or m.get("model")):
+            continue
+        ctx = m.get("context_length")
+        charges[_avec_etiquette(m.get("name") or m.get("model"))] = (
+            ctx if isinstance(ctx, int) and not isinstance(ctx, bool) and ctx > 0
+            else None)
+    return charges
+
+
+# Sous cette part en VRAM, le modele a DEBORDE de la carte : il tourne en
+# partie sur le processeur, donc lentement. Mesure du 2026-11-06 : 100 % quand
+# il tient (llama3.1:8b @16k), 64 % quand il deborde (@128k).
+SEUIL_PART_VRAM = 0.95
+
+
+def en_memoire(nom: str, *, transport=None) -> "dict | None":
+    """`{"charge", "ctx", "deborde"}` pour `nom` ; None si Ollama se tait --
+    muet n'est PAS « pas charge », l'ecran ne doit rien affirmer.
+    `deborde` : la part du modele en VRAM (`size_vram / size`) est sous
+    `SEUIL_PART_VRAM` ; None quand Ollama ne donne pas les tailles."""
+    statut, rep = _requete("GET", f"{BASE_URL}/api/ps", None, 5, transport)
+    if statut != 200:
+        return None
+    cle = _avec_etiquette(nom)
+    for m in rep.get("models") or []:
+        if not isinstance(m, dict):
+            continue
+        if _avec_etiquette(m.get("name") or m.get("model") or "") != cle:
+            continue
+        ctx = m.get("context_length")
+        ctx = ctx if isinstance(ctx, int) and not isinstance(ctx, bool) and ctx > 0 else None
+        taille, vram = m.get("size"), m.get("size_vram")
+        deborde = None
+        if isinstance(taille, int) and isinstance(vram, int) and taille > 0:
+            deborde = vram < taille * SEUIL_PART_VRAM
+        return {"charge": True, "ctx": ctx, "deborde": deborde}
+    return {"charge": False, "ctx": None, "deborde": None}
+
+
+def contexte_max(nom: str, *, transport=None) -> "int | None":
+    """Le contexte maximum du modele (`model_info.<arch>.context_length` de
+    `/api/show`), ou None s'il ne le dit pas ou si Ollama se tait. Mesure du
+    2026-11-06 : les cinq modeles installes le donnaient (131 072 a 262 144)."""
+    statut, rep = _requete("POST", f"{BASE_URL}/api/show", {"model": nom},
+                           5, transport)
+    if statut != 200:
+        return None
+    info = rep.get("model_info")
+    if not isinstance(info, dict):
+        return None
+    for cle, valeur in info.items():
+        if (str(cle).endswith(".context_length") and isinstance(valeur, int)
+                and not isinstance(valeur, bool) and valeur > 0):
+            return valeur
+    return None
+
+
+def reflexion_modele(nom: str, *, transport=None):
+    """Ce que le modele permet en matiere de reflexion (`ui.reflexion`), lu
+    dans `/api/show` ; None si Ollama se tait (TODO #123)."""
+    from . import reflexion
+    statut, rep = _requete("POST", f"{BASE_URL}/api/show", {"model": nom},
+                           5, transport)
+    return reflexion.depuis_ollama(rep) if statut == 200 else None
+
+
+# Ce que PROMPTUINO a charge (« Charger ») pendant la session, pour le
+# decharger a la fermeture (decision de l'auteur, 2026-11-07) : `keep_alive:
+# -1` epingle sans limite, donc la carte restait occupee apres la sortie. Un
+# modele charge par un autre moyen n'y entre jamais.
+EPINGLES: set = set()
+
+
+def charger(nom: str, num_ctx: int, *, transport=None,
+            timeout: int = _TIMEOUT_CHARGEMENT,
+            coupure=None) -> "tuple[bool, str]":
+    """Charge `nom` a `num_ctx` tokens, jusqu'a « Decharger ». `coupure` :
+    pour l'annuler en cours (cf. `lmstudio_models._requete`)."""
+    statut, rep = _requete(
+        "POST", f"{BASE_URL}/api/generate",
+        {"model": nom, "keep_alive": -1, "stream": False,
+         "options": {"num_ctx": int(num_ctx)}},
+        timeout, transport, coupure)
+    if statut == 200 and not rep.get("error"):
+        EPINGLES.add(_avec_etiquette(nom))
+        return True, ""
+    return False, _message(rep)
+
+
+def decharger(nom: str, *, transport=None,
+              timeout: int = 30) -> "tuple[bool, str]":
+    statut, rep = _requete(
+        "POST", f"{BASE_URL}/api/generate",
+        {"model": nom, "keep_alive": 0, "stream": False}, timeout, transport)
+    if statut == 200 and not rep.get("error"):
+        EPINGLES.discard(_avec_etiquette(nom))
+        return True, ""
+    return False, _message(rep)

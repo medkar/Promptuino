@@ -73,11 +73,11 @@ def test_typing_never_reaches_what_the_engine_would_refuse():
 
 
 def test_match_is_accent_and_case_insensitive():
-    g1 = visible_items(_led_d5(), "SOLENOIDE", "fr")
-    g2 = visible_items(_led_d5(), "solénoïde", "fr")
+    g1 = visible_items(_led_d5(), "ÉCRAN", "fr")
+    g2 = visible_items(_led_d5(), "ecran", "fr")
     ids1 = {i.type_id for i in g1.category + g1.promotions}
     ids2 = {i.type_id for i in g2.category + g2.promotions}
-    assert "solenoid" in ids1 and ids1 == ids2
+    assert "oled_ssd1306" in ids1 and ids1 == ids2
 
 
 def test_declared_components_form_their_own_group():

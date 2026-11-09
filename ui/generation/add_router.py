@@ -133,10 +133,30 @@ def _stems(text: str) -> set[str]:
     return out
 
 
+# Marqueurs qui sont des RADICAUX de verbe : la fin du mot reste libre
+# (« modifie » doit couvrir « modifier », « modifiez », « reemplaza » couvrir
+# « reemplazar »). Tous les autres exigent une frontière de mot des deux côtés.
+_STEM_MARKERS = frozenset({"modifie", "reemplaza"})
+
+
+def _marker_re(marker: str) -> "re.Pattern[str]":
+    m = marker.strip()
+    right = "" if m in _STEM_MARKERS else r"(?![a-z0-9])"
+    return re.compile(r"(?<![a-z0-9])" + re.escape(m) + right)
+
+
+# ⛔ Cherchés par MOT, jamais en sous-chaîne (audit 2026-11-06) : « j'ai déjà
+# des LEDs » contenait « deja de », « une plus grande LED » contenait
+# « ne plus », « commonly » contenait « only » — trois ajouts ordinaires qui
+# ouvraient la porte et présélectionnaient « Modifier ».
+_MARKER_RES: tuple["re.Pattern[str]", ...] = tuple(
+    _marker_re(m) for m in _MODIFICATION_MARKERS)
+
+
 def prompt_asks_a_modification(prompt: str) -> bool:
     """(1) seule : le prompt agit-il sur un comportement EXISTANT ?"""
     low = _fold(prompt)
-    return any(m in low for m in _MODIFICATION_MARKERS)
+    return any(rx.search(low) for rx in _MARKER_RES)
 
 
 def modification_target(prompt: str, features: list[Feature]) -> str | None:

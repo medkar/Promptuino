@@ -31,9 +31,14 @@ from .. import wiring_pipeline as _v1_pipeline
 from .. import instructions as _v1_instructions
 from ..netlist import Netlist as _V1Netlist
 
-from .layout import place_scene
+from .layout import PlacementLimitError, place_scene
 from ..routing import route_wires as _route_wires
 from .renderer import SceneRenderer
+
+# Codes des avertissements poses quand le placement depasse une limite
+# editoriale (TODO #124). Le dialogue du schema les lit pour son bandeau.
+PLACEMENT_LIMIT_CODES = ("too_many_servos", "too_many_components",
+                         "breadboards_full")
 
 
 # Resolution board_id → board SVG file.
@@ -118,16 +123,44 @@ def _build_scene_wires_svg_md(netlist, board_id, theme, mode, lang):
               file=sys.stderr)
         return ("", "", None, [])
 
+    # Le meme Netlist est rendu plusieurs fois : un depassement d'un rendu
+    # precedent ne doit pas survivre a un rendu qui passe.
+    netlist.warnings = [w for w in netlist.warnings
+                        if w.code not in PLACEMENT_LIMIT_CODES]
     try:
         scene = place_scene(netlist_dicts, board_path)
         wires = _route_wires(scene, netlist_dicts)
         svg = SceneRenderer(scene, wires, lang=lang).render()
+    except PlacementLimitError as e:
+        # Une limite connue n'est pas une panne : la NOMMER (TODO #124).
+        # Le dialogue lit cet avertissement pour son bandeau, les
+        # instructions l'expliquent.
+        netlist.add_warning(
+            code=e.code, severity="warning", message=str(e),
+            params={"count": e.count, "limit": e.limit},
+        )
+        return ("", "", None, [])
     except Exception:
         import sys, traceback
         print(f"[wiring] exception dans le pipeline :", file=sys.stderr)
         traceback.print_exc(file=sys.stderr)
         print(f"[wiring] netlist recu: {netlist_dicts!r}", file=sys.stderr)
         return ("", "", None, [])
+
+    # Un echec d'A* laisse des fils en moins : le dire, plutot que presenter un
+    # schema incomplet comme complet. Le meme Netlist est rendu plusieurs fois :
+    # on retire d'abord l'avertissement d'un rendu precedent.
+    netlist.warnings = [w for w in netlist.warnings
+                        if w.code != "unrouted_wires"]
+    failed = list(getattr(scene, "routing_failures", None) or [])
+    if failed:
+        netlist.add_warning(
+            code="unrouted_wires",
+            severity="warning",
+            message="Schema incomplet : le trace de certains fils a echoue "
+                    f"({', '.join(failed)}).",
+            params={"nets": ", ".join(failed)},
+        )
 
     md = _v1_instructions.render_instructions(netlist, mode=mode, lang=lang)
     return (svg, md, scene, wires)

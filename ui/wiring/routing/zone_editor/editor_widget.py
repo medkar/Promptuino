@@ -148,6 +148,7 @@ class ZoneEditorView(QGraphicsView):
         self._grid_items.clear()
 
         cs = float(self.store.cell_size)
+        self._grid_cell_size = self.store.cell_size
         ox, oy = self._grid_origin()
         pen = QPen(QColor(200, 200, 200, 50))
         pen.setWidth(0)  # cosmetic pen (zoom-invariant thickness)
@@ -298,8 +299,17 @@ class ZoneEditorView(QGraphicsView):
         self._update_cursor_color()
 
     def set_cell_size(self, size: int) -> None:
-        if size == self.store.cell_size:
+        # Compare aussi a la grille DESSINEE : apres un rechargement, le store
+        # remplace porte deja la nouvelle taille et l'early-return laissait la
+        # grille a l'ancien pas (audit 2026-11-06, editor_widget.py:305).
+        if (size == self.store.cell_size
+                and size == getattr(self, "_grid_cell_size", None)):
             return
+        if size != self.store.cell_size:
+            # La taille change la position reelle de toutes les cellules :
+            # c'est une modification a enregistrer, sinon quitter la perdait
+            # sans proposer d'enregistrer.
+            self.store._dirty = True
         # We keep the cells in logical coordinates (col, row) — but
         # changing cell_size changes their canvas position. We re-render everything.
         self.store.cell_size = size

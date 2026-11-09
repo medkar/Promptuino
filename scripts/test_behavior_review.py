@@ -16,6 +16,9 @@ class _Backend:
         self.last_system = None
         self.last_user = None
 
+    # A PROPERTY, like every real backend (base.py): the old method form
+    # mirrored the bug fixed by the 2026-11-06 audit.
+    @property
     def is_slm(self):
         return self._slm
 

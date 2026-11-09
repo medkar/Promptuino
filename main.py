@@ -253,6 +253,18 @@ def main():
 
     window = MainWindow()
     window.show()
+
+    # A la fermeture : decharger les modeles que Promptuino a lui-meme charges
+    # (« Charger » les epingle sans limite de temps, la carte graphique restait
+    # occupee apres la sortie). Decision de l'auteur, 2026-11-07.
+    def _decharger_les_notres() -> None:
+        try:
+            from ui.memoire_modeles import decharger_les_notres
+            decharger_les_notres()
+        except Exception:
+            pass
+    app.aboutToQuit.connect(_decharger_les_notres)
+
     sys.exit(app.exec())
 
 

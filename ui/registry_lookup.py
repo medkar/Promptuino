@@ -34,8 +34,10 @@ never reaches the prompt again.
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
+import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -168,6 +170,22 @@ def _registry_part_tokens() -> frozenset[str]:
     return _registry_tokens_cache
 
 
+# Audit 2026-11-06 : une quantite collee a son unite (« 500ms », « 20cm »,
+# « 440hz », « 115200bauds ») a la forme chiffres+lettres d'un numero de
+# piece, et declenchait le pipeline hors-corpus (retrieval COUPE + banniere
+# « composant inconnu »). Idem les passifs/semi-conducteurs communs, dont la
+# forme est celle d'une famille (diodes 1N4xxx, transistors 2N/BC/TIP,
+# regulateurs 78xx, piles CRxxxx) : aucune bibliotheque n'existe pour eux.
+_QUANTITY_RE = re.compile(
+    r"\d+(?:[.,]\d+)?(?:ms|us|µs|s|sec|min|h|cm|mm|m|km|hz|khz|mhz|ghz|ohm|"
+    r"ohms|kohm|kohms|mohm|k|v|mv|a|ma|mah|w|mw|nf|uf|pf|f|rpm|baud|bauds|"
+    r"bps|kbps|deg|g|kg|kb|mb|gb|lux|db|pa|hpa|ppm|mbar|bar|psi|ml|px|bit|"
+    r"bits)")
+_PASSIVE_FAMILY_RE = re.compile(
+    r"(?:[12]n\d{3,4}[a-z]?|tip\d{2,3}[a-c]?|(?:lm|ua|l)7[89]\d{2}|"
+    r"cr\d{4}|bc\d{3}[a-c]?|irfz?\d{2,4}[a-z]?|irlz?\d{2,4}[a-z]?)")
+
+
 def _is_part_shaped(token: str) -> bool:
     """Part-number shape: ≥4 chars, at least one digit AND one letter, not a
     hex literal (0x40). Same spirit as ``rag._signature_tokens`` — pure digits
@@ -177,6 +195,8 @@ def _is_part_shaped(token: str) -> bool:
         and any(c.isdigit() for c in token)
         and any(c.isalpha() for c in token)
         and not _HEX_RE.fullmatch(token)
+        and not _QUANTITY_RE.fullmatch(token)
+        and not _PASSIVE_FAMILY_RE.fullmatch(token)
     )
 
 
@@ -327,10 +347,25 @@ def _cache_put(token: str, lib_name: str, entry: dict,
         while len(entries) > _CACHE_MAX_ENTRIES:
             entries.pop(next(iter(entries)))
         _CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
-        _CACHE_PATH.write_text(
-            json.dumps({"v": _CACHE_VERSION, "entries": entries},
-                       ensure_ascii=False, indent=1),
-            encoding="utf-8")
+        text = json.dumps({"v": _CACHE_VERSION, "entries": entries},
+                          ensure_ascii=False, indent=1)
+        # Atomic (tmp + os.replace), like declared_components.save: this file
+        # is written from the worker thread while the UI thread reads it, and
+        # `_cache_load` turns any unreadable file into {} -- a write_text cut
+        # short (crash, kill) or read half-way emptied the "Composants" tab
+        # and the offline memory of every chip seen (audit 2026-11-06).
+        fd, tmp_name = tempfile.mkstemp(dir=str(_CACHE_PATH.parent),
+                                        suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write(text)
+            os.replace(tmp_name, _CACHE_PATH)
+        finally:
+            if os.path.exists(tmp_name):
+                try:
+                    os.remove(tmp_name)
+                except OSError:
+                    pass
     except (OSError, TypeError, ValueError):
         pass
 
@@ -486,7 +521,14 @@ def _search_registry(query: str, config_file: str | None) -> tuple[list[dict], s
                     f"« {query} » (code {ret}).")
     try:
         raw = json.loads(out).get("libraries")
-    except (json.JSONDecodeError, AttributeError):
+    except json.JSONDecodeError:
+        # An UNREADABLE answer is a broken search, not an empty one (`_run`
+        # merges stderr into the output: one warning is enough to break the
+        # JSON). Reported as a failure, never as « introuvable au registre »
+        # (audit 2026-11-06).
+        return [], (f"[REGISTRY] recherche registre illisible pour "
+                    f"« {query} » (sortie JSON invalide).")
+    except AttributeError:
         return [], ""
     if not isinstance(raw, list):
         return [], ""
@@ -642,13 +684,25 @@ def lookup_component(token: str, config_file: str | None,
                        f"(code {ret}).")
         return res
 
-    installed = arduino_cli._installed_libs(config_file)
+    # Outside the try above it used to be, so a `lib list` timeout or OSError
+    # escaped this "never raises" function and killed the worker before
+    # `done` -- the Studio stayed on « génération en cours » (audit
+    # 2026-11-06).
+    try:
+        installed = arduino_cli._installed_libs(config_file)
+    except (subprocess.TimeoutExpired, OSError) as e:
+        installed = {}
+        res.log.append(f"[REGISTRY] liste des libs illisible : {e}")
     info = installed.get(name)
     if info is None:
         # Registry vs lib-list naming can differ in case — tolerant match.
         low = name.lower()
         info = next((v for k, v in installed.items() if k.lower() == low), None)
     if info is None or not info.get("install_dir"):
+        # The registry FOUND and INSTALLED it: whatever went wrong next, this
+        # is not « composant inconnu » (audit 2026-11-06).
+        res.status = "unavailable"
+        res.lib_name = name
         res.log.append(f"[REGISTRY] « {name} » installée mais introuvable "
                        f"dans la liste des libs.")
         return res
@@ -755,8 +809,17 @@ class RegistryLookupWorker(QThread):
         self._search_queries = dict(search_queries or {})
 
     def run(self):
-        results = [lookup_component(t, self._config_file,
-                                    self._preferred_libs.get(t),
-                                    self._search_queries.get(t))
-                  for t in self._tokens]
+        # Safety net: `done` MUST be emitted, otherwise the Studio waits
+        # forever in « génération en cours » (audit 2026-11-06).
+        results = []
+        for t in self._tokens:
+            try:
+                results.append(lookup_component(t, self._config_file,
+                                                self._preferred_libs.get(t),
+                                                self._search_queries.get(t)))
+            except Exception as e:  # noqa: BLE001
+                results.append(RegistryLookupResult(
+                    token=t, status="unavailable",
+                    log=[f"[REGISTRY] recherche de « {t} » interrompue : "
+                         f"{type(e).__name__}: {e}"]))
         self.done.emit(results)

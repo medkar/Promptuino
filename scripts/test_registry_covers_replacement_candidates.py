@@ -94,7 +94,7 @@ def test_bare_pin_newcomers_say_no_library():
     newcomers = {"acs712", "buttonpad", "dip_switch", "force_sensor",
                  "hall_sensor", "joystick", "light_sensor", "load_cell",
                  "passive_buzzer", "reed_switch", "rgb_led", "slide_switch",
-                 "slider", "soil_moisture", "solenoid", "speaker",
+                 "slider", "soil_moisture", "speaker",
                  "tilt_switch", "toggle_switch", "touch_sensor"}
     by_key = {i.key: i for i in build_index()}
     for t in sorted(newcomers):

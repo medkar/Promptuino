@@ -293,6 +293,40 @@ SEARCH = """<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
   <path d="m21 21-4.3-4.3"/>
 </svg>"""
 
+# Arreter une reponse du chat : un carre PLEIN, centre dans la grille 24x24.
+# Une icone et non le caractere « ■ », dont la place dependait de la police
+# (decale dans son cercle, signale par l'auteur le 2026-11-06).
+STOP = """<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
+  viewBox="0 0 24 24">
+  <rect x="7" y="7" width="10" height="10" rx="1.5" fill="currentColor"/>
+</svg>"""
+
+# Le « thinking » du modele (Lucide « lightbulb »), et sa version barree.
+# Choisie par l'auteur le 2026-11-07 sur une planche de sept icones : le
+# cerveau d'avant etait trop charge de details a 16 px.
+_AMPOULE_PATHS = """
+  <path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/>
+  <path d="M9 18h6"/>
+  <path d="M10 22h4"/>"""
+THINKING = ("""<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
+  viewBox="0 0 24 24" fill="none" stroke="currentColor"
+  stroke-width="2" stroke-linecap="round" stroke-linejoin="round">"""
+            + _AMPOULE_PATHS + "\n</svg>")
+THINKING_OFF = ("""<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
+  viewBox="0 0 24 24" fill="none" stroke="currentColor"
+  stroke-width="2" stroke-linecap="round" stroke-linejoin="round">"""
+                + _AMPOULE_PATHS + """
+  <path d="M2 2l20 20" stroke-width="2.4"/>
+</svg>""")
+
+# Envoyer un prompt dans le chat (Lucide « arrow-up »).
+ARROW_UP = """<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
+  viewBox="0 0 24 24" fill="none" stroke="currentColor"
+  stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="m5 12 7-7 7 7"/>
+  <path d="M12 19V5"/>
+</svg>"""
+
 CHECK = """<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
   viewBox="0 0 24 24" fill="none" stroke="currentColor"
   stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

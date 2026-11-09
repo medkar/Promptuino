@@ -35,7 +35,12 @@ class Session(QObject):
     def _load(self) -> None:
         try:
             if _SESSION_PATH.exists():
-                self._data = json.loads(_SESSION_PATH.read_text(encoding="utf-8"))
+                data = json.loads(_SESSION_PATH.read_text(encoding="utf-8"))
+                # Valid JSON of the wrong type (`[]`, `null`) would make the
+                # first `.get` raise at import: the app would not start.
+                if not isinstance(data, dict):
+                    raise ValueError("session.json is not an object")
+                self._data = data
         except Exception:
             # Corrupt/truncated file (e.g. an unclean shutdown predating the
             # atomic write below). Set it aside for forensics instead of

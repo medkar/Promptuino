@@ -189,6 +189,39 @@ def _delatex(text: str) -> str:
     return text
 
 
+# Code (fenced blocks, inline spans) is escaped by markdown itself and must be
+# left alone; everything else is prose.
+_CODE_SEGMENT_RE = re.compile(r"(```.*?(?:```|$)|~~~.*?(?:~~~|$)|`[^`\n]*`)",
+                              re.DOTALL)
+# The only raw tags let through: a line break and a markdown autolink.
+_ALLOWED_RAW_TAG_RE = re.compile(r"<(?:br\s*/?>|https?://)", re.IGNORECASE)
+
+
+def _escape_raw_html(text: str) -> str:
+    """Escapes `<` in the PROSE of a message before markdown sees it.
+
+    markdown passes raw HTML through untouched, and QTextBrowser silently
+    drops a tag it does not know: « Ajoute #include <Servo.h> en haut »
+    (a small model often forgets the backticks) rendered as « Ajoute
+    #include en haut » -- the very library name the student needs was gone
+    (audit 2026-11-06). The model is never asked for HTML, so prose `<` is
+    text; code segments are skipped because markdown escapes them itself
+    (escaping twice would show a literal « &lt; » in the code block)."""
+    parts = _CODE_SEGMENT_RE.split(text)
+    for i in range(0, len(parts), 2):      # even indexes = outside code
+        seg = parts[i]
+        out = []
+        pos = 0
+        for m in re.finditer("<", seg):
+            out.append(seg[pos:m.start()])
+            out.append("<" if _ALLOWED_RAW_TAG_RE.match(seg, m.start())
+                       else "&lt;")
+            pos = m.end()
+        out.append(seg[pos:])
+        parts[i] = "".join(out)
+    return "".join(parts)
+
+
 def _md_to_html(text: str) -> str:
     """Convert markdown to HTML for QTextBrowser. Plain text fallback
     if the `markdown` package is not installed OR if markdown
@@ -207,7 +240,7 @@ def _md_to_html(text: str) -> str:
         return plain_fallback
     try:
         html = _markdown.markdown(
-            text, extensions=["fenced_code", "tables"],
+            _escape_raw_html(text), extensions=["fenced_code", "tables"],
         )
     except Exception as e:
         print(f"[chat] markdown render failed, fallback to plain: {e}",
@@ -236,6 +269,9 @@ def _md_to_html(text: str) -> str:
         # and inject the colored HTML into the table-wrap.
         raw_code = (inner.replace('&lt;', '<')
                           .replace('&gt;', '>')
+                          .replace('&quot;', '"')
+                          .replace('&#x27;', "'")
+                          .replace('&#39;', "'")
                           .replace('&amp;', '&'))
         highlighted = _highlight_arduino_code(raw_code)
         # Bg `#0d1117` (even darker than the dark bubble `#1f2937`)
@@ -360,6 +396,10 @@ class ChatMessage(QFrame):
         # Content: plain QLabel for user, QTextBrowser markdown otherwise.
         if self.role == "user":
             lbl = QLabel(self.text)
+            # PlainText, never AutoText: « if (a<b && c>d) » passes Qt's
+            # mightBeRichText and the bubble showed « if (ad) » with the rest
+            # in bold (audit 2026-11-06). What the student typed is text.
+            lbl.setTextFormat(Qt.TextFormat.PlainText)
             lbl.setWordWrap(True)
             lbl.setTextInteractionFlags(
                 Qt.TextInteractionFlag.TextSelectableByMouse

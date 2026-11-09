@@ -729,14 +729,23 @@ class DeclareComponentDialog(QDialog):
                                  lib="" if self._no_lib else lib,
                                  keywords=keywords, no_lib=self._no_lib)
         items = upsert(items, decl)
-        save(items)
+        if not save(items):
+            # components.json non ecrit (OneDrive, lecture seule) : le
+            # composant sert pour la session, il faut le dire (audit #124).
+            self._warn_save_failed()
         set_registry(items)
         self.result_component = next((c for c in items if c.id == cid), decl)
         self.accept()
 
+    def _warn_save_failed(self) -> None:
+        from ..i18n import lang_manager
+        QMessageBox.warning(self, _t("title", self._lang),
+                            lang_manager.current.declared_save_failed)
+
     def _on_remove(self) -> None:
         items = [c for c in load() if c.id != self._existing.id]
-        save(items)
+        if not save(items):
+            self._warn_save_failed()
         set_registry(items)
         self.removed = True
         self.removed_type_id = self._existing.type_id

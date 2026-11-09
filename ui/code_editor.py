@@ -135,6 +135,31 @@ def _find_function_at_cursor(text: str, char_pos: int) -> "tuple[str, str] | Non
     return None
 
 
+def _next_comment(text: str, offset: int) -> "tuple[str | None, int]":
+    """First `/*` or `//` of `text` at or after `offset` that is NOT inside
+    a string or char literal: ("/*" | "//", position), or (None, -1).
+    `offset` is assumed to be outside any literal (line start, or just
+    after a `*/`)."""
+    i, n = offset, len(text)
+    quote = ""
+    while i < n:
+        c = text[i]
+        if quote:
+            if c == "\\":
+                i += 2
+                continue
+            if c == quote:
+                quote = ""
+        elif c in "\"'":
+            quote = c
+        elif text.startswith("//", i):
+            return "//", i
+        elif text.startswith("/*", i):
+            return "/*", i
+        i += 1
+    return None, -1
+
+
 def _fmt(hex_color: str, bold: bool = False, italic: bool = False) -> QTextCharFormat:
     f = QTextCharFormat()
     f.setForeground(QColor(hex_color))
@@ -206,23 +231,31 @@ class ArduinoHighlighter(QSyntaxHighlighter):
             self.setCurrentBlockState(0)
             offset = 0
 
-        # Search for comment block starts in the rest of the line
+        # Search for comment block starts in the rest of the line. Only a
+        # `/*` or `//` OUTSIDE a string literal counts: `"a /* b"` used to
+        # grey out the rest of the file, `"http://x"` the end of its string.
+        line_cmt = None
         while True:
-            m_start = start_expr.search(text, offset)
-            if not m_start:
+            kind, pos = _next_comment(text, offset)
+            if kind is None:
                 break
-            m_end = end_expr.search(text, m_start.end())
+            if kind == "//":
+                line_cmt = pos
+                break
+            m_end = end_expr.search(text, pos + 2)
             if m_end:
-                length = m_end.end() - m_start.start()
-                self.setFormat(m_start.start(), length, self._fmt_comment)
+                length = m_end.end() - pos
+                self.setFormat(pos, length, self._fmt_comment)
                 offset = m_end.end()
             else:
-                self.setFormat(m_start.start(), len(text) - m_start.start(), self._fmt_comment)
+                self.setFormat(pos, len(text) - pos, self._fmt_comment)
                 self.setCurrentBlockState(self._IN_BLOCK_COMMENT)
                 return
 
         # ── Single-line rules ──────────────────────────────────
         for pattern, fmt in self._rules:
+            if pattern.pattern == _CMT_LINE:
+                continue            # applied below, at the REAL `//` only
             for m in pattern.finditer(text):
                 # For function calls, only color group 1
                 g = 1 if pattern.groups else 0
@@ -233,6 +266,8 @@ class ArduinoHighlighter(QSyntaxHighlighter):
                 if existing.foreground().color() == self._fmt_comment.foreground().color():
                     continue
                 self.setFormat(start, length, fmt)
+        if line_cmt is not None:
+            self.setFormat(line_cmt, len(text) - line_cmt, self._fmt_comment)
 
 
 # ── Gutter (line numbers) ─────────────────────────────────────────────────
@@ -544,8 +579,14 @@ class CodeEditor(QPlainTextEdit):
         key = event.key()
         ctrl = bool(event.modifiers() & Qt.KeyboardModifier.ControlModifier)
         if ctrl:
-            # Paste / cut = edit; copy / select-all / etc. = no.
-            return key in (Qt.Key.Key_V, Qt.Key.Key_X)
+            # Paste / cut / undo / redo / word deletion = edit; copy /
+            # select-all / navigation = no.
+            return key in (Qt.Key.Key_V, Qt.Key.Key_X, Qt.Key.Key_Z,
+                           Qt.Key.Key_Y, Qt.Key.Key_Backspace,
+                           Qt.Key.Key_Delete)
+        if key == Qt.Key.Key_Insert and (
+                event.modifiers() & Qt.KeyboardModifier.ShiftModifier):
+            return True   # Shift+Insert = paste
         if key in (Qt.Key.Key_Backspace, Qt.Key.Key_Delete,
                    Qt.Key.Key_Return, Qt.Key.Key_Enter, Qt.Key.Key_Tab):
             return True

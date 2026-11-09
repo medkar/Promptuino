@@ -135,15 +135,16 @@ def is_generation_intent(text: str) -> bool:
 _OFFSCOPE_KEYWORDS = (
     # Geography / general knowledge
     r"capitale",
-    r"capital(?:\s+of)?",
+    # "capital" nu retire : « capital letters » (LCD) est un sujet Arduino.
+    r"capital\s+of",
     # Cooking
     r"recette",
     r"recipe",
     r"receta",
     r"ricetta",
     # Weather
-    r"meteo",
-    r"weather",
+    # "meteo" / "weather" nus retires : « station meteo » est LE projet
+    # Arduino classique. Seules les questions de prevision restent.
     r"quel temps",
     r"what'?s the weather",
     # External search
@@ -153,7 +154,7 @@ _OFFSCOPE_KEYWORDS = (
     # Entertainment
     r"netflix",   # "film" removed: collision with "thin film resistor" / "film capacitor"
     r"tiktok",
-    r"youtube",
+    # "youtube" retire : « un tuto YouTube pour le servo » est legitime.
     r"movie",
     r"pelicula",
     # Sport / general news

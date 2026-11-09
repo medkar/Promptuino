@@ -618,14 +618,24 @@ def _apply_led_resistors(netlist: Netlist) -> None:
 
 
 # ── Rule 2: external pull-up for buttons ──────────────────────────────────
+_BUTTON_LIKE_SWITCHES = ("reed_switch", "tilt_switch", "slide_switch",
+                         "toggle_switch")
+
+
 def _apply_button_pullups(netlist: Netlist) -> None:
-    buttons = [c for c in list(netlist.components) if c.type == "button"]
+    # Les interrupteurs requalifies depuis un bouton (reed, tilt, slide,
+    # toggle) sont cables comme lui -- broche + GND -- et flottent de la meme
+    # facon sans tirage. Ils ne sont traites que s'ils portent `pull` : un
+    # interrupteur pose ailleurs (declare, import) n'est pas touche.
+    buttons = [c for c in list(netlist.components)
+               if c.type == "button"
+               or (c.type in _BUTTON_LIKE_SWITCHES and c.attributes.get("pull"))]
     for btn in buttons:
         pull = (btn.attributes.get("pull") or "").lower()
         if pull == "internal":
             continue   # INPUT_PULLUP on the code side -> no external R.
         # Identify the signal pin (the first of the two, by convention).
-        sig = btn.pin("A")
+        sig = btn.pin("A") or btn.pin("COM")
         if sig is None or _is_power_or_ground(sig.net):
             continue
         if _has_pullup_on(netlist, sig.net):
@@ -731,7 +741,7 @@ def _apply_buzzer_series_resistors(netlist: Netlist) -> None:
         netlist.add_warning(
             code="buzzer_series_resistor",
             severity=SEVERITY_WARNING,
-            message=f"Resistance serie {BUZZER_SERIES_VALUE}Ω ajoutee pour "
+            message=f"Résistance série {BUZZER_SERIES_VALUE}Ω ajoutée pour "
                     f"{buz.ref}.",
             refs=[buz.ref, ref],
             # `component_type` : l'id brut, traduit a l'affichage par
@@ -751,17 +761,32 @@ def detect_conflicts(netlist: Netlist) -> None:
     _detect_pin_double_use(netlist)
 
 
+_BUS_SIGNAL_ALIASES = {
+    "SDA": "SDA", "SCL": "SCL",
+    "MOSI": "MOSI", "MISO": "MISO", "SCK": "SCK", "SCLK": "SCK",
+}
+
+
 def _detect_pin_double_use(netlist: Netlist) -> None:
     # For each signal pin (Dn / An), list the non-passive components
     # attached to it. > 1 => potential conflict.
     by_pin: dict[str, list[str]] = {}
+    names_on: dict[str, set[str]] = {}
     for c in netlist.components:
         if c.type == "resistor":
             continue   # a resistor can share a pin with its companion
         for p in c.pins:
             if _is_signal_net(p.net):
                 by_pin.setdefault(p.net, []).append(c.ref)
+                names_on.setdefault(p.net, set()).add(p.name)
     for net, refs in by_pin.items():
+        # Un bus (I2C : A4/A5, SPI : D11/D12/D13) est PARTAGE par conception :
+        # deux peripheriques dessus ne sont pas une collision. Seule la meme
+        # broche de bus de part et d'autre (SDA/SDA) l'exempte -- SDA sur SCL
+        # reste une vraie erreur.
+        bus = {_BUS_SIGNAL_ALIASES.get(n) for n in names_on[net]}
+        if len(bus) == 1 and None not in bus:
+            continue
         # Deux broches NON CABLEES du meme composant partagent le net vide et
         # se denoncaient l'une l'autre : « Pin  utilisee par plusieurs
         # composants : U1, U1. » — nom de broche vide, meme composant deux

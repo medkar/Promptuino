@@ -110,6 +110,61 @@ def test_api_key_whitespace_not_available():
     assert b.is_available() is False
 
 
+# ── Un serveur LOCAL compatible OpenAI n'a pas de cle ────────────────────────
+# Le defaut : `is_available()` en exigeait une de tout le monde, donc LM Studio
+# (et tout llama.cpp / vLLM nu) etait declare indisponible, et le seul moyen de
+# s'en servir etait d'inventer une cle bidon. Ce qui s'eteignait sans un mot :
+# la generation elle-meme, la reparation, l'explication d'erreur, le lint.
+
+def test_a_keyless_local_server_is_available():
+    b = _backend(FakeTransport(), api_key="", requires_key=False)
+    assert b.is_available() is True
+    assert b.requires_api_key is False
+
+
+def test_no_authorization_header_without_a_key():
+    """Pas d'en-tete du tout -- PAS un « Bearer » vide.
+
+    Un « Authorization: Bearer » sans valeur se lit comme une tentative
+    d'authentification ratee ; l'absence d'en-tete est la facon de dire
+    « anonyme ».
+    """
+    t = FakeTransport()
+    b = _backend(t, api_key="", requires_key=False)
+    b._complete("S", [{"role": "user", "content": "x"}])
+    _, headers, _, _ = t.last
+    assert "Authorization" not in headers, headers
+    assert headers["Content-Type"] == "application/json"
+
+
+def test_a_key_is_still_sent_when_there_is_one():
+    """Dispenser de cle ne veut pas dire l'ignorer si elle existe."""
+    t = FakeTransport()
+    b = _backend(t, api_key="sk-local", requires_key=False)
+    b._complete("S", [{"role": "user", "content": "x"}])
+    _, headers, _, _ = t.last
+    assert headers["Authorization"] == "Bearer sk-local"
+
+
+def test_a_cloud_provider_without_a_key_stays_unavailable():
+    """⛔ La garde qui empeche de « reparer » le bug trop largement.
+
+    Rendre tout le monde disponible sans cle ferait echouer les fournisseurs
+    cloud en 401 a la premiere requete, au lieu de le dire avant.
+    """
+    b = _backend(FakeTransport(), api_key="")
+    assert b.requires_api_key is True
+    assert b.is_available() is False
+
+
+def test_url_and_model_are_still_required_without_a_key():
+    """Dispense de cle, pas dispense de configuration."""
+    assert _backend(FakeTransport(), api_key="", requires_key=False,
+                    base_url="").is_available() is False
+    assert _backend(FakeTransport(), api_key="", requires_key=False,
+                    model="").is_available() is False
+
+
 def _sse(content_chunks, with_done=True):
     import json as _j
     lines = []
@@ -346,6 +401,60 @@ def test_anthropic_native_models():
     assert "Authorization" not in headers   # must NOT send Bearer to /models
 
 
+# ── Plafonds de reponse (decision de l'auteur, 2026-11-06) ─────────────────
+# « Supprime-les, surtout en local, ca n'a pas de sens » : un modele qui
+# REFLECHIT depensait son budget a reflechir -- mesure sous LM Studio, 505
+# tokens de reflexion sur 600, reponse COUPEE. Le cloud garde UN plafond,
+# le meme partout : 8 192, que tous les fournisseurs acceptent deja pour la
+# generation (DeepSeek refuse au-dela).
+
+_MSG = [{"role": "user", "content": "hi"}]
+
+
+def _payloads_de_tous_les_appels(b, t):
+    vus = []
+    b._complete("S", _MSG)
+    vus.append(t.last[2])
+    b.chat("S", _MSG)
+    vus.append(t.last[2])
+    list(b.chat_stream("S", _MSG))
+    vus.append(t.last[2])
+    b.explain_error("err", "French")
+    vus.append(t.last[2])
+    return vus
+
+
+def test_cloud_keeps_one_high_cap_for_chat_and_generation():
+    t = FakeTransport(sse_lines=["data: [DONE]"])
+    b = _backend(t)
+    for payload in _payloads_de_tous_les_appels(b, t):
+        assert payload["max_tokens"] == 8192, payload
+
+
+def test_a_local_server_gets_no_cap_at_all():
+    t = FakeTransport(sse_lines=["data: [DONE]"])
+    b = _backend(t, max_output_tokens=None, requires_key=False, api_key="")
+    for payload in _payloads_de_tous_les_appels(b, t):
+        assert "max_tokens" not in payload, payload
+
+
+def test_the_probe_still_asks_for_a_single_token():
+    """La sonde ne veut pas payer une generation : son 1 reste, plafond ou
+    pas."""
+    t = FakeTransport()
+    b = _backend(t, max_output_tokens=None)
+    b.probe_model()
+    assert t.last[2]["max_tokens"] == 1
+
+
+def test_the_factory_caps_cloud_presets_but_not_local_servers():
+    from ui.ai_backends.factory import get_backend_instance
+    assert get_backend_instance("lmstudio")._max_out is None
+    assert get_backend_instance("custom")._max_out is None
+    assert get_backend_instance("openai")._max_out == 8192
+    assert get_backend_instance("deepseek")._max_out == 8192
+
+
 TESTS = [test_complete_builds_payload_and_headers, test_complete_omits_empty_system,
          test_extra_headers_merged, test_capabilities,
          test_complete_handles_null_content,
@@ -361,7 +470,16 @@ TESTS = [test_complete_builds_payload_and_headers, test_complete_omits_empty_sys
          test_list_models_strips_gemini_prefix,
          test_list_models_filters_non_chat_families,
          test_gemini_native_capability_filter,
-         test_anthropic_native_models]
+         test_anthropic_native_models,
+         test_a_keyless_local_server_is_available,
+         test_no_authorization_header_without_a_key,
+         test_a_key_is_still_sent_when_there_is_one,
+         test_a_cloud_provider_without_a_key_stays_unavailable,
+         test_url_and_model_are_still_required_without_a_key,
+         test_cloud_keeps_one_high_cap_for_chat_and_generation,
+         test_a_local_server_gets_no_cap_at_all,
+         test_the_probe_still_asks_for_a_single_token,
+         test_the_factory_caps_cloud_presets_but_not_local_servers]
 
 
 def main() -> int:

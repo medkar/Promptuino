@@ -68,7 +68,11 @@ def test_candidates_in_i2c_members():
 
 def test_every_catalog_type_has_a_category():
     from ui.wiring.layout.component_catalog import CATALOG
-    missing = [t for t in CATALOG if cat.category_of(t) is None]
+    # Sans categorie VOLONTAIREMENT : le solenoide tire 300 mA a 1 A, il ne
+    # doit pas etre propose a la place d'une LED ou d'un buzzer (CLAUDE.md,
+    # audit du 2026-11-06). Il reste dessinable au catalogue.
+    exemptes = {"solenoid"}
+    missing = [t for t in CATALOG if cat.category_of(t) is None and t not in exemptes]
     assert not missing, f"types catalogue sans catégorie : {missing}"
 
 

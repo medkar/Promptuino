@@ -999,13 +999,29 @@ _A4988_MANUAL_CONFIRM_RE = re.compile(
     re.IGNORECASE,
 )
 # Keypad matrix : byte rowPins[ROWS] = {9, 8, 7, 6}; byte colPins[COLS] = {5, 4, 3, 2};
-# Naming convention: `rowPins` / `colPins` (canonical in Arduino tutorials).
-_KEYPAD_ROW_PINS_RE = re.compile(
-    r"\bbyte\s+rowPins\s*\[[^\]]*\]\s*=\s*\{\s*([^}]+)\}"
+# Le type n'est pas impose (`byte`, `uint8_t`, `int`, `unsigned char`, avec ou
+# sans `const`) ni le nom (`rowPins`, `pin_rows`, `lignes`...) : les noms sont
+# lus dans le constructeur `Keypad(makeKeymap(k), ROWS_ARR, COLS_ARR, r, c)`
+# (`_KEYPAD_CTOR_RE`) ; sans constructeur lisible on retombe sur les noms
+# canoniques `rowPins` / `colPins`.
+_KEYPAD_ARRAY_TYPES = (
+    r"(?:const\s+)?(?:byte|uint8_t|int|unsigned\s+char|unsigned\s+int|char)"
 )
-_KEYPAD_COL_PINS_RE = re.compile(
-    r"\bbyte\s+colPins\s*\[[^\]]*\]\s*=\s*\{\s*([^}]+)\}"
+_KEYPAD_CTOR_RE = re.compile(
+    r"\bKeypad\s+\w+\s*(?:=\s*Keypad\s*)?\(\s*makeKeymap\s*\(\s*\w+\s*\)\s*,\s*"
+    r"(\w+)\s*,\s*(\w+)\s*,"
 )
+
+
+def _keypad_pins_re(name: str) -> "re.Pattern[str]":
+    return re.compile(
+        rf"\b{_KEYPAD_ARRAY_TYPES}\s+{re.escape(name)}\s*\[[^\]]*\]\s*="
+        rf"\s*\{{\s*([^}}]+)\}}"
+    )
+
+
+_KEYPAD_ROW_PINS_RE = _keypad_pins_re("rowPins")
+_KEYPAD_COL_PINS_RE = _keypad_pins_re("colPins")
 # IRrecv irrecv(11) or IRrecv irrecv(RECV_PIN, ENABLE_LED_FEEDBACK)
 _IRRECV_DECL_RE = re.compile(
     r"\bIRrecv\s+\w+\s*\(\s*([A-Za-z0-9_]+)\s*[,)]"
@@ -1882,7 +1898,9 @@ def _detect_libraries(
             # 8 pins: VCC, RST, GND, IRQ (NC), MISO=D12, MOSI=D11, SCK=D13, SDA(SS)
             _add("mfrc522",
                  [Pin("VCC", "3V3"), Pin("RST", rst), Pin("GND", "GND"),
-                  Pin("IRQ", "GND"), Pin("MISO", "D12"), Pin("MOSI", "D11"),
+                  # IRQ est une SORTIE du module, non utilisee par la lib :
+                  # libre, jamais a la masse (2026-11-07 ; elle etait sur GND).
+                  Pin("IRQ", ""), Pin("MISO", "D12"), Pin("MOSI", "D11"),
                   Pin("SCK", "D13"), Pin("SDA", ss)])
 
     # ─── HX711 (load-cell amplifier) ────────────────────────────────────
@@ -2137,8 +2155,14 @@ def _detect_libraries(
 
     # ─── Keypad matrix (extracts rowPins / colPins) ───────────────────────
     if _INCLUDE_KEYPAD_RE.search(code):
-        row_m = _KEYPAD_ROW_PINS_RE.search(code)
-        col_m = _KEYPAD_COL_PINS_RE.search(code)
+        ctor_m = _KEYPAD_CTOR_RE.search(code)
+        if ctor_m is not None:
+            row_re = _keypad_pins_re(ctor_m.group(1))
+            col_re = _keypad_pins_re(ctor_m.group(2))
+        else:
+            row_re, col_re = _KEYPAD_ROW_PINS_RE, _KEYPAD_COL_PINS_RE
+        row_m = row_re.search(code)
+        col_m = col_re.search(code)
         if row_m is not None and col_m is not None:
             def _parse_pin_list(s: str) -> list[str]:
                 out = []
@@ -2251,6 +2275,10 @@ def _detect_libraries(
             if base in _KNOWN_HEADERS_LOWER or base in claimed_headers:
                 continue
             if _clean_lib_name(h, default="uart_module") in existing:
+                continue
+            # Meme filtre que les deux autres filets : `pitches.h` donnait
+            # son nom au module serie (audit 2026-11-06, markers.py:2248).
+            if _is_non_component_header(h):
                 continue
             unknown_headers.append(h)
         single_named = len(soft_serials) == 1 and len(unknown_headers) == 1
@@ -2453,8 +2481,15 @@ def _classify_pin_role(code: str, pin_token: str) -> str:
 
 
 def _has_input_pullup(code: str, pin_token: str) -> bool:
+    # `pin_token` peut etre la forme du code (« 2 ») ou le net normalise
+    # (« D2 ») : apres `_resolve_aliases`, `const int BOUTON = 2` donne
+    # `pinMode(D2, INPUT_PULLUP)` et le jeton « 2 » ne correspondait plus.
+    wanted = {pin_token, _normalize_pin_token(pin_token)} - {None}
     for m in _PINMODE_RE.finditer(code):
-        if m.group(1) == pin_token and m.group(2) == "INPUT_PULLUP":
+        if m.group(2) != "INPUT_PULLUP":
+            continue
+        if (m.group(1) in wanted
+                or _normalize_pin_token(m.group(1)) in wanted):
             return True
     return False
 
@@ -2505,6 +2540,17 @@ def parse_fallback(
     # (e.g. A4988 manual via `PIN_STEP`) match before aliasing
     # substitutes them with their literal value.
     lib_components, claimed_pins = _detect_libraries(code, original_code)
+    # Sur une carte dont l'I2C n'est PAS sur A4/A5 (Mega, Leonardo), les
+    # modules I2C n'occupent pas A4/A5 : `_remap_i2c_to_board` les en sortira.
+    # Les garder « reservees » ici avalait un `analogRead(A4)` voisin
+    # (2026-11-07). Liberees seulement si AUCUNE autre broche n'y est.
+    # Meme chose pour le SPI (Mega : D50-D52 au lieu de D11-D13).
+    for net in _board_i2c_target(board_id):
+        noms = _BUS_UNO[net][1]
+        if net in claimed_pins and all(
+                any(n in (p.name or "").upper() for n in noms)
+                for c in lib_components for p in c.pins if p.net == net):
+            claimed_pins = set(claimed_pins) - {net}
 
     pins_seen: dict[str, str] = {}   # pin_token -> role
     for rx in (_PINMODE_RE, _DIGITAL_WRITE_RE, _DIGITAL_READ_RE,
@@ -3290,7 +3336,10 @@ _LED_KEYWORDS = (
     # FR ("lumière" deliberately ABSENT -- collision with LDR
     # "capteur de lumière". "clignote*": very common beginner phrasing
     # ("fais clignoter"), no risk -- only a LED blinks here.)
-    "led", "leds", "diode", "diodes", "del", "voyant", "voyants",
+    "led", "leds", "diode", "diodes", "voyant", "voyants",
+    # (« del » -- le sigle FR de la LED -- est RETIRE : c'est la preposition
+    # la plus courante en espagnol et en italien, qui faisait matcher une LED
+    # sur presque tout prompt ES/IT et rendait les requalifications muettes.)
     "lampe", "lampes", "clignote", "clignoter", "clignotant", "clignotante",
     # EN
     "lamp", "lamps", "light", "lights", "indicator", "blink", "blinking",
@@ -4527,6 +4576,9 @@ def _disambiguate_with_prompt(components: list[Component],
         a_pin = c.pin("A") or (c.pins[0] if c.pins else None)
         if a_pin is None:
             continue
+        # Candidat moteur DC (1 PWM + broches digitales fusionnees) : retenu
+        # AVANT toute mutation, qui efface les attributs.
+        grouped_dirs = list(c.attributes.get("_grouped_dir_pins") or [])
 
         # Source 1 (priority): the code (identifiers + comments).
         code_excerpt = _code_excerpt_for_pin(code, a_pin.net, pin_to_names)
@@ -4634,6 +4686,31 @@ def _disambiguate_with_prompt(components: list[Component],
             c.attributes["_confidence"] = "medium"
         # Otherwise: ambiguous or silent -> stays "low"
 
+        # Le prompt/code a tranche AUTREMENT que « moteur » (LED confirmee,
+        # buzzer, relais...) : le groupe fusionne par `_group_dc_motor_pins`
+        # est defait, sinon la LED des broches digitales -- deja supprimee --
+        # disparait du schema sans message. Les LED rendues sont ambigues
+        # (low) et passent a leur tour dans cette boucle.
+        if grouped_dirs and not (
+            c.type == "led"
+            and c.attributes.get("_confidence") == "low"
+        ):
+            c.attributes.pop("_grouped_pwm_pin", None)
+            c.attributes.pop("_grouped_dir_pins", None)
+            used_refs = {x.ref for x in components}
+            n_led = 0
+            for dir_pin in grouped_dirs:
+                while f"D{n_led + 1}" in used_refs:
+                    n_led += 1
+                n_led += 1
+                used_refs.add(f"D{n_led}")
+                components.append(Component(
+                    ref=f"D{n_led}", type="led", fn_id=c.fn_id,
+                    pins=[Pin("A", dir_pin), Pin("K", "GND")],
+                    attributes={"_confidence": "low"},
+                    inferred=True,
+                ))
+
     # Potentiometer loop: on an analog pin the fallback classifies as
     # potentiometer by default. An analog sub-type (ldr/thermistor/
     # microphone) deduced from the code (priority) or from the prompt/context MUTATES
@@ -4715,7 +4792,13 @@ def _disambiguate_with_prompt(components: list[Component],
             # Deux bornes, exactement comme le bouton dont ils heritent : la
             # broche et la masse. Les pins ne bougent donc PAS -- on renomme
             # le composant, on ne re-cable rien.
+            pull = c.attributes.get("pull")
             _mutate_component(components, c, subtype, list(c.pins))
+            # `_mutate_component` efface les attributs, `pull` compris : sans
+            # lui l'inference ne sait plus s'il faut un tirage externe et
+            # l'entree flotte (INPUT sans resistance).
+            if pull:
+                c.attributes["pull"] = pull
             if presume:
                 c.attributes["presumed_from_description"] = "true"
         elif subtype == "toggle_switch":
@@ -4725,11 +4808,14 @@ def _disambiguate_with_prompt(components: list[Component],
             # broche dessinee sans fil est le cas normal ; en inventer un
             # serait presenter une devinette comme une lecture.
             autre = c.pin("B")
+            pull = c.attributes.get("pull")
             _mutate_component(
                 components, c, "toggle_switch",
                 [Pin("L1", autre.net if autre else "GND"),
                  Pin("COM", sig_pin.net), Pin("L2", "")],
             )
+            if pull:
+                c.attributes["pull"] = pull
             if presume:
                 c.attributes["presumed_from_description"] = "true"
         elif subtype in ("touch_sensor", "hall_sensor", "ir_receiver"):
@@ -5254,7 +5340,61 @@ def extract_netlist(code: str, board_id: str,
     # Fusion des modules nommes (HW-612...) : plusieurs puces I2C d'une meme
     # carte -> une seule boite. Garde par le nom de module dans prompt/contexte.
     fuse_modules(nl, prompt, context)
+    _remap_i2c_to_board(nl, board_id)
     return nl
+
+
+# Les broches de bus que les detecteurs ecrivent EN DUR (brochage Uno/Nano) :
+# net Uno -> (capacite dans boards.json, noms de broche du composant qui la
+# portent). SS n'y est pas : le code le choisit, il est deja juste.
+_BUS_UNO = {
+    "A4":  ("sda",  ("SDA",)),
+    "A5":  ("scl",  ("SCL",)),
+    "D11": ("mosi", ("MOSI",)),
+    "D12": ("miso", ("MISO",)),
+    "D13": ("sck",  ("SCK", "SCLK", "CLK")),
+}
+
+
+def _board_i2c_target(board_id) -> dict:
+    """{net Uno: broche de LA carte} pour chaque bus (I2C, SPI) que la carte
+    porte AILLEURS que l'Uno -- Mega : A4->D20, A5->D21, D11->D51, D12->D50,
+    D13->D52 ; {} pour l'Uno, la Nano ou une carte inconnue. Une carte qui ne
+    declare pas la capacite (SPI de la Leonardo, sur l'ICSP) n'est pas
+    remappee : on ne devine pas."""
+    try:
+        from .boards import load_board
+        board = load_board(board_id) if board_id else None
+    except Exception:
+        board = None
+    if board is None:
+        return {}
+    cible = {}
+    for net, (cap, _noms) in _BUS_UNO.items():
+        pin = next((pn for pn in board.pins() if board.has_capability(pn, cap)), None)
+        if pin and pin != net:
+            cible[net] = pin
+    return cible
+
+
+def _remap_i2c_to_board(nl: Netlist, board_id: str) -> None:
+    """Porte les bus I2C et SPI sur les broches de LA carte.
+
+    Les detecteurs ecrivent SDA=A4 / SCL=A5 et MOSI/MISO/SCK=D11/D12/D13 en
+    dur (le brochage de l'Uno et de la Nano). Sur une Mega, ce sont des
+    broches ordinaires : vu le 2026-11-07, le SCL d'un LCD I2C etait cable
+    sur l'A5 d'une Mega et celui d'un BME280 pas cable du tout ; un MFRC522
+    avait son SPI sur D11-D13 au lieu de D50-D52. Seules les broches NOMMEES
+    comme le bus bougent : un `analogRead(A4)` reste sur A4, une LED sur D13
+    reste sur D13."""
+    cible = _board_i2c_target(board_id)
+    if not cible:
+        return                                  # Uno, Nano : rien a faire
+    for c in nl.components:
+        for p in c.pins:
+            if p.net in cible and any(
+                    n in (p.name or "").upper() for n in _BUS_UNO[p.net][1]):
+                p.net = cible[p.net]
 
 
 def _ref_prefix_for(ctype: str) -> str:

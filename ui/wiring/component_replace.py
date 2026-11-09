@@ -8,9 +8,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from .netlist import Component, Pin, Netlist
+from .netlist import Component, Pin, Netlist, SEVERITY_INFO
 from .categories import category_of, NON_REPLACEABLE, NO_SWAP_PEER
-from .layout.component_catalog import CATALOG, role_of
+from .layout.component_catalog import CATALOG, role_of, lookup
 
 _ROLE_FIXED_NET = {
     "vcc": "5V",
@@ -19,6 +19,7 @@ _ROLE_FIXED_NET = {
     "scl": "A5",
 }
 _BUS_NETS = frozenset(_ROLE_FIXED_NET.values())
+_SUPPLY_NETS = frozenset({"5V", "GND", "3V3", "3.3V", "VIN"})
 
 
 def is_self_sufficient(type_id: str) -> bool:
@@ -132,15 +133,32 @@ def _trace_signal_net(net: str, netlist: Netlist, exclude_ref: str) -> str:
     return cur
 
 
-def _signal_nets_by_role(old: Component, netlist: Netlist) -> dict[str, str]:
-    """MCU net carried by each 'signal-like' role pin of the old
-    component, indexed by role. Internal bridge nets (NET_*) are traced
-    back to the real MCU pin."""
-    out: dict[str, str] = {}
+def _old_pin_role(old: Component, idx: int, pin: Pin) -> str:
+    """Role of an OLD pin. Read by the pin NAME first : the order `markers`
+    emits is not the catalog's (DS18B20 : VCC/DATA/GND emitted, VCC/GND/DATA
+    catalogued), so the position alone shifts every role. Positional lookup is
+    only the fallback when the name matches nothing in the catalog."""
+    entry = lookup(old.type)
+    if entry is not None:
+        for i, label in entry.pin_labels.items():
+            if label == pin.name:
+                return role_of(old.type, i) or "signal"
+    return role_of(old.type, idx) or "signal"
+
+
+def _signal_nets_by_role(old: Component,
+                         netlist: Netlist) -> dict[str, list[str]]:
+    """MCU nets carried by the 'signal-like' pins of the old component,
+    indexed by role, in pin order (several pins may share the role `signal`).
+    Internal bridge nets (NET_*) are traced back to the real MCU pin."""
+    out: dict[str, list[str]] = {}
     for idx, pin in enumerate(old.pins, start=1):
-        role = role_of(old.type, idx) or "signal"
+        role = _old_pin_role(old, idx, pin)
+        if role == "signal" and pin.net.upper() in _SUPPLY_NETS:
+            continue  # a pin on a supply rail carries no signal to move
         if role not in _ROLE_FIXED_NET:
-            out[role] = _trace_signal_net(pin.net, netlist, old.ref)
+            out.setdefault(role, []).append(
+                _trace_signal_net(pin.net, netlist, old.ref))
     return out
 
 
@@ -167,7 +185,6 @@ def replace_component(netlist: Netlist, ref: str, new_type: str) -> ReplaceResul
          else _trace_signal_net(p.net, netlist, old.ref))
         for p in old.pins
     ]
-    fallback_signal = next(iter(signal_nets.values()), None)
 
     # Removal of inferred siblings tied to the signal net (after computing traces).
     old_signal_nets = {p.net for p in old.pins} - _BUS_NETS
@@ -177,28 +194,46 @@ def replace_component(netlist: Netlist, ref: str, new_type: str) -> ReplaceResul
     if removed:
         netlist.components = [c for c in netlist.components
                               if c.ref not in removed]
+        # A warning that names a removed sibling describes a part that no
+        # longer exists (the series R of the old LED...) : drop it. The
+        # inference of the NEW type re-emits its own at the next build.
+        netlist.warnings = [w for w in netlist.warnings
+                            if not (set(w.refs) & set(removed))]
 
     new_entry = CATALOG.get(new_type)
     if new_entry is None:
-        # Type outside CATALOG (generic rendering): keep the existing
-        # topology, with the already-traced nets (no re-trace post-removal).
-        new_pins = [Pin(name=n, net=net) for n, net in old_pins_traced]
+        # Type outside CATALOG (generic rendering): its real pinout is
+        # unknown. Keep the existing topology (already-traced nets) but NOT
+        # the old pin NAMES -- they would present a keypad as "A / B". Neutral
+        # positional names, and the schematic says the pinout is not known.
+        new_pins = [Pin(name=str(i), net=net)
+                    for i, (_n, net) in enumerate(old_pins_traced, start=1)]
+        netlist.add_warning(
+            code="replaced_pinout_unknown", severity=SEVERITY_INFO,
+            message=f"Brochage de {new_type} inconnu : nets de l'ancien "
+                    f"composant conserves.",
+            refs=[ref], params={"name": new_type})
     else:
-        new_pins = []
-        for idx in range(1, new_entry.pin_count + 1):
-            role = role_of(new_type, idx) or "signal"
-            label = new_entry.pin_labels.get(idx) or str(idx)
+        # Signal-like pins, two passes : same ROLE first, then whatever
+        # signal net of the source is still unused, otherwise left unwired
+        # ("" -- never GND, never the same net twice).
+        pools = {r: list(v) for r, v in signal_nets.items()}
+        roles = [role_of(new_type, i) or "signal"
+                 for i in range(1, new_entry.pin_count + 1)]
+        nets: list[str | None] = []
+        for role in roles:
             if role in _ROLE_FIXED_NET:
-                net = _ROLE_FIXED_NET[role]
+                nets.append(_ROLE_FIXED_NET[role])
+            elif pools.get(role):
+                nets.append(pools[role].pop(0))
             else:
-                # signal-like: by role, otherwise positional (same index, net
-                # traced from the old pin), otherwise 1st available signal, otherwise GND.
-                net = signal_nets.get(role)
-                if net is None and idx <= len(old_pins_traced):
-                    net = old_pins_traced[idx - 1][1]
-                if net is None:
-                    net = fallback_signal or "GND"
-            new_pins.append(Pin(name=label, net=net))
+                nets.append(None)
+        for i, net in enumerate(nets):
+            if net is None:
+                spare = next((v for v in pools.values() if v), None)
+                nets[i] = spare.pop(0) if spare else ""
+        new_pins = [Pin(name=new_entry.pin_labels.get(i) or str(i), net=nets[i - 1])
+                    for i in range(1, new_entry.pin_count + 1)]
 
     old.type = new_type
     old.pins = new_pins

@@ -31,8 +31,21 @@ from PyQt6.QtCore import QObject, pyqtSignal
 
 # Les familles d'etats que la pastille sait colorer. Tout etat inconnu est
 # traite comme une erreur : mieux vaut du rouge en trop que du vert menteur.
-KINDS_OK = frozenset({"ollama_ok", "extra_ok", "cloud_key_ok"})
-KINDS_WARN = frozenset({"ollama_model_missing"})
+KINDS_OK = frozenset({"ollama_ok", "extra_ok", "cloud_key_ok", "lmstudio_ok",
+                      "chatgpt_ok",
+                      # Charge a une autre taille que le reglage : ca MARCHE,
+                      # la page propose seulement « Recharger » (2026-11-06).
+                      # « Inutilisable » (contexte trop petit) reste hors des
+                      # deux listes : rouge, comme tout etat non classe.
+                      "lmstudio_ctx_differs"})
+# ⚠️ `lmstudio_ctx_small` est un AVERTISSEMENT, pas une panne : le serveur
+# repond, le modele est charge, la generation marchera -- elle sera seulement
+# plus tronquee que prevu. Le classer en erreur ferait du rouge sur une
+# configuration qui fonctionne.
+KINDS_WARN = frozenset({"ollama_model_missing", "lmstudio_ctx_small",
+                        # Branche mais LENT : le modele a deborde de la carte
+                        # graphique (decision de l'auteur, 2026-11-06).
+                        "ollama_slow", "lmstudio_slow"})
 
 
 class _AiStatus(QObject):

@@ -14,8 +14,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
+import os
 import re
 import shutil
+import tempfile
 from dataclasses import dataclass, asdict, field
 from datetime import datetime
 from enum import Enum
@@ -364,6 +367,61 @@ class Project:
         )
 
 
+def _atomic_write_text(path: Path, text: str) -> None:
+    """Writes `text` to `path` without ever leaving it half-written: temp file
+    in the SAME folder, then os.replace (same pattern as session.py). A crash
+    or power loss keeps the previous content instead of a truncated file."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_name = tempfile.mkstemp(
+        dir=str(path.parent), prefix=path.name + ".", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(text)
+        os.replace(tmp_name, path)
+    except BaseException:
+        try:
+            os.unlink(tmp_name)
+        except OSError:
+            pass
+        raise
+
+
+def _set_corrupt_meta_aside(meta: Path) -> None:
+    """Moves an unreadable metadata file out of the way (never deletes it) so
+    the next save does not overwrite it with an empty project: the user's
+    features / chat / wiring stay recoverable by hand."""
+    try:
+        dest = meta.with_name(
+            f"{meta.name}.corrupt-{datetime.now().strftime('%Y%m%d-%H%M%S')}")
+        n = 1
+        while dest.exists():
+            dest = meta.with_name(f"{dest.name}-{n}")
+            n += 1
+        os.replace(meta, dest)
+        logging.getLogger(__name__).warning(
+            "Metadonnees illisibles, conservees dans %s", dest)
+    except OSError:
+        pass
+
+
+def _read_ino(path: Path) -> str:
+    """Reads a sketch. A file saved by another editor in cp1252 (an « é » in a
+    comment) is not valid UTF-8: it used to raise UnicodeDecodeError up to the
+    UI and the project would not open. cp1252 keeps the accents; `replace`
+    covers its few undefined bytes."""
+    try:
+        return path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return path.read_text(encoding="cp1252", errors="replace")
+
+
+def _same_file(a: Path, b: Path) -> bool:
+    try:
+        return os.path.samefile(a, b)
+    except OSError:
+        return False
+
+
 class ProjectManager:
     """Disk I/O layer for projects. Stateless — instantiated once."""
 
@@ -410,7 +468,7 @@ class ProjectManager:
                     proj.name = folder.name
                 return proj
             except Exception:
-                pass
+                _set_corrupt_meta_aside(meta_files[0])
         # No metadata: project created manually or corrupted meta.
         return Project(
             path       = folder,
@@ -423,12 +481,12 @@ class ProjectManager:
 
     def load_code(self, project: Project) -> str:
         try:
-            return project.ino_path.read_text(encoding="utf-8")
+            return _read_ino(project.ino_path)
         except FileNotFoundError:
             # Fallback: first .ino found in the folder
             for f in project.path.glob("*.ino"):
                 try:
-                    return f.read_text(encoding="utf-8")
+                    return _read_ino(f)
                 except Exception:
                     continue
             return ""
@@ -486,7 +544,7 @@ class ProjectManager:
             created_at = now,
             updated_at = now,
         )
-        proj.ino_path.write_text(initial_code, encoding="utf-8")
+        _atomic_write_text(proj.ino_path, initial_code)
         self._write_meta(proj)
         return proj
 
@@ -523,7 +581,7 @@ class ProjectManager:
         project.code_hash  = code_hash(code)
         project.updated_at = _now_iso()
         project.path.mkdir(parents=True, exist_ok=True)
-        project.ino_path.write_text(code, encoding="utf-8")
+        _atomic_write_text(project.ino_path, code)
         self._write_meta(project)
         return project
 
@@ -557,7 +615,9 @@ class ProjectManager:
         if new_name == project.name:
             return project
         new_folder = project.path.parent / new_name
-        if new_folder.exists():
+        # « led » -> « LED » on a case-insensitive file system (Windows):
+        # new_folder "exists" because it IS the project's own folder.
+        if new_folder.exists() and not _same_file(new_folder, project.path):
             raise FileExistsError(f"Un projet nommé « {new_name} » existe déjà.")
         old_name = project.name
         # 1) Rename the folder
@@ -566,7 +626,9 @@ class ProjectManager:
         # 2) Rename the main .ino if its stem matches the old name
         old_ino = new_folder / f"{old_name}.ino"
         new_ino = new_folder / f"{new_name}.ino"
-        if old_ino.exists() and old_ino != new_ino:
+        # Compare the STRINGS: WindowsPath equality ignores case, so a
+        # case-only rename would leave « led.ino » in a folder named « LED ».
+        if old_ino.exists() and str(old_ino) != str(new_ino):
             old_ino.rename(new_ino)
         # 3) Delete all the old metadata, we write a fresh one
         for f in new_folder.glob("*.promptuino.json"):
@@ -622,9 +684,9 @@ class ProjectManager:
 
     def _write_meta(self, project: Project) -> None:
         project.path.mkdir(parents=True, exist_ok=True)
-        project.meta_path.write_text(
+        _atomic_write_text(
+            project.meta_path,
             json.dumps(project.to_dict(), indent=2, ensure_ascii=False),
-            encoding="utf-8",
         )
 
 

@@ -237,6 +237,12 @@ class ComponentSVGLoader:
             # the extras to keep only one line.
             for extra in tspans[1:]:
                 text.remove(extra)
+        else:
+            # Texte direct, sans tspan (battery.svg) : l'appel etait sans
+            # effet et la boite gardait « Battery » en anglais (audit
+            # 2026-11-06, svg_component_loader.py:233). Les autres assets
+            # externes dans ce cas ont un texte de taille 0 : invisible.
+            text.text = name
 
     def set_pin_label(self, pin_index: int, label: str) -> None:
         """Replaces the visible label of a pin (e.g. 'pin1' -> 'A')."""

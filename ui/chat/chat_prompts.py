@@ -443,19 +443,7 @@ def assemble_within_budget(
 
 # Reponses standardisees pour les filtres heuristiques
 
-GENERATION_REDIRECT_FR = (
-    "Cette demande ressemble à une génération de code. "
-    "Utilise le champ **Générer une fonctionnalité** (en haut à droite de la fenêtre Studio) "
-    "pour la décrire et lancer la génération."
-)
-
-OFFSCOPE_REFUSAL_FR = (
-    "Cette question sort du périmètre Arduino. "
-    "Je peux t'aider sur le projet en cours : code, branchements, "
-    "erreurs de compilation, librairies."
-)
-
-NO_BACKEND_FR = (
-    "Aucun modèle IA n'est activé. Va dans l'onglet **Modèle IA** "
-    "(barre latérale) pour en activer un."
-)
+# GENERATION_REDIRECT / OFFSCOPE_REFUSAL / NO_BACKEND : les textes vivent
+# dans ui/i18n.py (chat_generation_redirect, chat_offscope_refusal,
+# chat_no_backend_bubble) depuis l'audit #124 -- ils etaient en francais
+# quelle que soit la langue choisie.

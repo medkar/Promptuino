@@ -119,6 +119,12 @@ def _alias_pattern(alias: str) -> "re.Pattern[str]":
     return re.compile(rf"(?<![a-z0-9]){body}(?![a-z0-9])")
 
 
+# Alias de description (forme compacte) portes par le hw-612 : ils decrivent une
+# CATEGORIE de carte, pas la carte (audit 2026-11-06).
+_GENERIC_ALIASES = frozenset({"10dof", "imu10dof", "10axisimu", "10ejes",
+                              "10assi"})
+
+
 def detect_module(text: str, modules=None) -> HardwareModule | None:
     """Premier module dont un alias matche `text` (regex tolerante,
     insensible a la casse et aux separateurs). None si aucun.
@@ -130,10 +136,18 @@ def detect_module(text: str, modules=None) -> HardwareModule | None:
         return None
     pool = MODULES if modules is None else modules
     t = text.lower()
+    generic_hit = None
     for mod in pool:
-        if any(_alias_pattern(kw).search(t) for kw in mod.keywords):
-            return mod
-    return None
+        for kw in mod.keywords:
+            if not _alias_pattern(kw).search(t):
+                continue
+            # Un alias GENERIQUE (« 10 dof ») ne designe pas une carte : il ne
+            # decide que si aucune carte n'est nommee (« GY-87 10DOF »).
+            if re.sub(r"[^a-z0-9]", "", kw.lower()) in _GENERIC_ALIASES:
+                generic_hit = generic_hit or mod
+            else:
+                return mod
+    return generic_hit
 
 
 def module_chips_needing_lookup(

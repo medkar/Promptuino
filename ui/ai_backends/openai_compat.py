@@ -8,9 +8,12 @@ from __future__ import annotations
 
 import json
 import http.client
+import re
 import threading
 import urllib.error
 import urllib.request
+
+from .coupure import Coupure
 from typing import Iterator
 
 from .base import AIBackend
@@ -21,8 +24,25 @@ _LIST_TIMEOUT = 15      # seconds — GET /models should be quick
 # avant de repondre. 15 s (le delai de la liste) expirait en plein
 # raisonnement et faisait passer un modele sain pour injoignable (QA AI1).
 _PROBE_TIMEOUT = 90
-_CHAT_MAX_TOKENS = 2048
-_GEN_MAX_TOKENS = 8192   # generous for full-program generation/repair
+# Plafond de reponse du CLOUD, le meme pour le chat et le code (2026-11-06).
+# ⛔ Un serveur LOCAL n'en a AUCUN (`max_output_tokens=None`), decision de
+# l'auteur : un modele qui reflechit depensait son budget a reflechir --
+# mesure sous LM Studio, 505 tokens de reflexion sur 600, reponse COUPEE.
+# 8 192 et pas davantage : c'est ce que la generation envoyait deja a tous
+# les fournisseurs sans erreur, et DeepSeek refuse au-dela. Le chat etait a
+# 2 048 ; le monter plus haut se fera fournisseur par fournisseur (TODO #123).
+CLOUD_MAX_TOKENS = 8192
+
+# Un raisonnement rendu EN LIGNE dans `content` (Groq qwen3 en
+# `reasoning_format: raw`, vLLM sans reasoning-parser) : sans ce retrait, le
+# « <think>…</think> » partait dans le code genere, qui ne compilait plus
+# (audit 2026-11-06). Seulement EN TETE : une chaine du sketch peut contenir
+# ce texte.
+_THINK_EN_TETE = re.compile(r"\A\s*<think>.*?</think>\s*", re.DOTALL)
+
+
+def _sans_reflexion(content: str) -> str:
+    return _THINK_EN_TETE.sub("", content, count=1)
 
 # Substrings that mark a non-chat model id (filtered out of the model list).
 # Shared by ALL providers: OpenAI (dall-e / embeddings / audio / moderation),
@@ -42,6 +62,7 @@ _ERR_FALLBACK = {
     "provider":     "Provider error — try again later.",
     "network":      "Provider unreachable — check your connection and the base URL.",
     "bad_response": "Unreadable response from the provider.",
+    "truncated":    "Response cut off: the output length limit was reached (or used up by the model's reasoning).",
 }
 
 
@@ -123,6 +144,38 @@ class HttpError(Exception):
         self.body = body
 
 
+def _embedded_error(obj) -> "HttpError | None":
+    """L'erreur qu'un fournisseur a mise DANS un corps HTTP 200, ou None.
+
+    Le code HTTP ne suffit pas : OpenRouter envoie le 200 des qu'un
+    fournisseur accepte la requete, et une panne ulterieure arrive dans le
+    corps -- y compris quand TOUS les fournisseurs d'un modele ont echoue.
+    Sa doc le dit : << Check the body for an `error` field even on a 200 >>.
+    Generique, pas propre a OpenRouter : le point d'entree chat est uniforme.
+
+    Une erreur = un champ `error` non vide, ou un choix termine par
+    `finish_reason: "error"`. Le statut est `error.code` s'il est un entier
+    HTTP d'erreur, sinon 502 : en plein flux la doc montre une CHAINE
+    (`"server_error"`). Le corps est reecrit en `{"error": ...}` pour que
+    `_provider_detail` trouve le message meme quand l'erreur venait d'un choix.
+    """
+    if not isinstance(obj, dict):
+        return None
+    err = obj.get("error")
+    if not err:
+        choices = obj.get("choices")
+        for choice in choices if isinstance(choices, list) else ():
+            if isinstance(choice, dict) and choice.get("finish_reason") == "error":
+                err = choice.get("error") or {"message": ""}
+                break
+    if not err:
+        return None
+    code = err.get("code") if isinstance(err, dict) else None
+    status = (code if isinstance(code, int) and not isinstance(code, bool)
+              and 400 <= code <= 599 else 502)
+    return HttpError(status, json.dumps({"error": err}))
+
+
 class _UrllibTransport:
     """Default transport over urllib.
 
@@ -135,6 +188,9 @@ class _UrllibTransport:
         # Reponse en vol, pour `close_inflight` (TODO #24).
         self._inflight = None
         self._inflight_lock = threading.Lock()
+        # La socket, coupable avant les en-tetes : sans flux, LM Studio
+        # n'envoie rien avant d'avoir fini (mesure 2026-11-07, > 60 s).
+        self._coupure = Coupure()
 
     def close_inflight(self) -> None:
         """Ferme la reponse en cours, s'il y en a une.
@@ -147,6 +203,7 @@ class _UrllibTransport:
         rapport. Attrape par `test_openai_compat_backend.py`. Une methode en
         plus, appelee via `getattr`, laisse tout transport existant intact.
         """
+        self._coupure.couper()
         with self._inflight_lock:
             r = self._inflight
         if r is None:
@@ -160,7 +217,7 @@ class _UrllibTransport:
                   timeout) -> dict:
         req = self._req(url, headers, payload)
         try:
-            with urllib.request.urlopen(req, timeout=timeout) as r:
+            with self._coupure.urlopen(req, timeout=timeout) as r:
                 with self._inflight_lock:
                     self._inflight = r
                 try:
@@ -172,14 +229,30 @@ class _UrllibTransport:
             raise HttpError(e.code, _safe_body(e)) from e
         except urllib.error.URLError as e:
             raise ConnectionError(str(e.reason)) from e
+        except (OSError, http.client.HTTPException) as e:
+            # urllib n'enveloppe ni getresponse() ni read() : un delai depasse
+            # (TimeoutError, qui n'est PAS un ConnectionError) traversait brut
+            # et s'affichait « timed out » (audit 2026-11-06). Meme regle
+            # qu'`iter_sse`.
+            raise ConnectionError(str(e)) from e
 
     def iter_sse(self, url: str, headers: dict, payload: dict,
                  timeout: int) -> Iterator[str]:
         req = self._req(url, headers, payload)
         try:
-            with urllib.request.urlopen(req, timeout=timeout) as r:
-                for raw in r:
-                    yield raw.decode("utf-8", errors="replace").rstrip("\r\n")
+            with self._coupure.urlopen(req, timeout=timeout) as r:
+                # Enregistree pour `close_inflight` : sans ca, Annuler ne
+                # fermait rien sur un flux (ChatGPT ne passe QUE par ici) et
+                # le fil orphelin lisait jusqu'a la fin, ou restait bloque.
+                with self._inflight_lock:
+                    self._inflight = r
+                try:
+                    for raw in r:
+                        yield raw.decode("utf-8", errors="replace").rstrip("\r\n")
+                finally:
+                    with self._inflight_lock:
+                        if self._inflight is r:
+                            self._inflight = None
         except urllib.error.HTTPError as e:
             raise HttpError(e.code, _safe_body(e)) from e
         except urllib.error.URLError as e:
@@ -197,6 +270,10 @@ class _UrllibTransport:
             raise HttpError(e.code, _safe_body(e)) from e
         except urllib.error.URLError as e:
             raise ConnectionError(str(e.reason)) from e
+        except (OSError, http.client.HTTPException) as e:
+            # Delai depasse pendant read() : « reseau », pas « reponse
+            # illisible » (cf. `post_json`).
+            raise ConnectionError(str(e)) from e
 
     @staticmethod
     def _req(url, headers, payload):
@@ -217,6 +294,9 @@ def _safe_body(e) -> str:
 # les deux ferait silencieusement retomber la generation sur les 120 s qu'on
 # vient de lui retirer — le bug est invisible, le code a l'air juste.
 _DEFAULT_TIMEOUT = object()
+# Meme patron : « max_tokens non fourni » doit se distinguer de
+# « max_tokens=None » (aucun plafond).
+_PLAFOND = object()
 
 
 class OpenAICompatBackend(AIBackend):
@@ -225,15 +305,28 @@ class OpenAICompatBackend(AIBackend):
                  backend_id: str, label: str,
                  context_window_hint: int = 8192,
                  code_task_temperature: float | None = None,
+                 requires_key: bool = True,
                  extra_headers=None,
+                 max_output_tokens: "int | None" = CLOUD_MAX_TOKENS,
+                 max_tokens_field: str = "max_tokens",
                  transport=None):
         self._base_url = base_url.rstrip("/")
+        # None = aucun plafond : la cle `max_tokens` n'est pas envoyee.
+        self._max_out = max_output_tokens
+        # `max_tokens`, ou `max_completion_tokens` (preset OpenAI : ses
+        # modeles a raisonnement refusent le premier).
+        self._max_field = max_tokens_field
         self._api_key = (api_key or "").strip()
         self._model = model
         self._backend_id = backend_id
         self._label = label
         self._ctx_hint = context_window_hint
         self._code_temp = code_task_temperature
+        # ⛔ Le defaut reste True : ce sont les fournisseurs CLOUD qui peuplent
+        # cette classe, et les oublier sans cle les rendrait « disponibles »
+        # pour echouer en 401 a la premiere requete. Seul un serveur LOCAL
+        # compatible OpenAI (LM Studio, llama.cpp, vLLM nu) passe False.
+        self._requires_key = bool(requires_key)
         self._extra_headers = dict(extra_headers or {})
         self._transport = transport or _UrllibTransport()
 
@@ -252,14 +345,26 @@ class OpenAICompatBackend(AIBackend):
 
     @property
     def requires_api_key(self) -> bool:
-        return True
+        return self._requires_key
 
     @property
     def context_window_hint(self) -> int:
         return self._ctx_hint
 
     def is_available(self) -> bool:
-        return bool(self._api_key and self._base_url and self._model)
+        """URL + modele, et une cle SI ce fournisseur en demande une.
+
+        ⛔ Exiger la cle inconditionnellement rendait indisponible tout
+        serveur local compatible OpenAI, qui n'en a pas -- et le seul moyen
+        de s'en servir etait d'inventer une cle bidon. Le cout etait
+        silencieux : `is_available()` garde la generation elle-meme
+        (`studio_view._launch_generation`), la reparation, l'explication
+        d'erreur et le lint ; aucun de ces chemins ne dit pourquoi il ne
+        fait rien.
+        """
+        if not (self._base_url and self._model):
+            return False
+        return bool(self._api_key) or not self._requires_key
 
     def list_models_detailed(self) -> tuple[list[str], str]:
         """Like list_models() but also returns an error kind ('' on success).
@@ -398,8 +503,13 @@ class OpenAICompatBackend(AIBackend):
                                 temperature=None, max_tokens=1, stream=False)
         url = f"{self._base_url}/chat/completions"
         try:
-            self._transport.post_json(url, self._headers(), payload,
-                                      _PROBE_TIMEOUT)
+            data = self._transport.post_json(url, self._headers(), payload,
+                                             _PROBE_TIMEOUT)
+            # Un 200 SANS contenu reste un succes (modele a raisonnement,
+            # QA AI1) ; un 200 qui PORTE une erreur n'en est pas un.
+            err = _embedded_error(data)
+            if err is not None:
+                raise err
             return True, ""
         except HttpError as e:
             # Le message DU FOURNISSEUR seul : c'est lui qui dit quoi faire.
@@ -419,20 +529,35 @@ class OpenAICompatBackend(AIBackend):
     # ── Transport ────────────────────────────────────────────
     def _headers(self) -> dict:
         # Core headers set LAST so extra_headers can never clobber auth.
+        # ⚠️ Sans cle, on n'envoie AUCUN `Authorization` -- pas un
+        # « Bearer » vide. Un serveur local le refuse ou le journalise comme
+        # une tentative d'authentification ratee, alors que la requete est
+        # legitime : l'absence d'en-tete est la facon de dire « anonyme ».
         h = dict(self._extra_headers)
-        h["Authorization"] = f"Bearer {self._api_key}"
+        if self._api_key:
+            h["Authorization"] = f"Bearer {self._api_key}"
         h["Content-Type"] = "application/json"
         return h
 
     def _payload(self, system: str, messages: list[dict], *,
-                 temperature, max_tokens, stream: bool) -> dict:
+                 temperature, stream: bool, max_tokens=_PLAFOND) -> dict:
+        """`max_tokens` non fourni : le plafond du moteur (`_max_out`), et
+        rien du tout quand il n'en a pas. Seule la sonde le fixe (a 1)."""
         msgs = ([{"role": "system", "content": system}] if system else []) + \
                [{"role": m["role"], "content": m["content"]} for m in messages]
-        p = {"model": self._model, "messages": msgs, "stream": stream,
-             "max_tokens": max_tokens}
+        p = {"model": self._model, "messages": msgs, "stream": stream}
+        plafond = self._max_out if max_tokens is _PLAFOND else max_tokens
+        if plafond is not None:
+            p[self._max_field] = plafond
         if temperature is not None:
             p["temperature"] = temperature
+        p.update(self._champs_en_plus())
         return p
+
+    def _champs_en_plus(self) -> dict:
+        """Champs propres a un moteur, ajoutes a chaque requete (LM Studio :
+        couper la reflexion). Aucun ici."""
+        return {}
 
     def cancel(self) -> None:
         """Coupe la requete de CODE en cours (cf. `AIBackend.cancel`).
@@ -458,8 +583,7 @@ class OpenAICompatBackend(AIBackend):
             pass
 
     def _complete(self, system: str, messages: list[dict], *,
-                  temperature=None, max_tokens=_GEN_MAX_TOKENS,
-                  timeout=_DEFAULT_TIMEOUT) -> str:
+                  temperature=None, timeout=_DEFAULT_TIMEOUT) -> str:
         """``timeout`` non fourni -> `_TIMEOUT` (le defaut historique) ;
         ``timeout=None`` -> AUCUN delai, transmis tel quel a `urlopen`.
 
@@ -469,14 +593,23 @@ class OpenAICompatBackend(AIBackend):
         bouton « Annuler », donc le leur retirer ne ferait qu'ajouter une
         requete que rien n'arreterait."""
         payload = self._payload(system, messages, temperature=temperature,
-                                max_tokens=max_tokens, stream=False)
+                                stream=False)
         url = f"{self._base_url}/chat/completions"
         try:
             data = self._transport.post_json(
                 url, self._headers(), payload,
                 _TIMEOUT if timeout is _DEFAULT_TIMEOUT else timeout)
-            content = data["choices"][0]["message"]["content"]
-            return content if content is not None else ""
+            err = _embedded_error(data)
+            if err is not None:
+                raise err          # meme avec un contenu partiel
+            choice = data["choices"][0]
+            if choice.get("finish_reason") == "length":
+                # Plafond de sortie atteint (ou depense en reflexion) : le
+                # texte, s'il y en a un, est TRONQUE. Le rendre tel quel le
+                # ferait compiler et reparer comme une faute du modele.
+                raise RuntimeError(_error_message("truncated"))
+            content = choice["message"]["content"]
+            return _sans_reflexion(content) if content is not None else ""
         except HttpError as e:
             raise RuntimeError(
                 _error_message(_status_kind(e.status),
@@ -504,22 +637,19 @@ class OpenAICompatBackend(AIBackend):
     def explain_error(self, error: str, language: str) -> str:
         return self._clean(self._complete(
             "", [{"role": "user",
-                  "content": self._build_explain_prompt(error, language)}],
-            max_tokens=_CHAT_MAX_TOKENS))
+                  "content": self._build_explain_prompt(error, language)}]))
 
     def explain_code(self, code: str, selection: str, language: str,
                      board_name: str) -> str:
         return self._complete(
             self._build_explain_code_system(board_name, language),
             [{"role": "user",
-              "content": self._build_explain_code_user(code, selection)}],
-            max_tokens=_CHAT_MAX_TOKENS).strip()
+              "content": self._build_explain_code_user(code, selection)}]).strip()
 
     def lint_code(self, code: str, language: str, board_name: str) -> str:
         return self._complete(
             self._build_lint_code_system(board_name, language),
-            [{"role": "user", "content": self._build_lint_code_user(code)}],
-            max_tokens=_CHAT_MAX_TOKENS).strip()
+            [{"role": "user", "content": self._build_lint_code_user(code)}]).strip()
 
     def add_comments(self, code: str, language: str, board_name: str) -> str:
         return self._clean(self._complete(
@@ -545,9 +675,9 @@ class OpenAICompatBackend(AIBackend):
             temperature=self._code_temp))
 
     def _complete_stream(self, system: str, messages: list[dict], *,
-                         temperature=None, max_tokens=_CHAT_MAX_TOKENS) -> Iterator[str]:
+                         temperature=None) -> Iterator[str]:
         payload = self._payload(system, messages, temperature=temperature,
-                                max_tokens=max_tokens, stream=True)
+                                stream=True)
         url = f"{self._base_url}/chat/completions"
         try:
             for line in self._transport.iter_sse(url, self._headers(),
@@ -562,6 +692,9 @@ class OpenAICompatBackend(AIBackend):
                     obj = json.loads(data)
                 except json.JSONDecodeError:
                     continue
+                err = _embedded_error(obj)
+                if err is not None:
+                    raise err      # le texte deja rendu reste affiche
                 delta = (obj.get("choices") or [{}])[0].get("delta") or {}
                 chunk = delta.get("content")
                 if isinstance(chunk, str) and chunk:
@@ -576,8 +709,7 @@ class OpenAICompatBackend(AIBackend):
             raise RuntimeError(_error_message("bad_response")) from e
 
     def chat(self, system_prompt: str, messages: list[dict]) -> str:
-        return self._complete(system_prompt, messages,
-                              max_tokens=_CHAT_MAX_TOKENS)
+        return self._complete(system_prompt, messages)
 
     def chat_stream(self, system_prompt: str, messages: list[dict]):
         yield from self._complete_stream(system_prompt, messages)

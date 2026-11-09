@@ -18,7 +18,7 @@ indicatives, d'ou le `~`. Celles des modeles locaux sont exactes.
 """
 from __future__ import annotations
 
-from PyQt6.QtCore import Qt, QThread, pyqtSignal
+from PyQt6.QtCore import QCoreApplication, QObject, Qt, QThread, pyqtSignal
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QLineEdit,
     QProgressBar, QFrame, QScrollArea, QWidget,
@@ -33,7 +33,12 @@ from .ollama_models import (
     PAGE_LIBRARY, SUGGERES, espace_disque_libre, espace_partiels,
     espace_suffisant, modeles_locaux, supprimer_modele,
     supprimer_partiels, telecharger, tient_en_vram, vram_totale,
+    modeles_charges, _avec_etiquette, contexte_max, go_carte,
 )
+from . import contexte
+from . import memoire_modeles
+from . import erreurs_chargement
+from . import ollama_models
 from . import icons as IC
 from .theme import (ColorScheme, theme_manager, icon_button_qss, input_qss,
                     install_icon_hover, primary_button_qss,
@@ -72,6 +77,101 @@ class _Worker(QThread):
         self.fini.emit(err)
 
 
+# ─── Le telechargement, qui survit a la fenetre ─────────────────────────
+# ⛔ Trouve le 2026-11-06 : fermer la fenetre pendant un telechargement
+# faisait PLANTER l'application (« QThread: Destroyed while thread is still
+# running »). Le fil appartenait a la fenetre, detruite a la fermeture
+# (WA_DeleteOnClose) ; aucun test ne couvrait cette fenetre.
+# Voulu par l'auteur, comme pour LM Studio : le telechargement CONTINUE, et la
+# fenetre rouverte montre ou il en est. Il vit donc ici, AVEC la garde
+# d'espace : restee dans la fenetre, elle se serait tue fenetre fermee, alors
+# qu'Ollama PREALLOUE le fichier entier.
+
+_COURANT: "_Telechargement | None" = None
+_SORTIE_BRANCHEE = False
+
+
+def _actif() -> bool:
+    return _COURANT is not None and _COURANT.en_cours()
+
+
+def _arreter_a_la_sortie():
+    """Quitter Promptuino interrompt le telechargement : c'est Promptuino qui
+    tient la connexion. Ollama garde les blocs, un nouvel essai reprend
+    (mesure du 2026-08-28). Attendre le fil evite le meme plantage, a la
+    sortie cette fois."""
+    t = _COURANT
+    if t is not None and t.en_cours():
+        t.annuler()
+        t.attendre(5000)
+
+
+class _Telechargement(QObject):
+    """Un telechargement Ollama et sa garde d'espace, sans fenetre.
+
+    `avance(recu, total, etape)` : progression qui a passe la garde.
+    `fini(issue)` : `{"err", "annule", "manque_espace"}`, garde dans `issue`
+    pour la fenetre qui s'ouvrira apres coup.
+    """
+
+    avance = pyqtSignal(object, object, str)
+    fini = pyqtSignal(object)
+
+    def __init__(self, nom: str):
+        super().__init__()
+        self.nom = nom
+        self.annule = False
+        self.manque_espace = None
+        self.issue: "dict | None" = None
+        self.dernier: tuple = (0, 0, "")
+        self._total_verifie = 0
+        self._worker = _Worker(nom)          # SANS parent : survit a la fenetre
+        self._worker.avance.connect(self._avance)
+        self._worker.fini.connect(self._fini)
+
+    def demarrer(self):
+        self._worker.start()
+
+    def en_cours(self) -> bool:
+        return self.issue is None
+
+    def annuler(self):
+        self.annule = True
+        self._worker.annuler()
+
+    def attendre(self, ms: int) -> bool:
+        return self._worker.wait(ms)
+
+    def _avance(self, recu, total, etape):
+        # Le `total` est CUMULE et GRANDIT a mesure que les blobs
+        # s'annoncent (cf. `cumuler`) : la garde d'espace se rejoue a
+        # chaque croissance -- verifier le seul premier blob laissait
+        # passer un llama3.1:8b (0,6 Go annonces, 4,9 reels). La
+        # preallocation des blobs deja partis a pu se produire ; le
+        # bouton << Liberer l'espace >> la rattrape.
+        if total > self._total_verifie:
+            self._total_verifie = total
+            if espace_suffisant(total) is False:
+                self.manque_espace = total
+                self._worker.annuler()
+                return
+        self.dernier = (recu, total, etape)
+        self.avance.emit(recu, total, etape)
+
+    def _fini(self, err):
+        # `fini` part de `run()` JUSTE AVANT qu'il ne rende la main. Attendre
+        # le fil garantit que la derniere reference, que la fenetre lache en
+        # affichant l'issue (`_COURANT = None`), ne tombe jamais sur un fil
+        # encore en cours. ⚠️ Protection, pas correctif mesure : un plantage
+        # natif (0xC0000409) a ete vu UNE fois sous `-j 6` avant cette ligne,
+        # et n'a pas pu etre reproduit a la demande (le cadre de `run()` garde
+        # le fil en vie tant qu'il s'execute, un fil ralenti ne prouve rien).
+        self._worker.wait()
+        self.issue = {"err": err, "annule": self.annule,
+                      "manque_espace": self.manque_espace}
+        self.fini.emit(self.issue)
+
+
 class ModelDownloadDialog(QDialog):
     """Modale de telechargement. `modele_installe` porte le nom obtenu."""
 
@@ -82,18 +182,23 @@ class ModelDownloadDialog(QDialog):
         super().__init__(parent)
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
         self.setMinimumWidth(560)
-        self._worker: "_Worker | None" = None
-        self._annule = False
-        self._total_verifie = 0
-        self._manque_espace = None
+        self._suivi: "_Telechargement | None" = None
+        self._en_cours = ""
         self._vram = vram_totale()
         self._locaux = modeles_locaux()
+        # Maximum de chaque modele : sous le plancher, INUTILISABLE (2026-11-06).
+        self._maxis = {n: contexte_max(n) for n in self._locaux}
+        # En memoire, pour Charger / Decharger (2026-11-06) : `/api/ps`,
+        # local et rapide comme `/api/tags` juste au-dessus.
+        self._charges = modeles_charges()
+        self._occupe = False
         self._lignes: list = []
         self._build()
         self.apply_theme(theme_manager.current)
         self.apply_lang(lang_manager.current)
         theme_manager.changed.connect(self.apply_theme)
         lang_manager.changed.connect(self.apply_lang)
+        self._rattacher()
 
     # ── Construction ──────────────────────────────────────────
     def _build(self):
@@ -111,6 +216,11 @@ class ModelDownloadDialog(QDialog):
         self._lbl_sug_note.setWordWrap(True)
         self._lbl_sug_note.setTextFormat(Qt.TextFormat.RichText)
         root.addWidget(self._lbl_sug_note)
+        # La memoire de la carte, dite UNE fois (et non plus sur chaque ligne,
+        # ou elle se lisait comme la taille des modeles -- QA du 2026-11-06).
+        self._lbl_vram = QLabel()
+        self._lbl_vram.setVisible(bool(self._vram))
+        root.addWidget(self._lbl_vram)
 
         # Liste BORNEE et defilante : 6 suggeres + la liste des locaux ont
         # fait deborder la fenetre des le premier utilisateur qui a telecharge
@@ -179,6 +289,14 @@ class ModelDownloadDialog(QDialog):
         self._dl_host.setAutoFillBackground(False)
         self._cadre_dl = self._encadrer(self._scroll_dl)
         root.addWidget(self._cadre_dl)
+        self._lbl_info = QLabel()          # refus d'Ollama, dit tel quel
+        self._lbl_info.setWordWrap(True)
+        self._lbl_info.hide()
+        root.addWidget(self._lbl_info)
+        self._lbl_libere = QLabel()        # ce que le chargement a libere
+        self._lbl_libere.setWordWrap(True)
+        self._lbl_libere.hide()
+        root.addWidget(self._lbl_libere)
         root.addSpacing(6)
 
         # ── 3. un autre modele ────────────────────────────────
@@ -263,8 +381,9 @@ class ModelDownloadDialog(QDialog):
             self._lancer(nom)
 
     def _lancer(self, nom: str):
-        if self._worker is not None and self._worker.isRunning():
-            return
+        global _COURANT, _SORTIE_BRANCHEE
+        if _actif():
+            return                          # un a la fois
         # Refus AVANT lancement quand la taille est connue (suggeres).
         # ⚠️ Important ici plus qu'ailleurs : Ollama PREALLOUE le fichier
         # entier des les premieres secondes -- un modele trop gros ne
@@ -274,36 +393,63 @@ class ModelDownloadDialog(QDialog):
         if taille_connue and espace_suffisant(taille_connue) is False:
             self._refus_espace(taille_connue, indicatif=True)
             return
-        self._total_verifie = 0
-        self._en_cours = nom
-        self._annule = False
+        t = _Telechargement(nom)
+        _COURANT = t
+        if not _SORTIE_BRANCHEE and QCoreApplication.instance() is not None:
+            QCoreApplication.instance().aboutToQuit.connect(_arreter_a_la_sortie)
+            _SORTIE_BRANCHEE = True
+        self._suivre(t)
+        t.demarrer()
+
+    def _suivre(self, t: "_Telechargement"):
+        """Branche cette fenetre sur un telechargement, neuf ou deja parti."""
+        self._suivi = t
+        self._en_cours = t.nom
+        t.avance.connect(self._avance)
+        t.fini.connect(self._fini)
         self._zone.show()
         self._barre.show()
-        self._lbl_note_annul.setText("")
+        self._lbl_note_annul.setText(lang_manager.current.md_keeps_running)
         self._btn_liberer.hide()
         self._btn_annuler.show()
         self._barre.setRange(0, 0)          # indetermine tant que `total` manque
-        self._lbl_etat.setText(nom)
+        self._lbl_etat.setText(t.nom)
         self._basculer_boutons(False)
-        self._worker = _Worker(nom, self)
-        self._worker.avance.connect(self._avance)
-        self._worker.fini.connect(self._fini)
-        self._worker.start()
+
+    def _rattacher(self):
+        """A l'ouverture : reprendre un telechargement parti d'une fenetre
+        precedente, ou dire UNE fois comment il s'est fini."""
+        t = _COURANT
+        if t is None:
+            return
+        if not t.en_cours():
+            self._en_cours = t.nom
+            self._zone.show()
+            self._fini(t.issue)
+            return
+        self._suivre(t)
+        recu, total, etape = t.dernier
+        if total:
+            self._avance(recu, total, etape)
+
+    def _detacher(self):
+        t, self._suivi = self._suivi, None
+        if t is None:
+            return
+        for signal, slot in ((t.avance, self._avance), (t.fini, self._fini)):
+            try:
+                signal.disconnect(slot)
+            except TypeError:
+                pass                        # deja debranche
+
+    def done(self, r):
+        # Le telechargement continue (la note le dit) : on cesse seulement
+        # de l'afficher. La prochaine fenetre se rebranchera dessus.
+        self._detacher()
+        super().done(r)
 
     def _avance(self, recu: int, total: int, etape: str):
-        # Le `total` est CUMULE et GRANDIT a mesure que les blobs
-        # s'annoncent (cf. `cumuler`) : la garde d'espace se rejoue a
-        # chaque croissance -- verifier le seul premier blob laissait
-        # passer un llama3.1:8b (0,6 Go annonces, 4,9 reels). La
-        # preallocation des blobs deja partis a pu se produire ; le
-        # bouton << Liberer l'espace >> la rattrape.
-        if total > self._total_verifie:
-            self._total_verifie = total
-            if espace_suffisant(total) is False:
-                self._manque_espace = total
-                if self._worker is not None:
-                    self._worker.annuler()
-                return
+        # La garde d'espace a deja tourne dans `_Telechargement`.
         if total:
             self._barre.setRange(0, 100)
             self._barre.setValue(int(recu * 100 / total))
@@ -312,27 +458,36 @@ class ModelDownloadDialog(QDialog):
         else:
             self._lbl_etat.setText(f"{self._en_cours} — {etape}")
 
-    def _fini(self, err):
+    def _fini(self, issue: dict):
+        global _COURANT
+        # L'issue est affichee : plus rien a garder pour une fenetre future.
+        _COURANT = None
+        self._detacher()
         s = lang_manager.current
+        err = issue.get("err")
         self._btn_annuler.hide()
+        self._lbl_note_annul.setText("")
         self._basculer_boutons(True)
-        if self._manque_espace:
-            self._refus_espace(self._manque_espace, indicatif=False)
-            self._manque_espace = None
+        if issue.get("manque_espace"):
+            self._refus_espace(issue["manque_espace"], indicatif=False)
             return
         # ⚠️ `telecharger` rend None DANS LES DEUX CAS -- succes et
         # annulation. Sans ce drapeau, annuler affichait
         # << Telechargement termine >>, ce qui est un mensonge et laissait
         # croire que le modele etait utilisable.
-        if self._annule:
+        if issue.get("annule"):
             self._lbl_etat.setText(s.md_cancelled)
+            # ⚠️ On ne promet PAS de liberer l'espace : Ollama a deja reserve
+            # le fichier entier. La note sous la barre le dit noir sur blanc.
+            self._lbl_note_annul.setText(s.md_cancel_note)
             self._barre.hide()          # une barre figee a 10 % ment
             if espace_partiels() > 0:
                 self._btn_liberer.show()
             self.adjustSize()
             return
         if err:
-            self._lbl_etat.setText(s.md_failed.format(err=err))
+            # Jamais le texte brut : quoi faire, ou une phrase simple (2026-11-06).
+            self._lbl_etat.setText(erreurs_chargement.telechargement(err, s))
             self._barre.setRange(0, 100)
             self._barre.setValue(0)
             if espace_partiels() > 0:
@@ -343,6 +498,8 @@ class ModelDownloadDialog(QDialog):
         self._barre.setRange(0, 100)
         self._barre.setValue(100)
         self._locaux = modeles_locaux()
+        # Maximum de chaque modele : sous le plancher, INUTILISABLE (2026-11-06).
+        self._maxis = {n: contexte_max(n) for n in self._locaux}
         self._rendre_listes(s)
         self.modele_installe.emit(self._en_cours)
 
@@ -365,9 +522,8 @@ class ModelDownloadDialog(QDialog):
         self.adjustSize()
 
     def _annuler(self):
-        self._annule = True
-        if self._worker is not None:
-            self._worker.annuler()
+        if self._suivi is not None:
+            self._suivi.annuler()
         # ⚠️ On ne promet PAS de liberer l'espace : Ollama a deja reserve le
         # fichier entier. La note sous la barre le dit noir sur blanc.
         self._lbl_note_annul.setText(lang_manager.current.md_cancel_note)
@@ -380,7 +536,7 @@ class ModelDownloadDialog(QDialog):
         garde brievement un verrou, constate en mesurant) : on le dit et
         on laisse le bouton pour reessayer, on ne boucle pas en silence.
         """
-        if self._worker is not None and self._worker.isRunning():
+        if _actif():
             return
         s = lang_manager.current
         n, octets, verrouilles = supprimer_partiels()
@@ -400,7 +556,7 @@ class ModelDownloadDialog(QDialog):
         choix. On n'interdit pas -- c'est sa machine -- mais on ne laisse pas
         decouvrir la panne apres coup.
         """
-        if self._worker is not None and self._worker.isRunning():
+        if _actif():
             return
         from .ai_config import ai_config
         s = lang_manager.current
@@ -420,13 +576,15 @@ class ModelDownloadDialog(QDialog):
         if err:
             self._zone.show()
             self._barre.hide()
-            self._lbl_etat.setText(s.md_failed.format(err=err))
+            self._lbl_etat.setText(s.md_delete_failed)
             self.adjustSize()
             return
         self._zone.show()
         self._barre.hide()
         self._lbl_etat.setText(s.md_deleted.format(nom=nom))
         self._locaux = modeles_locaux()
+        # Maximum de chaque modele : sous le plancher, INUTILISABLE (2026-11-06).
+        self._maxis = {n: contexte_max(n) for n in self._locaux}
         self._rendre_listes(s)
         self.adjustSize()
         self.modele_supprime.emit(nom)
@@ -438,12 +596,83 @@ class ModelDownloadDialog(QDialog):
         for b in getattr(self, "_btns_suppr", []):
             b.setEnabled(actifs)
 
+    # ── Charger / decharger (2026-11-06) ──────────────────────
+    def _geste(self, quoi: str, nom: str, btn=None):
+        """Charger au contexte de la GENERATION (mesure : un autre `num_ctx`
+        recharge le modele), ou decharger. Dans un fil : un chargement a
+        froid prend ~30 s. Pendant un chargement, le bouton de la ligne dit
+        « Annuler » (2026-11-07) : couper la requete fait abandonner Ollama."""
+        if self._occupe and getattr(self, "_coupure_chg", None):
+            self._chg_annule = True
+            self._coupure_chg.couper()
+            return
+        if self._occupe:
+            return
+        from .taches_fond import lancer_en_fond
+        from .ai_backends.coupure import Coupure
+        coupure = self._coupure_chg = (Coupure(unique=True)
+                                       if quoi == "charger" else None)
+        self._chg_annule = False
+        self._occupe = True
+        for b in self._btns_geste:
+            b.setEnabled(False)
+        if btn is not None and coupure is not None:
+            btn.setText(lang_manager.current.md_cancel)
+            btn.setEnabled(True)               # c'est lui qui annule
+        self._lbl_info.hide()
+        if quoi == "decharger":
+            def tache():
+                return ollama_models.decharger(nom)
+        else:
+            def tache():
+                from .ai_backends import ollama_backend
+                from .ai_config import ai_config
+                ctx = ollama_backend.OllamaBackend(nom).generation_context()
+                # D'abord les AUTRES modeles, sur les deux moteurs (2026-11-06).
+                liberes = memoire_modeles.liberer_autres(
+                    "ollama", nom, ai_config.lmstudio_base_url)
+                if coupure.annulee:              # annule pendant la liberation
+                    return False, "", liberes
+                ok, msg = ollama_models.charger(nom, ctx, coupure=coupure)
+                return ok, msg, liberes
+        lancer_en_fond(quoi, tache, self._apres_geste)
+
+    def _apres_geste(self, paquet):
+        quoi, r = paquet
+        s = lang_manager.current
+        if not isinstance(r, tuple):
+            r = (False, str(r))
+        ok, msg = r[0], r[1]
+        libere = memoire_modeles.phrase(r[2] if len(r) > 2 else [], s.mem_freed)
+        self._lbl_libere.setText(libere)
+        self._lbl_libere.setVisible(bool(libere))
+        self._occupe = False
+        annule = quoi == "charger" and getattr(self, "_chg_annule", False)
+        self._coupure_chg = None
+        self._chg_annule = False
+        if annule:
+            # Un choix, pas une panne : pas de rouge.
+            self._lbl_libere.setText(
+                " ".join(t for t in (libere, s.load_cancelled) if t))
+            self._lbl_libere.setVisible(True)
+        elif not ok:
+            # Jamais le texte brut d'Ollama : une phrase simple (2026-11-06).
+            self._lbl_info.setText(erreurs_chargement.message(
+                "ollama", msg, s, decharge=(quoi == "decharger")))
+            self._lbl_info.show()
+        self._charges = modeles_charges()
+        self._rendre_listes(s)
+        # La page relit son etat a la fermeture (`refresh_availability`
+        # apres `exec`) : pas de signal a ajouter.
+
     # ── Lang ──────────────────────────────────────────────────
     def apply_lang(self, s: Strings):
         self.setWindowTitle(s.md_title)
         self._lbl_titre.setText(s.md_title)
         self._lbl_sug.setText(s.md_suggested)
         self._lbl_sug_note.setText(s.md_suggested_note)
+        if self._vram:
+            self._lbl_vram.setText(s.md_vram.format(vram=go_carte(self._vram)))
         self._lbl_dl.setText(s.md_downloaded)
         self._lbl_autre.setText(s.md_other)
         lien = (f'<a href="{PAGE_LIBRARY}" style="color: '
@@ -485,6 +714,7 @@ class ModelDownloadDialog(QDialog):
                 btn.setToolTip(s.md_download)
 
         self._btns_suppr = []
+        self._btns_geste = []
         # ⚠️ Vidage RECURSIF, et la recursion n'est pas un luxe : les lignes
         # sont des QHBoxLayout imbriques, sur lesquels `it.widget()` rend
         # None -- la premiere version ne detachait que les widgets directs,
@@ -529,12 +759,45 @@ class ModelDownloadDialog(QDialog):
             else:
                 suff = ""
             morceau = f" · {params_l}" if params_l else ""
-            lab = QLabel(f"<b>{n}</b> — {_go(taille_l)}{morceau}{suff}")
+            charge = _avec_etiquette(n) in self._charges
+            ctx = self._charges.get(_avec_etiquette(n))
+            # Meme mention que la fenetre LM Studio : « chargé · N tokens ».
+            en_mem = ""
+            if charge:
+                en_mem = " · " + (s.lms_loaded.format(n=ctx) if ctx
+                                  else s.lms_loaded.split("·")[0].strip())
+            inutilisable = not contexte.utilisable(self._maxis.get(n))
+            raison = (" · " + s.md_unusable_ctx.format(n=self._maxis.get(n))
+                      if inutilisable else "")
+            lab = QLabel(f"<b>{n}</b> — {_go(taille_l)}{morceau}{en_mem}{raison}{suff}")
             lab.setTextFormat(Qt.TextFormat.RichText)
+            # Retour a la ligne : sans lui, des que la barre de defilement
+            # apparait, « Charger » et la croix sortaient a droite, coupes
+            # (capture du 2026-11-06, cinq modeles installes).
+            lab.setWordWrap(True)
             lab.setStyleSheet(
                 f"font-size: 9pt; color: {c.text_primary};"
                 " background: transparent;")
             ligne.addWidget(lab, 1)
+            # Charger / Decharger : les memes boutons que la fenetre
+            # LM Studio (demande de l'auteur, 2026-11-06).
+            btn_mem = QPushButton(s.lms_unload if charge else s.lms_load)
+            btn_mem.setAutoDefault(False)
+            btn_mem.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn_mem.setStyleSheet(secondary_button_qss(c))
+            if charge:
+                btn_mem.clicked.connect(
+                    lambda _c=False, nn=n: self._geste("decharger", nn))
+            elif inutilisable:
+                btn_mem.setToolTip(s.ctx_unusable.format(
+                    n=self._maxis.get(n), min=contexte.CTX_PROMPTUINO))
+            else:
+                btn_mem.setToolTip(s.om_load_tip)
+                btn_mem.clicked.connect(
+                    lambda _c=False, nn=n, b=btn_mem: self._geste("charger", nn, b))
+            btn_mem.setEnabled(not self._occupe and (charge or not inutilisable))
+            self._btns_geste.append(btn_mem)
+            ligne.addWidget(btn_mem)
             # Corbeille : la confirmation porte le danger (<< Non >> par
             # defaut), pas l'icone -- meme discipline que les cles d'API a la
             # desinstallation (#78).
@@ -548,8 +811,7 @@ class ModelDownloadDialog(QDialog):
             btn_sup.setToolTip(s.md_delete_tip)
             btn_sup.setStyleSheet(icon_button_qss(c))
             btn_sup.clicked.connect(lambda _c=False, nn=n: self._supprimer(nn))
-            btn_sup.setEnabled(self._worker is None
-                               or not self._worker.isRunning())
+            btn_sup.setEnabled(not _actif())
             self._btns_suppr.append(btn_sup)
             ligne.addWidget(btn_sup)
             self._dl_lay.addLayout(ligne)
@@ -590,9 +852,11 @@ class ModelDownloadDialog(QDialog):
             w.setStyleSheet(f"font-size: 13pt; font-weight: 700; color: {c.text_primary};")
         for w in (self._lbl_sug, self._lbl_dl, self._lbl_autre):
             w.setStyleSheet(f"font-size: 10pt; font-weight: 600; color: {c.text_primary};")
-        for w in (self._lbl_sug_note, self._lbl_autre_aide,
+        for w in (self._lbl_sug_note, self._lbl_vram, self._lbl_autre_aide,
                   self._lbl_etat, self._lbl_note_annul):
             w.setStyleSheet(f"font-size: 9pt; color: {c.text_secondary};")
+        self._lbl_info.setStyleSheet(f"font-size: 9pt; color: {c.signal_error};")
+        self._lbl_libere.setStyleSheet(f"font-size: 9pt; color: {c.text_secondary};")
 
         for _n, _t, _p, lbl, btn in self._lignes:
             lbl.setStyleSheet(f"font-size: 9pt; color: {c.text_primary};")

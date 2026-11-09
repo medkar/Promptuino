@@ -143,6 +143,26 @@ _C_KEYWORDS = frozenset({
 })
 
 
+# Objet global construit avec des arguments : `LiquidCrystal_I2C lcd(0x27, 16, 2);`,
+# `DHT dht(DHTPIN, DHTTYPE);`. Le nom est suivi de `(` et non de = ; [ : sans
+# cette forme, ces objets (la declaration la plus courante des bibliotheques)
+# n'etaient ni dedupliques ni signales au modele comme « deja pris ».
+_GLOBAL_CTOR_RE = re.compile(
+    r"^\s*(?:(?:const|static|volatile)\s+)*[A-Za-z_][\w:<>]*\s*[*&]?\s+"
+    r"([A-Za-z_]\w*)\s*\(")
+
+
+def _ctor_name(line: str) -> str | None:
+    m = _GLOBAL_CTOR_RE.match(line)
+    if not m:
+        return None
+    tok = m.group(1)
+    first = line.split(None, 1)[0] if line.split() else ""
+    if tok in _C_KEYWORDS or first in _C_KEYWORDS:
+        return None
+    return tok
+
+
 def used_global_names(features: list[Feature]) -> set[str]:
     """Identifiers declared at global scope (variables/objects) — to prevent the
     model from reusing the same name (e.g. `PIN_LED`) on a new feature."""
@@ -153,6 +173,9 @@ def used_global_names(features: list[Feature]) -> set[str]:
                 tok = m.group(1)
                 if tok not in _C_KEYWORDS:
                     names.add(tok)
+            c = _ctor_name(line)
+            if c:
+                names.add(c)
     return names
 
 
@@ -171,11 +194,47 @@ def declared_name(line: str) -> str | None:
     m = _DEFINE_RE.search(line)
     if m:
         return m.group(1)
+    c = _ctor_name(line)
+    if c:
+        return c
     for m in _GLOBAL_NAME_RE.finditer(line):
         tok = m.group(1)
         if tok not in _C_KEYWORDS:
             return tok
     return None
+
+
+_LITERAL_RE = re.compile(r"\"(?:\\.|[^\"\\])*\"|'(?:\\.|[^'\\])*'")
+
+
+def statement_names(lines: list[str]) -> list[str | None]:
+    """Pour CHAQUE ligne globale, le nom declare par l'ENONCE auquel elle
+    appartient. `sketch_parser` range chaque ligne d'un initialiseur
+    multi-ligne a part (`char k[2][2] = {` / `{'1','2'},` / `};`) : avec
+    `declared_name` ligne a ligne, seule la premiere etait dedupliquee et les
+    continuations restaient orphelines (erreur de compilation) — ou, pire, un
+    membre `int count;` de struct prenait le nom d'une globale et etait
+    retire. Les continuations heritent donc du nom de la ligne de tete."""
+    return [n for n, _h in statement_spans(lines)]
+
+
+def statement_spans(lines: list[str]) -> "list[tuple[str | None, bool]]":
+    """`statement_names` + un drapeau « cette ligne OUVRE l'enonce »."""
+    out: "list[tuple[str | None, bool]]" = []
+    depth = 0
+    head: str | None = None
+    for ln in lines:
+        if depth > 0:
+            out.append((head, False))
+        else:
+            head = declared_name(ln)
+            out.append((head, True))
+        code = _LITERAL_RE.sub("", ln.split("//", 1)[0])
+        depth += sum(code.count(c) for c in "{([")
+        depth -= sum(code.count(c) for c in "})]")
+        if depth < 0:
+            depth = 0
+    return out
 
 
 def feature_mentions_pin(feature: Feature, pin: str) -> bool:

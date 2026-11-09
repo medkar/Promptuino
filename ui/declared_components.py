@@ -255,9 +255,15 @@ def library_file_unusable() -> bool:
         return True
 
 
-def save(items: list[DeclaredComponent]) -> None:
+def save(items: list[DeclaredComponent]) -> bool:
     """Atomic write (tmp + os.replace), same discipline as ui/session.py: a
-    crash leaves either the whole previous file or the whole new one."""
+    crash leaves either the whole previous file or the whole new one.
+
+    Returns False when the file could not be written (OneDrive lock,
+    read-only Documents...), like `component_libs.save`: swallowing the
+    OSError silently lost the declaration at the next start while the
+    session went on using it (audit 2026-11-06). Callers decide what to say.
+    """
     try:
         _LIBRARY_PATH.parent.mkdir(parents=True, exist_ok=True)
         text = json.dumps(
@@ -279,7 +285,8 @@ def save(items: list[DeclaredComponent]) -> None:
                 except OSError:
                     pass
     except OSError:
-        pass
+        return False
+    return True
 
 
 # ─── In-memory registry ────────────────────────────────────────────────

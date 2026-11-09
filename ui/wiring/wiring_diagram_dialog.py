@@ -419,6 +419,38 @@ _DIALOG_LABELS: dict[str, dict[str, str]] = {
         "es": "No se puede generar el esquema para este código.",
         "it": "Impossibile generare lo schema per questo codice.",
     },
+    # Bandeaux des limites de placement (TODO #124) : le detail est a droite,
+    # dans les instructions (`instructions._WARNING_TEMPLATES`).
+    "too_many_servos_banner": {
+        "fr": "⚠️ {count} servos — le schéma en dessine {limit} au maximum "
+              "(voir détails à droite).",
+        "en": "⚠️ {count} servos — the diagram draws {limit} at most "
+              "(see details on the right).",
+        "es": "⚠️ {count} servos — el esquema dibuja {limit} como máximo "
+              "(ver detalles a la derecha).",
+        "it": "⚠️ {count} servo — lo schema ne disegna {limit} al massimo "
+              "(vedere dettagli a destra).",
+    },
+    "too_many_components_banner": {
+        "fr": "⚠️ Projet trop grand pour le schéma : {count} places, {limit} "
+              "au maximum (voir détails à droite).",
+        "en": "⚠️ Project too large for the diagram: {count} spots, {limit} "
+              "at most (see details on the right).",
+        "es": "⚠️ Proyecto demasiado grande para el esquema: {count} "
+              "posiciones, {limit} como máximo (ver detalles a la derecha).",
+        "it": "⚠️ Progetto troppo grande per lo schema: {count} posti, "
+              "{limit} al massimo (vedere dettagli a destra).",
+    },
+    "breadboards_full_banner": {
+        "fr": "⚠️ Les composants ne tiennent pas sur deux plaques d'essai "
+              "(voir détails à droite).",
+        "en": "⚠️ The components do not fit on two breadboards "
+              "(see details on the right).",
+        "es": "⚠️ Los componentes no caben en dos placas de pruebas "
+              "(ver detalles a la derecha).",
+        "it": "⚠️ I componenti non entrano in due breadboard "
+              "(vedere dettagli a destra).",
+    },
     "too_many_dc_motors_banner": {
         "fr": "⚠️ {count} moteurs DC détectés — Promptuino se limite à 2 "
               "moteurs DC max (voir détails à droite).",
@@ -709,6 +741,31 @@ _DIALOG_LABELS: dict[str, dict[str, str]] = {
         "en": "Cannot export to PNG:\n{e}",
         "es": "No se puede exportar a PNG:\n{e}",
         "it": "Impossibile esportare in PNG:\n{e}",
+    },
+    # Causes inserees dans `export_failed_body` / `copy_failed_body` : elles
+    # etaient en francais en dur, et l'echec de la copie etait muet (audit
+    # 2026-11-06, wiring_diagram_dialog.py:4797).
+    "export_write_failed": {
+        "fr": "l'écriture du fichier a échoué",
+        "en": "the file could not be written",
+        "es": "no se pudo escribir el archivo",
+        "it": "impossibile scrivere il file",
+    },
+    "export_svg_invalid": {
+        "fr": "le schéma n'a pas pu être lu",
+        "en": "the diagram could not be read",
+        "es": "no se pudo leer el esquema",
+        "it": "impossibile leggere lo schema",
+    },
+    "copy_failed_title": {
+        "fr": "Copie impossible", "en": "Copy failed",
+        "es": "Copia fallida", "it": "Copia non riuscita",
+    },
+    "copy_failed_body": {
+        "fr": "Impossible de copier le schéma :\n{e}",
+        "en": "Cannot copy the diagram:\n{e}",
+        "es": "No se puede copiar el esquema:\n{e}",
+        "it": "Impossibile copiare lo schema:\n{e}",
     },
 
     # ─── Modales pédagogiques « en savoir plus » (Level 3, fin de fichier,
@@ -2717,6 +2774,7 @@ _INFO_TITLE_BY_CODE = {
     "unwired_unknown_component":      "info_title_unrecognized",
     "unwired_unknown_component_pins": "info_title_unrecognized",
     "undrawable_component":           "info_title_unrecognized",
+    "replaced_pinout_unknown":        "info_title_presumed",
     "presumed_i2c_wiring":            "info_title_presumed",
     "presumed_analog_component":      "info_title_presumed",
     "presumed_from_description":       "info_title_presumed",
@@ -3603,9 +3661,13 @@ class SchemaView(QGraphicsView):
         trace_to_source detect the 'board' source without having to
         descend into the board's SVG.
         """
+        # Sur-ensemble des cartes prises en charge (Mega 2560 : D0-D53,
+        # A0-A15 ; Nano : A6/A7). Limite a l'Uno, une LED sur D22 d'un Mega
+        # laissait la carte grisee au surlignage (audit 2026-11-06). Un net
+        # « D22 » n'existe de toute facon que sur une carte qui a cette broche.
         labels = (
-            [f"D{i}" for i in range(14)]
-            + [f"A{i}" for i in range(6)]
+            [f"D{i}" for i in range(54)]
+            + [f"A{i}" for i in range(16)]
             + ["GND", "5V", "3V3", "AREF", "RESET", "VIN", "IOREF"]
         )
         return {lbl: lbl for lbl in labels}
@@ -4027,7 +4089,7 @@ class WiringDiagramDialog(QDialog):
                 lang=self._instructions_lang(),
             )
             self._md_view.setMarkdown(self._instructions_md)
-            self._err_banner.setText(self._render_failed_message())
+            self._err_banner.setText(self._render_failed_banner())
             self._err_banner.setVisible(True)
             self._schema_view.load_svg(QByteArray(b""))
             self._set_export_enabled(False)
@@ -4457,7 +4519,8 @@ class WiringDiagramDialog(QDialog):
             return
         from . import implicit_actions as _ia
         from .component_menu import menu_entries
-        actions = _ia.available_actions(target, self._netlist)
+        actions = _ia.available_actions(
+            target, self._netlist, lang=self._instructions_lang())
         base_editable = False
         if self._editable_refs_fn is not None:
             try:
@@ -4794,7 +4857,7 @@ class WiringDiagramDialog(QDialog):
             image = self._render_png_image(scale=2.0)
             ok = image.save(path, "PNG")
             if not ok:
-                raise RuntimeError("Echec de l'ecriture PNG")
+                raise RuntimeError(_t("export_write_failed", lang))
         except (OSError, RuntimeError) as e:
             QMessageBox.warning(
                 self, _t("export_failed_title", lang),
@@ -4807,16 +4870,23 @@ class WiringDiagramDialog(QDialog):
         clipboard = QGuiApplication.clipboard()
         if clipboard is None:
             return
+        lang = self._instructions_lang()
         try:
             image = self._render_png_image(scale=2.0)
-        except RuntimeError:
+        except RuntimeError as e:
+            QMessageBox.warning(
+                self, _t("copy_failed_title", lang),
+                _t("copy_failed_body", lang).format(e=e),
+            )
             return
         clipboard.setImage(image)
-        # Feedback: flash the button.
-        lang = self._instructions_lang()
-        original = self._btn_copy.text()
+        # Feedback: flash the button. On restaure le libelle CANONIQUE, pas
+        # le texte courant : deux clics rapproches memorisaient « Copié ✓ »
+        # comme texte d'origine et le bouton y restait bloque (audit
+        # 2026-11-06, wiring_diagram_dialog.py:4817).
         self._btn_copy.setText(_t("btn_copied", lang))
-        QTimer.singleShot(1500, lambda: self._btn_copy.setText(original))
+        QTimer.singleShot(1500, lambda: self._btn_copy.setText(
+            _t("btn_copy", self._instructions_lang())))
 
     def _render_png_image(self, scale: float = 2.0) -> QImage:
         """Rasterizes the current SVG to a QImage, with the mandatory watermark.
@@ -4829,7 +4899,8 @@ class WiringDiagramDialog(QDialog):
         """
         renderer = QSvgRenderer(QByteArray(self._svg_str.encode("utf-8")))
         if not renderer.isValid():
-            raise RuntimeError("SVG invalide")
+            raise RuntimeError(_t("export_svg_invalid",
+                                  self._instructions_lang()))
         size = renderer.defaultSize()
         if size.isEmpty():
             size = QSize(1100, 800)
@@ -4933,6 +5004,18 @@ class WiringDiagramDialog(QDialog):
 
     def _render_failed_message(self) -> str:
         return _t("render_failed", self._instructions_lang())
+
+    def _render_failed_banner(self) -> str:
+        """Bandeau d'un rendu sans SVG : la limite de placement NOMMEE si le
+        pipeline en a pose une (TODO #124), sinon le message generique."""
+        from .layout.pipeline import PLACEMENT_LIMIT_CODES
+        lang = self._instructions_lang()
+        for w in (self._netlist.warnings if self._netlist is not None else []):
+            if w.code in PLACEMENT_LIMIT_CODES:
+                p = w.params or {}
+                return _t(f"{w.code}_banner", lang).format(
+                    count=p.get("count", 0), limit=p.get("limit", 0))
+        return self._render_failed_message()
 
     def _refresh_mode_labels(self):
         lang = self._instructions_lang()

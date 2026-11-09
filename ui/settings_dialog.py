@@ -592,6 +592,7 @@ class SettingsDialog(QDialog):
         self._btn_storage.apply_theme(c)
         self._btn_libraries.apply_theme(c)
         self._btn_privacy.apply_theme(c)
+        self._btn_backstage.apply_theme(c)
         self._lang_page.apply_theme(c)
         self._theme_page.apply_theme(c)
         self._storage_page.apply_theme(c)

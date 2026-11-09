@@ -47,34 +47,48 @@ class ImplicitAction:
 
 
 # ─── Public API ──────────────────────────────────────────────────────────
+def _l(lang: str, fr: str, en: str, es: str, it: str) -> str:
+    """Label in the UI language (fr = historical default, also the fallback)."""
+    return {"en": en, "es": es, "it": it}.get(lang, fr)
+
+
+def _microstep_label(lang: str, current: str, fr_label: str) -> str:
+    if current == "full":
+        return _l(lang, fr_label, "Full step", "Paso completo", "Passo intero")
+    # "1/2 pas", "1/16 pas"... : the fraction is universal, only the unit varies.
+    unit = {"en": "step", "es": "paso", "it": "passo"}.get(lang)
+    return f"{current} {unit}" if unit else fr_label
+
+
 def available_actions(component: "Component",
-                       netlist: "Netlist") -> list[ImplicitAction]:
+                       netlist: "Netlist",
+                       lang: str = "fr") -> list[ImplicitAction]:
     """Returns the list of implicit actions available for `component`
     in the current state of the netlist. Empty if none.
     """
     out: list[ImplicitAction] = []
     t = component.type
     if t == "servo":
-        out.append(_servo_external_power_action(component))
+        out.append(_servo_external_power_action(component, lang))
     elif t == "led":
-        act = _led_series_value_action(component, netlist)
+        act = _led_series_value_action(component, netlist, lang)
         if act is not None:
             out.append(act)
     elif t == "button":
-        out.append(_btn_pullup_action(component, netlist))
+        out.append(_btn_pullup_action(component, netlist, lang))
     elif t in ("dht11", "dht22"):
-        out.append(_dht_pullup_action(component, netlist))
+        out.append(_dht_pullup_action(component, netlist, lang))
     elif t == "ds18b20":
-        out.append(_ds18b20_pullup_action(component, netlist))
+        out.append(_ds18b20_pullup_action(component, netlist, lang))
     elif t in ("buzzer", "speaker"):
         # Meme resistance serie que le buzzer depuis le #94, donc meme action
         # a l'engrenage. Troisieme endroit ou la regle devait etre suivie et
         # ne l'etait pas (QA AK2.1, 2026-09-07) : le CALCUL (`inference`), le
         # PLACEMENT (`layout`) et l'ACTION (ici) vivent dans trois fichiers
         # differents, et rien ne les tenait ensemble.
-        out.append(_buzzer_series_action(component, netlist))
+        out.append(_buzzer_series_action(component, netlist, lang))
     elif t in _MICROSTEP_BY_TYPE:
-        out.append(_microstepping_action(component))
+        out.append(_microstepping_action(component, lang))
     return out
 
 
@@ -120,15 +134,20 @@ def apply_action(component: "Component", action_id: str,
 
 
 # ─── Servo: external power (BAT_5V) vs Arduino 5V ────────────────────────
-def _servo_external_power_action(servo: "Component") -> ImplicitAction:
+def _servo_external_power_action(servo: "Component",
+                                 lang: str = "fr") -> ImplicitAction:
     vcc = servo.pin("VCC")
     is_external = vcc is not None and vcc.net.startswith("BAT_")
     return ImplicitAction(
         id="servo_external_power",
         label=(
-            "Repasser sur le 5V Arduino"
+            _l(lang, "Repasser sur le 5V Arduino", "Switch back to Arduino 5V",
+               "Volver al 5V de Arduino", "Tornare ai 5V di Arduino")
             if is_external
-            else "Alimenter par batterie externe"
+            else _l(lang, "Alimenter par batterie externe",
+                    "Power from an external battery",
+                    "Alimentar con batería externa",
+                    "Alimentare con batteria esterna")
         ),
         is_active=is_external,
         value=is_external,
@@ -148,11 +167,16 @@ def _toggle_servo_external_power(servo: "Component",
     if vcc is None:
         return
     if vcc.net.startswith("BAT_"):
+        old_net = vcc.net     # BAT_5V, ou BAT_5V_2 apres une separation
         vcc.net = "5V"
-        _maybe_remove_battery(netlist, "BAT_5V")
+        _maybe_remove_battery(netlist, old_net)
     else:
         vcc.net = "BAT_5V"
         _ensure_battery(netlist, plus_net="BAT_5V")
+        # Un servo (4,8-6 V) ne doit pas partager la pile d'un moteur
+        # 8-35 V : meme regle que a la generation.
+        from .inference import _split_battery_for_voltage_compat
+        _split_battery_for_voltage_compat(netlist)
 
 
 def _maybe_remove_battery(netlist: "Netlist", plus_net: str) -> None:
@@ -220,7 +244,8 @@ def _find_led_series_resistor(led: "Component",
 
 
 def _led_series_value_action(led: "Component",
-                              netlist: "Netlist") -> ImplicitAction | None:
+                              netlist: "Netlist",
+                              lang: str = "fr") -> ImplicitAction | None:
     """Selector action on the LED series R value. If no R is present
     (case "None" chosen by the user), still returns an action with
     value="0" -- to let the user go back to a value > 0 via the gear."""
@@ -230,7 +255,10 @@ def _led_series_value_action(led: "Component",
         # so an R can be re-added via the modal.
         return ImplicitAction(
             id="led_series_value",
-            label="Resistance serie : aucune (0 Ω)",
+            label=_l(lang, "Résistance série : aucune (0 Ω)",
+                     "Series resistor: none (0 Ω)",
+                     "Resistencia en serie: ninguna (0 Ω)",
+                     "Resistenza in serie: nessuna (0 Ω)"),
             is_active=True,   # = non-default state, gear active
             value="0",
             choices=list(LED_SERIES_CHOICES),
@@ -238,11 +266,31 @@ def _led_series_value_action(led: "Component",
     value = str(r.attributes.get("value") or LED_SERIES_DEFAULT)
     return ImplicitAction(
         id="led_series_value",
-        label=f"Resistance serie : {value} Ω",
+        label=_l(lang, f"Résistance série : {value} Ω",
+                 f"Series resistor: {value} Ω",
+                 f"Resistencia en serie: {value} Ω",
+                 f"Resistenza in serie: {value} Ω"),
         is_active=(value != LED_SERIES_DEFAULT),
         value=value,
         choices=list(LED_SERIES_CHOICES),
     )
+
+
+# Les avertissements « résistance X Ω ajoutée » portent `resistor_ref` et
+# `value` : une action qui retire la résistance ou change sa valeur doit les
+# suivre, sinon les instructions annoncent une R qui n'existe plus ou
+# l'ancienne valeur (audit 2026-11-06, implicit_actions.py:290).
+def _forget_resistor_warnings(netlist: "Netlist", ref: str) -> None:
+    netlist.warnings = [
+        w for w in netlist.warnings
+        if (w.params or {}).get("resistor_ref") != ref
+    ]
+
+
+def _sync_resistor_warnings(netlist: "Netlist", ref: str, value: str) -> None:
+    for w in netlist.warnings:
+        if (w.params or {}).get("resistor_ref") == ref and "value" in w.params:
+            w.params["value"] = value
 
 
 def _set_led_series_value(led: "Component", netlist: "Netlist",
@@ -280,16 +328,13 @@ def _set_led_series_value(led: "Component", netlist: "Netlist",
                     p.net = original_net
         netlist.components.remove(r)
         # Cleans up the led_series_resistor warnings linked to this R.
-        netlist.warnings = [
-            w for w in netlist.warnings
-            if not (w.code == "led_series_resistor"
-                    and w.params.get("resistor_ref") == r.ref)
-        ]
+        _forget_resistor_warnings(netlist, r.ref)
         return
 
     if r is not None:
         # Existing R, just modify the value.
         r.attributes["value"] = str(value)
+        _sync_resistor_warnings(netlist, r.ref, str(value))
         return
 
     # No existing R (= LED was set to "None" earlier) and the user now
@@ -337,7 +382,8 @@ def _find_btn_pullup(btn: "Component",
 
 
 def _btn_pullup_action(btn: "Component",
-                        netlist: "Netlist") -> ImplicitAction:
+                        netlist: "Netlist",
+                        lang: str = "fr") -> ImplicitAction:
     """Toggle: external pullup R present vs absent (INPUT_PULLUP on the
     code side). `is_active=True` when the external R is present."""
     r = _find_btn_pullup(btn, netlist)
@@ -345,9 +391,15 @@ def _btn_pullup_action(btn: "Component",
     return ImplicitAction(
         id="btn_pullup_external",
         label=(
-            "Passer en INPUT_PULLUP interne"
+            _l(lang, "Passer en INPUT_PULLUP interne",
+               "Switch to internal INPUT_PULLUP",
+               "Pasar a INPUT_PULLUP interno",
+               "Passare a INPUT_PULLUP interno")
             if is_external
-            else "Utiliser une R pullup externe (10k)"
+            else _l(lang, "Utiliser une R pullup externe (10k)",
+                    "Use an external pull-up resistor (10k)",
+                    "Usar una resistencia pull-up externa (10k)",
+                    "Usare una resistenza pull-up esterna (10k)")
         ),
         is_active=is_external,
         value=is_external,
@@ -362,6 +414,7 @@ def _toggle_btn_pullup_external(btn: "Component",
     r = _find_btn_pullup(btn, netlist)
     if r is not None:
         netlist.components.remove(r)
+        _forget_resistor_warnings(netlist, r.ref)
         return
     sig_net = _btn_signal_net(btn)
     if sig_net is None:
@@ -421,16 +474,23 @@ def _dht_data_net(dht: "Component") -> str | None:
 
 
 def _dht_pullup_action(dht: "Component",
-                        netlist: "Netlist") -> ImplicitAction:
+                        netlist: "Netlist",
+                        lang: str = "fr") -> ImplicitAction:
     """Toggle: pullup R 4.7k present vs absent."""
     r = _find_dht_pullup(dht, netlist)
     has_pullup = r is not None
     return ImplicitAction(
         id="dht_data_pullup",
         label=(
-            "Retirer la R pullup (deconseille)"
+            _l(lang, "Retirer la R pullup (déconseillé)",
+               "Remove the pull-up resistor (not recommended)",
+               "Quitar la resistencia pull-up (desaconsejado)",
+               "Rimuovere la resistenza pull-up (sconsigliato)")
             if has_pullup
-            else "Ajouter une R pullup 4.7k"
+            else _l(lang, "Ajouter une R pullup 4.7k",
+                    "Add a 4.7k pull-up resistor",
+                    "Añadir una resistencia pull-up de 4.7k",
+                    "Aggiungere una resistenza pull-up da 4.7k")
         ),
         is_active=has_pullup,
         value=has_pullup,
@@ -442,6 +502,7 @@ def _toggle_dht_pullup(dht: "Component", netlist: "Netlist") -> None:
     r = _find_dht_pullup(dht, netlist)
     if r is not None:
         netlist.components.remove(r)
+        _forget_resistor_warnings(netlist, r.ref)
         return
     data_net = _dht_data_net(dht)
     if data_net is None:
@@ -474,7 +535,8 @@ def _find_buzzer_series_resistor(buz: "Component",
 
 
 def _buzzer_series_action(buz: "Component",
-                            netlist: "Netlist") -> ImplicitAction:
+                            netlist: "Netlist",
+                            lang: str = "fr") -> ImplicitAction:
     """Selector: series R value, or 'none' if absent."""
     r = _find_buzzer_series_resistor(buz, netlist)
     if r is None:
@@ -484,9 +546,13 @@ def _buzzer_series_action(buz: "Component",
     return ImplicitAction(
         id="buzzer_series_value",
         label=(
-            "Sans resistance serie"
+            _l(lang, "Sans résistance série", "No series resistor",
+               "Sin resistencia en serie", "Senza resistenza in serie")
             if current == "none"
-            else f"Resistance serie : {current} Ω"
+            else _l(lang, f"Résistance série : {current} Ω",
+                    f"Series resistor: {current} Ω",
+                    f"Resistencia en serie: {current} Ω",
+                    f"Resistenza in serie: {current} Ω")
         ),
         is_active=(current != BUZZER_SERIES_DEFAULT),
         value=current,
@@ -518,9 +584,11 @@ def _set_buzzer_series_value(buz: "Component", netlist: "Netlist",
         if original_net is not None:
             plus_pin.net = original_net
         netlist.components.remove(r)
+        _forget_resistor_warnings(netlist, r.ref)
         return
     if r is not None:
         r.attributes["value"] = str(value)
+        _sync_resistor_warnings(netlist, r.ref, str(value))
         return
     # No existing R: we insert bridge_net between plus_pin and the
     # Arduino pin.
@@ -583,7 +651,8 @@ def _ds18b20_data_net(sensor: "Component") -> str | None:
 
 
 def _ds18b20_pullup_action(sensor: "Component",
-                             netlist: "Netlist") -> ImplicitAction:
+                             netlist: "Netlist",
+                             lang: str = "fr") -> ImplicitAction:
     """Selector: DATA pullup value, or 'none' if absent."""
     r = _find_ds18b20_pullup(sensor, netlist)
     if r is None:
@@ -593,9 +662,15 @@ def _ds18b20_pullup_action(sensor: "Component",
     return ImplicitAction(
         id="ds18b20_pullup_value",
         label=(
-            "Sans pullup (deconseille)"
+            _l(lang, "Sans pullup (déconseillé)",
+               "No pull-up (not recommended)",
+               "Sin pull-up (desaconsejado)",
+               "Senza pull-up (sconsigliato)")
             if current == "none"
-            else f"Pullup DATA : {current} Ω"
+            else _l(lang, f"Pullup DATA : {current} Ω",
+                    f"DATA pull-up: {current} Ω",
+                    f"Pull-up DATA: {current} Ω",
+                    f"Pull-up DATA: {current} Ω")
         ),
         is_active=(current != DS18B20_PULLUP_DEFAULT),
         value=current,
@@ -612,9 +687,11 @@ def _set_ds18b20_pullup_value(sensor: "Component", netlist: "Netlist",
     if value == "none":
         if r is not None:
             netlist.components.remove(r)
+            _forget_resistor_warnings(netlist, r.ref)
         return
     if r is not None:
         r.attributes["value"] = str(value)
+        _sync_resistor_warnings(netlist, r.ref, str(value))
         return
     data_net = _ds18b20_data_net(sensor)
     if data_net is None:
@@ -701,7 +778,8 @@ def _ms_pin_bit(drv: "Component", name: str) -> int:
     return 0
 
 
-def _microstepping_action(drv: "Component") -> ImplicitAction:
+def _microstepping_action(drv: "Component",
+                          lang: str = "fr") -> ImplicitAction:
     """Selector action on the driver's microstepping mode (A4988 ou
     DRV8825 -- la table suit le TYPE, cf. #87). Reads the current state via
     the nets of the MS1/MS2/MS3 pins (= equivalent to physical jumpers)."""
@@ -717,7 +795,8 @@ def _microstepping_action(drv: "Component") -> ImplicitAction:
     label_map = dict(choices)
     return ImplicitAction(
         id="stepper_microstepping",
-        label=f"Microstepping : {label_map.get(current, current)}",
+        label="Microstepping : " + _microstep_label(
+            lang, current, label_map.get(current, current)),
         is_active=(current != MICROSTEP_DEFAULT),
         value=current,
         choices=list(choices),

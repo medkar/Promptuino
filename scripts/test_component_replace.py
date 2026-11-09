@@ -185,7 +185,10 @@ def test_replace_bus_to_generic_no_gnd_collapse():
     assert res.ok
     mod = next(c for c in res.netlist.components if c.ref=="U1")
     nets = [p.net for p in mod.pins]
-    assert len(set(nets)) >= 2, f"broches ne doivent pas toutes être identiques: {nets}"
+    # Audit 2026-11-06 : un bus n'a AUCUN signal a deplacer. Les deux broches de
+    # signal du module generique restent NON CABLEES (""), au lieu de recopier
+    # par position VCC/GND de l'OLED -- jamais une broche de signal sur GND/5V.
+    assert not ({"GND", "5V"} & set(nets)), f"signal sur une alim: {nets}"
 
 
 TESTS = [

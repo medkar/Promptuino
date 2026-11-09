@@ -42,22 +42,32 @@ sent to the model or what is stored in the project.
 
 ## It runs on your machine
 
-Generation runs on a local model served by [Ollama](https://ollama.com), and
-`arduino-cli` ships inside the installer. **No account and no API key are
-needed**, and nothing you write leaves your machine.
+Generation runs on a local model — served by [Ollama](https://ollama.com) or
+[LM Studio](https://lmstudio.ai), whichever you prefer — and `arduino-cli`
+ships inside the installer. **No account and no API key are needed**, and
+nothing you write leaves your machine.
 
-⚠️ **Ollama is not bundled — install it separately**, then pull a model
-(`ollama pull gemma3:4b` or the model of your choice). Promptuino detects
-whether the server is running, but cannot install it for you.
+⚠️ **Neither engine is bundled — install one separately**, then get a model
+(`ollama pull gemma3:4b`, or LM Studio's own catalogue). Promptuino detects
+whether the server is running, but cannot install it for you. From the **AI
+model** tab it lists the installed models, downloads new ones, and loads or
+unloads them for Promptuino — the same gestures on both engines.
 
-Two downloads happen once, then everything works offline: the model you
-pull through Ollama, and the embedding model the installer fetches
+Two downloads happen once, then everything works offline: the model you pull
+through Ollama or LM Studio, and the embedding model the installer fetches
 (~449 MB, see below).
 
-A remote backend stays available for those who want one — the application
-speaks the OpenAI-compatible protocol and connects to Gemini, OpenAI,
-Anthropic, Mistral, DeepSeek, Qwen or any compatible URL, **with your own
-key**, stored in the system keyring.
+Two remote options stay available for those who want one:
+
+- **Cloud (your key)** — the application speaks the OpenAI-compatible protocol
+  and connects to Gemini, OpenAI, Anthropic, Mistral, DeepSeek, Qwen, Groq,
+  OpenRouter or any compatible URL, **with your own key**, stored in the system
+  keyring.
+- **ChatGPT account** — sign in and use the **paid** ChatGPT plan you already
+  have, with no API key; OpenAI allows this for open-source projects running
+  locally. Free plans are refused by OpenAI itself, not by Promptuino.
+  ⚠️ Still being tried out: generation and token renewal have not yet been
+  confirmed on a paid account.
 
 ## Install
 
@@ -118,7 +128,7 @@ things deserve to be said plainly:
   with lexical and semantic selection, no network call
 - **Static analysis of the sketch** for component recognition, then breadboard
   placement and A\* wire routing
-- **262 test scripts**, runnable in one command:
+- **307 test scripts**, runnable in one command:
   ```bash
   python scripts/run_all_tests.py -j 6
   ```
@@ -184,24 +194,34 @@ est envoyé au modèle ni ce qui est enregistré dans le projet.
 
 ## Tout tourne sur votre machine
 
-La génération s'appuie sur un modèle local servi par
-[Ollama](https://ollama.com), et `arduino-cli` est embarqué dans l'installeur.
-**Aucun compte ni clé d'API** ne sont nécessaires, et rien de ce que vous
-écrivez ne quitte votre machine.
+La génération s'appuie sur un modèle local — servi par
+[Ollama](https://ollama.com) ou [LM Studio](https://lmstudio.ai), au choix —
+et `arduino-cli` est embarqué dans l'installeur. **Aucun compte ni clé d'API**
+ne sont nécessaires, et rien de ce que vous écrivez ne quitte votre machine.
 
-⚠️ **Ollama n'est pas embarqué — il faut l'installer séparément**, puis
-récupérer un modèle (`ollama pull gemma3:4b`, ou celui de votre choix).
-Promptuino détecte si le serveur tourne, mais ne peut pas l'installer à
-votre place.
+⚠️ **Aucun des deux moteurs n'est embarqué — il faut en installer un
+séparément**, puis récupérer un modèle (`ollama pull gemma3:4b`, ou le
+catalogue intégré de LM Studio). Promptuino détecte si le serveur tourne, mais
+ne peut pas l'installer à votre place. Depuis l'onglet **Modèle IA**, il liste
+les modèles installés, en télécharge, et les charge ou décharge pour
+Promptuino — les mêmes gestes sur les deux moteurs.
 
 Deux téléchargements ont lieu une fois pour toutes, ensuite tout fonctionne
-hors ligne : le modèle récupéré via Ollama, et le modèle d'embeddings que
-l'installation télécharge (~449 Mo, voir ci-dessous).
+hors ligne : le modèle récupéré via Ollama ou LM Studio, et le modèle
+d'embeddings que l'installation télécharge (~449 Mo, voir ci-dessous).
 
-Un backend distant reste possible pour qui le veut — l'application parle le
-protocole OpenAI-compatible et sait se connecter à Gemini, OpenAI, Anthropic,
-Mistral, DeepSeek, Qwen ou à n'importe quelle URL compatible, **avec votre
-propre clé**, stockée dans le trousseau du système.
+Deux options distantes restent possibles pour qui les veut :
+
+- **Cloud (clé perso)** — l'application parle le protocole OpenAI-compatible
+  et sait se connecter à Gemini, OpenAI, Anthropic, Mistral, DeepSeek, Qwen,
+  Groq, OpenRouter ou à n'importe quelle URL compatible, **avec votre propre
+  clé**, stockée dans le trousseau du système.
+- **Compte ChatGPT** — connectez-vous et utilisez le forfait ChatGPT
+  **payant** que vous avez déjà, sans clé d'API ; OpenAI l'autorise pour les
+  projets open source qui tournent en local. Les comptes gratuits sont refusés
+  par OpenAI elle-même, pas par Promptuino. ⚠️ Encore à l'essai : la
+  génération et le renouvellement du jeton n'ont pas encore été confirmés sur
+  un compte payant.
 
 ## Installation
 
@@ -265,7 +285,7 @@ quotidien. Deux choses méritent d'être dites franchement :
   avec sélection lexicale et sémantique, sans appel réseau
 - **Analyse statique du sketch** pour la reconnaissance des composants, puis
   placement sur breadboard et routage A\* des fils
-- **262 scripts de test** exécutables d'un coup :
+- **307 scripts de test** exécutables d'un coup :
   ```bash
   python scripts/run_all_tests.py -j 6
   ```

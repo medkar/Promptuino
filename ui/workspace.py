@@ -13,6 +13,7 @@ Each platform has an arduino-cli.yaml file that redirects
 directories.user to its subfolder, thereby isolating the libraries.
 """
 import subprocess
+import sys
 from pathlib import Path
 
 from .session import session
@@ -58,12 +59,19 @@ class WorkspaceManager:
     # ── Folder creation ──────────────────────────────────
 
     def _ensure_structure(self):
+        # Slot of `workspace_root_changed`: a folder the user cannot write to
+        # (drive root, Program Files, read-only drive) must not raise inside
+        # a Qt slot. The writes that follow fail on their own, where they
+        # happen.
         root = session.workspace_root
-        for platform_dir in _ENV_DIRS.values():
-            for subdir in ("libraries", "projects"):
-                (root / platform_dir / subdir).mkdir(
-                    parents=True, exist_ok=True
-                )
+        try:
+            for platform_dir in _ENV_DIRS.values():
+                for subdir in ("libraries", "projects"):
+                    (root / platform_dir / subdir).mkdir(
+                        parents=True, exist_ok=True
+                    )
+        except OSError as e:
+            print(f"[workspace] cannot create {root}: {e}", file=sys.stderr)
 
     # ── Paths ───────────────────────────────────────────────
 
@@ -118,7 +126,19 @@ class WorkspaceManager:
             lines.append(f'  data: "{Path(data_dir).as_posix()}"')
         lines.append(f'  user: "{user_dir.as_posix()}"')
 
-        cfg_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        text = "\n".join(lines) + "\n"
+        # Called from several worker threads at once (library search +
+        # install): rewriting an IDENTICAL file truncated it while
+        # arduino-cli could be reading it. Write only when it changes.
+        try:
+            if cfg_path.read_text(encoding="utf-8") == text:
+                return cfg_path
+        except (OSError, UnicodeDecodeError):
+            pass
+        # The platform folder may have vanished since startup (deleted,
+        # drive unplugged): FileNotFoundError used to kill the worker.
+        cfg_path.parent.mkdir(parents=True, exist_ok=True)
+        cfg_path.write_text(text, encoding="utf-8")
         return cfg_path
 
     def cli_config(self, fqbn: str) -> str:

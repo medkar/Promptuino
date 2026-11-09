@@ -687,6 +687,13 @@ def slider_qss(c: ColorScheme) -> str:
             margin: -5px 0;
             border-radius: 2px;
         }}
+        QSlider::sub-page:horizontal:disabled {{
+            background: {c.disabled_text};
+        }}
+        QSlider::handle:horizontal:disabled {{
+            background: {c.border};
+            border: 2px solid {c.disabled_text};
+        }}
     """
 
 

@@ -512,7 +512,7 @@ def test_scraped_type_name_falls_back_to_replacement_catalog():
         infos = ci._registry_components("fr")
     finally:
         cr.registry = orig
-    assert infos[0].name == label_of("atlas_ph"), infos[0].name
+    assert infos[0].name == label_of("atlas_ph", "fr"), infos[0].name
     assert infos[0].name != "atlas_ph"
 
 

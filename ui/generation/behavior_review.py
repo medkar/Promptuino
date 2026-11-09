@@ -44,7 +44,10 @@ def conformance_available(backend) -> bool:
         return False
     if CONFORMANCE_ON_SLM:
         return True
-    return not backend.is_slm()
+    # `is_slm` is a PROPERTY on every backend (base.py): calling it raised
+    # « 'bool' object is not callable » the day the flag above is flipped
+    # (audit 2026-11-06). Read the same way as chat_controller does.
+    return not bool(getattr(backend, "is_slm", False))
 
 
 def build_intent(features) -> str:

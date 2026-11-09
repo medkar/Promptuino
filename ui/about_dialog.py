@@ -12,7 +12,7 @@ from pathlib import Path
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QPalette, QColor, QIcon
 from PyQt6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
+    QApplication, QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QScrollArea, QWidget, QFrame, QSizePolicy,
 )
 
@@ -317,8 +317,11 @@ class AboutDialog(QDialog):
         ⚠️ Jamais sur le fil graphique : l'appel reseau a un delai de 6 s, et
         une fenetre figee pendant 6 s serait pire que pas de bouton du tout.
         """
-        if self._maj_worker is not None and self._maj_worker.isRunning():
-            return
+        try:
+            if self._maj_worker is not None and self._maj_worker.isRunning():
+                return
+        except RuntimeError:       # C++ object already freed after it finished
+            self._maj_worker = None
         s = lang_manager.current
         self._btn_update.setEnabled(False)
         self._lbl_update.setText(s.update_checking)
@@ -327,22 +330,34 @@ class AboutDialog(QDialog):
             fini = pyqtSignal(object)
 
             def run(self):
-                self.fini.emit(check_updates())
+                # Toute la reponse (tag + joignable) est calculee ICI, jamais
+                # dans le slot : le second appel reseau gelait la fenetre.
+                from .updates import fetch_latest
+                tag = check_updates()
+                joignable = True
+                if not tag:
+                    # Pas de version plus recente : a jour, ou impossible de
+                    # demander ? Les deux se ressemblent (cf. `fetch_latest`).
+                    _, joignable = fetch_latest()
+                self.fini.emit((tag, joignable))
 
-        self._maj_worker = _Worker(self)
-        self._maj_worker.fini.connect(self._on_update_result)
-        self._maj_worker.start()
+        # Le fil n'est PAS enfant du dialogue (WA_DeleteOnClose) : fermer la
+        # fenetre pendant l'appel reseau detruirait un QThread vivant (abort
+        # natif). Parent = l'application ; il se libere une fois fini.
+        w = _Worker(QApplication.instance())
+        w.finished.connect(w.deleteLater)
+        self._maj_worker = w
+        w.fini.connect(self._on_update_result)
+        w.start()
 
-    def _on_update_result(self, tag):
-        """`tag` = version plus recente, ou None.
+    def _on_update_result(self, result):
+        """`result` = (tag plus recent ou None, joignable).
 
-        ⚠️ None ne veut PAS dire << a jour >> : il couvre aussi le hors-ligne
-        et un build de developpement. On ne peut donc pas afficher << vous avez
-        la derniere version >> sans mentir une fois sur deux. D'ou le second
-        appel, qui distingue les deux cas.
+        ⚠️ tag None ne veut PAS dire << a jour >> : il couvre aussi le
+        hors-ligne et un build de developpement, d'ou `joignable`, calcule
+        dans le fil (jamais ici : ce slot tourne sur le fil graphique).
         """
-        from .updates import fetch_latest
-
+        tag, joignable = result
         s = lang_manager.current
         self._btn_update.setEnabled(True)
         if tag:
@@ -352,10 +367,12 @@ class AboutDialog(QDialog):
                 f'{txt} <a href="{url}" style="color: '
                 f'{theme_manager.current.accent};">{s.update_download}</a>')
             return
-        # Pas de version plus recente : est-ce parce qu'on est a jour, ou
-        # parce qu'on n'a pas pu demander ? Les deux se ressemblent et ne
-        # veulent pas dire la meme chose -- d'ou le drapeau `joignable`.
-        _, joignable = fetch_latest()
+        from .version import is_release_build
+        if not is_release_build():
+            # Un build de developpement n'est jamais compare aux versions
+            # publiees : ni << a jour >>, ni << echec >> (audit #124).
+            self._lbl_update.setText(s.update_dev_build)
+            return
         self._lbl_update.setText(
             s.update_up_to_date if joignable else s.update_failed)
 

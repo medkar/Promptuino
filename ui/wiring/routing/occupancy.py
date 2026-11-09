@@ -124,6 +124,34 @@ class NetEndpoints:
 
 
 # ─── Internal helpers ────────────────────────────────────────────────────
+def board_pin_exit_side(px: float, py: float, bbox, others,
+                        tol: float = 6.0) -> str:
+    """Le cote du corps de la carte par lequel une broche sort : le plus
+    proche, SAUF un cote dont le chemin droit passe sur une AUTRE broche
+    (2026-11-07). Sur la Mega, SDA sortait par le haut en recouvrant SCL, et
+    D50 par le bas en recouvrant D51 (double rangee du bas) : le fil de la
+    broche recouverte ne se tracait plus. Si tous les cotes sont bloques, on
+    garde le plus proche, comme avant. Rend "left"/"right"/"top"/"bottom"."""
+    bx_min, by_min, bx_max, by_max = bbox
+    dists = {"left": px - bx_min, "right": bx_max - px,
+             "top": py - by_min, "bottom": by_max - py}
+
+    def traverse(cote):
+        for ox, oy in others:
+            if cote in ("top", "bottom") and abs(ox - px) < tol:
+                if (cote == "top" and by_min <= oy < py) or \
+                   (cote == "bottom" and py < oy <= by_max):
+                    return True
+            if cote in ("left", "right") and abs(oy - py) < tol:
+                if (cote == "left" and bx_min <= ox < px) or \
+                   (cote == "right" and px < ox <= bx_max):
+                    return True
+        return False
+
+    libres = {k: v for k, v in dists.items() if not traverse(k)} or dists
+    return min(libres, key=libres.get)
+
+
 def _resolve_board_pin(board_loader, net: str) -> str | None:
     """Returns the fn of the Arduino pin a net connects to, or None."""
     if net in _NET_TO_BOARD_PIN:
@@ -131,6 +159,27 @@ def _resolve_board_pin(board_loader, net: str) -> str | None:
     if board_loader.has_pin(net):
         return net
     return None
+
+
+# Les nets 5V / 3V3 / VIN sont trois tensions DIFFERENTES : les poser sur le
+# meme rail V+ court-circuite le regulateur 3,3 V avec le 5 V. Le breadboard n'a
+# qu'un rail V+ cote carte ; il revient donc a UN seul de ces nets (le 1er
+# present, dans cet ordre), les autres sont tires en direct depuis leur broche.
+_V_PLUS_PRIORITY = ("5V", "3V3", "VIN")
+
+
+def rail_kind_for_net(scene: PlacedScene, net: str) -> str | None:
+    """Rail kind ('V+' / 'GND') that carries `net`, or None (direct wires)."""
+    kind = _NET_TO_RAIL.get(net)
+    if kind != "V+":
+        return kind
+    present = {p.get("net")
+               for c in (getattr(scene, "netlist_components", None) or [])
+               for p in c.get("pins", [])}
+    for owner in _V_PLUS_PRIORITY:
+        if owner in present:
+            return kind if owner == net else None
+    return kind
 
 
 def power_rail_for_net(scene: PlacedScene, net: str
@@ -141,7 +190,7 @@ def power_rail_for_net(scene: PlacedScene, net: str
     side of the BB facing the board (= "right" if BB is left of the board, otherwise
     "left"). Identical to the v2.layout.routing 1a/1c logic.
     """
-    rail_kind = _NET_TO_RAIL.get(net)
+    rail_kind = rail_kind_for_net(scene, net)
     if rail_kind is None:
         return None
     # Primary BB choice: the 1st (BB 0) is enough for Phase 3 mono-BB.
@@ -776,7 +825,7 @@ def build_occupancy_grid(scene: PlacedScene, netlist: list[dict],
         rails_to_pin.append((bb_idx, rail_id, net_id))
         # Extend to the secondary BBs (= on-BB consumers of the net outside
         # the primary BB). Rail = arduino-side of that BB.
-        rail_kind = _NET_TO_RAIL.get(net)
+        rail_kind = rail_kind_for_net(scene, net)
         if rail_kind is None:
             continue
         for other_bb in consumer_bbs_by_net.get(net, set()):
@@ -867,19 +916,19 @@ def build_occupancy_grid(scene: PlacedScene, netlist: list[dict],
         px, py = board_xy
         grid.set_pin(px, py, net_id, radius_cells=PIN_RADIUS_CELLS_ARDUINO)
 
-        # Distance to each body edge: we exit by the nearest one
-        d_left = px - bx_min
-        d_right = bx_max - px
-        d_top = py - by_min
-        d_bottom = by_max - py
-        d_min = min(d_left, d_right, d_top, d_bottom)
-        if d_min == d_left:
+        # Nearest body edge, unless its straight path crosses another pin
+        # (board_pin_exit_side).
+        autres = [xy for fn, xy in scene.board_loader.pin_positions(
+            translate=scene.board_translate).items() if fn != board_fn]
+        cote = board_pin_exit_side(px, py, (bx_min, by_min, bx_max, by_max),
+                                   autres)
+        if cote == "left":
             exit_x, exit_y = bx_min - 2, py            # left
             channel_axis = "horizontal"
-        elif d_min == d_right:
+        elif cote == "right":
             exit_x, exit_y = bx_max + 2, py            # right
             channel_axis = "horizontal"
-        elif d_min == d_top:
+        elif cote == "top":
             exit_x, exit_y = px, by_min - 2            # top
             channel_axis = "vertical"
         else:

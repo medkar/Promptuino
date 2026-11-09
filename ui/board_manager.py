@@ -176,6 +176,9 @@ class BoardManager(QObject):
 
     def set_board_connected(self, env_id: str, model: str):
         """Board detected via USB — physically verified."""
+        # A port typed in manual mode is stale once the board is detected
+        # again (it may re-appear on another COM): `port or auto` must auto.
+        self._port = ""
         board_changed = env_id != self._env or model != self._model
         self._env   = env_id
         self._model = model
@@ -185,11 +188,26 @@ class BoardManager(QObject):
             self._state = BoardState.CONNECTED
             self.state_changed.emit(BoardState.CONNECTED)
 
+    def clear_selection(self):
+        """Back to « no board »: forgets the manual board AND its port, so
+        compile/upload do not keep targeting what the UI no longer shows."""
+        board_changed = bool(self._env or self._model)
+        self._env = ""
+        self._model = ""
+        self._port = ""
+        if board_changed:
+            self.changed.emit("", "")
+        if self._state != BoardState.NONE:
+            self._state = BoardState.NONE
+            self.state_changed.emit(BoardState.NONE)
+
     def set_connected(self, connected: bool):
         """Called by the USB watcher on disconnection."""
         new_state = BoardState.CONNECTED if connected else BoardState.NONE
         if new_state == self._state:
             return
+        if not connected:
+            self._port = ""   # unplugged: the manual port no longer exists
         self._state = new_state
         self.state_changed.emit(new_state)
 

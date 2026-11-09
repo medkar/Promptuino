@@ -28,7 +28,6 @@ from .chat_heuristics import (
     is_generation_intent, is_off_scope, is_correction_intent,
 )
 from .chat_prompts import (
-    GENERATION_REDIRECT_FR, OFFSCOPE_REFUSAL_FR, NO_BACKEND_FR,
     build_system_prompt, assemble_within_budget, APP_KNOWLEDGE_LABEL_KEYS,
 )
 from ..i18n import lang_manager
@@ -163,11 +162,17 @@ class ChatController:
         self.attachment_name = ""
         self.attachment_text = ""
         self.system_extras_sticky = ""
+        # A "?" bridge preloads invisible context for the NEXT turn only; a
+        # new conversation must not inherit it (audit 2026-11-06).
+        self.system_extras_once = ""
 
     def load_history(self, history: list[dict]) -> None:
         """Replaces the current history (on project switch)."""
         self.history = list(history)
         self.system_extras_sticky = ""
+        # Same for a project switch: the preloaded error/code belongs to the
+        # PREVIOUS project and would leak into the first turn of this one.
+        self.system_extras_once = ""
 
     def evaluate_turn(self, user_text: str, *, force_answer: bool = False):
         """Heuristic filter + build system prompt. Does NOT make the
@@ -188,7 +193,7 @@ class ChatController:
         if not user_text or not user_text.strip():
             return ChatTurnResult(
                 kind=ChatTurnKind.ERROR,
-                text="Message vide.",
+                text=lang_manager.current.chat_empty_message,
                 error_detail="empty user message",
             )
 
@@ -196,21 +201,22 @@ class ChatController:
         if not force_answer and is_generation_intent(user_text):
             return ChatTurnResult(
                 kind=ChatTurnKind.GENERATION_REDIRECT,
-                text=GENERATION_REDIRECT_FR,
+                text=lang_manager.current.chat_generation_redirect.replace(
+                    "{field}", lang_manager.current.studio_prompt_label),
             )
 
         # 2. Off-scope.
         if is_off_scope(user_text):
             return ChatTurnResult(
                 kind=ChatTurnKind.OFFSCOPE_REFUSAL,
-                text=OFFSCOPE_REFUSAL_FR,
+                text=lang_manager.current.chat_offscope_refusal,
             )
 
         # 3. Missing backend.
         if self.backend is None:
             return ChatTurnResult(
                 kind=ChatTurnKind.NO_BACKEND,
-                text=NO_BACKEND_FR,
+                text=lang_manager.current.chat_no_backend_bubble,
             )
 
         # 4. RAG (top_k + threshold governed by is_slm).

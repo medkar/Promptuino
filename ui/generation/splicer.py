@@ -6,7 +6,9 @@ from __future__ import annotations
 
 from .assembler import _code_sig, _subtract_existing
 from .brace_utils import find_function_body
-from .feature_model import Feature, declared_name
+from .feature_model import (
+    Feature, declared_name, statement_names, _LITERAL_RE,
+)
 from .sketch_parser import parse_sketch, SketchParseError
 
 
@@ -22,8 +24,7 @@ def _existing_global_names(code: str) -> set[str]:
     except SketchParseError:
         return set()
     names: set[str] = set()
-    for g in parsed.global_lines:
-        n = declared_name(g)
+    for n in statement_names(parsed.global_lines):
         if n:
             names.add(n)
     return names
@@ -92,8 +93,9 @@ def splice_add(current_code: str, feature: Feature) -> str:
         raise SpliceError("setup()/loop() introuvables")
     existing_names = _existing_global_names(current_code)
     new_includes = [inc for inc in feature.includes if inc.strip() not in current_code]
-    new_globals = [g for g in feature.global_lines
-                   if declared_name(g) is None or declared_name(g) not in existing_names]
+    new_globals = [g for g, n in zip(feature.global_lines,
+                                     statement_names(feature.global_lines))
+                   if n is None or n not in existing_names]
     code = _insert_includes(current_code, new_includes)
     code = _insert_globals(code, new_globals)
     new_setup = _subtract_existing(feature.setup_lines,
@@ -130,10 +132,59 @@ def _remove_lines_from_body(code: str, func_name: str, lines: list[str]) -> str:
         raise SpliceError(f"fonction '{func_name}' introuvable")
     _, body_start, body_end, _ = span
     body = code[body_start:body_end]
-    to_remove = {ln.strip() for ln in lines}
-    kept = [ln for ln in body.split("\n") if ln.strip() not in to_remove]
+    body_lines = body.split("\n")
+    old_seq = [ln.strip() for ln in lines if ln.strip()]
+    nonblank = [i for i, ln in enumerate(body_lines) if ln.strip()]
+    stripped = [body_lines[i].strip() for i in nonblank]
+    n = len(old_seq)
+    drop: set[int] = set()
+    # 1. Le bloc de l'ancienne fonctionnalite est CONTIGU dans le corps (c'est
+    #    ainsi que l'assembleur l'a pose) : on retire CETTE suite-la. Retirer
+    #    toute ligne de meme texte emportait les `delay(1000);` et les `}` des
+    #    AUTRES fonctionnalites, en silence.
+    if n:
+        for k in range(len(stripped) - n + 1):
+            if stripped[k:k + n] == old_seq:
+                drop = {nonblank[k + j] for j in range(n)}
+                break
+    # 2. Suite rompue (retouche a la main au milieu) : repli, mais chaque
+    #    ligne ne part qu'autant de fois que l'ancienne fonctionnalite l'a.
+    if not drop:
+        budget: dict[str, int] = {}
+        for ln in old_seq:
+            budget[ln] = budget.get(ln, 0) + 1
+        for i, ln in enumerate(body_lines):
+            t = ln.strip()
+            if budget.get(t, 0) > 0:
+                budget[t] -= 1
+                drop.add(i)
+    kept = [ln for i, ln in enumerate(body_lines) if i not in drop]
     new_body = "\n".join(kept)
     return code[:body_start] + new_body + code[body_end:]
+
+
+def _remove_global_statements(code: str, names: set[str]) -> str:
+    """Retire du code les enonces globaux (niveau 0) qui declarent un des
+    `names` -- multi-ligne compris. Sert a `splice_replace` : sans cela,
+    `splice_add` saute la nouvelle globale (« deja declaree ») et une
+    modification de VALEUR (changer de broche) n'etait jamais appliquee."""
+    if not names:
+        return code
+    lines = code.split("\n")
+    drop: set[int] = set()
+    depth = 0
+    skipping = False
+    for i, ln in enumerate(lines):
+        if depth == 0:
+            skipping = declared_name(ln) in names
+        if skipping:
+            drop.add(i)
+        c = _LITERAL_RE.sub("", ln.split("//", 1)[0])
+        depth += sum(c.count(ch) for ch in "{([") - sum(c.count(ch) for ch in "})]")
+        depth = max(depth, 0)
+    if not drop:
+        return code
+    return "\n".join(ln for i, ln in enumerate(lines) if i not in drop)
 
 
 def splice_replace(current_code: str, old: Feature, new: Feature) -> str:
@@ -146,6 +197,9 @@ def splice_replace(current_code: str, old: Feature, new: Feature) -> str:
     code = current_code
     for fn in old.functions:
         code = _remove_function(code, fn.name)
+    changed = ({n for n in statement_names(old.global_lines) if n}
+               & {n for n in statement_names(new.global_lines) if n})
+    code = _remove_global_statements(code, changed)
     code = _remove_lines_from_body(code, "setup", old.setup_lines)
     code = _remove_lines_from_body(code, "loop", old.loop_lines)
     return splice_add(code, new)

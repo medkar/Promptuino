@@ -108,9 +108,9 @@ def _registry_components(lang: str) -> list[ComponentInfo]:
     `lang` only picks which language `_label` renders the name in -- this
     module stays Qt-free and lang_manager-free, the caller decides. Names
     have a SECOND source: a type absent from `_TYPE_LABEL` takes its curated
-    label from `replacement_catalog.label_of`, which `lang` does not affect
-    (that catalog is language-neutral by documented stance: proper nouns,
-    identical fr/en/es/it).
+    label from `replacement_catalog.label_of`, in the same `lang` (that
+    catalog was documented as language-neutral and was not: translated on
+    2026-11-07, TODO #124).
     """
     from .component_registry import registry as reg_registry
     from .wiring.layout.component_catalog import CATALOG
@@ -129,7 +129,7 @@ def _registry_components(lang: str) -> list[ComponentInfo]:
         # catalog knows takes its curated label ("BMP180 (baromètre)"), never
         # the bare slug.
         name = (_label(comp.id, lang) if comp.id in _TYPE_LABEL
-                else label_of(comp.id) or comp.id)
+                else label_of(comp.id, lang) or comp.id)
         out.append(ComponentInfo(
             key=comp.id,
             name=name,
@@ -159,7 +159,7 @@ def _looked_up_components() -> list[ComponentInfo]:
     only guessed comes from the cache and may be evicted; one the user chose a
     library for lives in `component_libs` and never disappears.
     """
-    from .component_libs import registry as libs_registry
+    from .component_libs import NO_LIBRARY, registry as libs_registry
     from .registry_lookup import cached_lookups
     cached = cached_lookups()
     prefs = libs_registry()
@@ -176,6 +176,14 @@ def _looked_up_components() -> list[ComponentInfo]:
         # The user's choice wins over the cached guess: that is the whole point
         # of this chantier.
         lib = prefs.get(token) or str(rec.get("lib_name") or "").strip()
+        # « Aucune bibliothèque n'est nécessaire » is stored as a SENTINEL in
+        # the same dict: it is an affirmation, not a library name. Read raw,
+        # the card showed lib « no_library » and sat under « Avec
+        # bibliothèque » -- the opposite of what the user said (audit
+        # 2026-11-06). Same rule as `component_libs.preference_for`.
+        no_lib = lib == NO_LIBRARY
+        if no_lib:
+            lib = ""
         out.append(ComponentInfo(
             key=token,
             # Nommée d'après le TOKEN, pas d'après l'entrée trouvée : celle-ci
@@ -191,7 +199,7 @@ def _looked_up_components() -> list[ComponentInfo]:
             editable=False,
             pin_count=0,
             wiring="unknown",        # guessed: no catalog footprint
-            library="known" if lib else "unknown",
+            library=("none" if no_lib else "known" if lib else "unknown"),
             description=str(entry.get("description") or ""),
             keywords=(token,),
         ))

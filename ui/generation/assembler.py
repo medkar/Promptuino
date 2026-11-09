@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import re
 
-from .feature_model import Feature, declared_name
+from .feature_model import Feature, declared_name, statement_names, statement_spans
 
 
 # Idempotent INIT lines: re-emitting them is always redundant.
@@ -190,8 +190,8 @@ def clean_feature_contributions(feature: Feature,
     same name."""
     setup_sigs = {s for f in existing for ln in f.setup_lines if (s := _code_sig(ln))}
     loop_sigs = {s for f in existing for ln in f.loop_lines if (s := _code_sig(ln))}
-    g_names = {n for f in existing for g in f.global_lines
-               if (n := declared_name(g)) is not None}
+    g_names = {n for f in existing for n in statement_names(f.global_lines)
+               if n is not None}
     inc_present = {inc.strip() for f in existing for inc in f.includes}
     fn_names = {fn.name for f in existing for fn in f.functions}
     return Feature(
@@ -204,8 +204,9 @@ def clean_feature_contributions(feature: Feature,
         forced_lib_ids=list(feature.forced_lib_ids),
         includes=[inc for inc in feature.includes
                   if inc.strip() not in inc_present],
-        global_lines=[g for g in feature.global_lines
-                      if declared_name(g) is None or declared_name(g) not in g_names],
+        global_lines=[g for g, n in zip(feature.global_lines,
+                                        statement_names(feature.global_lines))
+                      if n is None or n not in g_names],
         setup_lines=_subtract_existing(feature.setup_lines, setup_sigs),
         loop_lines=_subtract_existing(feature.loop_lines, loop_sigs),
         functions=[fn for fn in feature.functions if fn.name not in fn_names],
@@ -234,12 +235,15 @@ def assemble_with_map(features: list[Feature]) -> "tuple[str, list[str | None]]"
     glob_pairs: list[tuple[str, str]] = []
     seen_names: set[str] = set()
     for f in features:
-        for g in f.global_lines:
-            name = declared_name(g)
-            if name is not None:
-                if name in seen_names:
-                    continue
-                seen_names.add(name)
+        skipping = False
+        for g, (name, is_head) in zip(f.global_lines,
+                                      statement_spans(f.global_lines)):
+            if is_head:
+                skipping = name is not None and name in seen_names
+                if name is not None and not skipping:
+                    seen_names.add(name)
+            if skipping:
+                continue
             glob_pairs.append((g, f.id))
     # Corps setup/loop : même sémantique que _merge_body_lines, en gardant
     # l'origine de chaque ligne conservée.

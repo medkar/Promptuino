@@ -448,7 +448,7 @@ def test_the_swap_directive_names_components_not_identifiers():
     from ui.wiring.replacement_catalog import label_of
     from ui.wiring.instructions import _label as _type_label
     for t in ("oled_ssd1306", "sh1106", "led"):
-        assert label_of(t) is None, f"{t}: le repli n'est donc jamais exerce ?"
+        assert label_of(t, "en") is None, f"{t}: le repli n'est donc jamais exerce ?"
     assert _type_label("oled_ssd1306", "en") == "SSD1306 OLED screen"
     assert _type_label("sh1106", "en") == "OLED display (SH1106)"
     # Le repli ultime reste le type brut : un type sans libelle ne doit pas

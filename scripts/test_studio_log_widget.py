@@ -37,12 +37,37 @@ def test_compat_import_studio_view():
     assert sv.LogWidget is LogWidget
 
 
-TESTS = [test_phase_html_shape, test_widget_api, test_compat_import_studio_view]
+def test_a_line_written_during_the_live_line_survives_the_next_tick():
+    """Audit 2026-11-06 : set_live_line effacait de l'ancre jusqu'a la FIN du
+    document, donc tout ce qui s'ecrivait pendant l'animation (diagnostics
+    RAG, avertissement prompt trop long) disparaissait au tick suivant."""
+    w = LogWidget()
+    w.set_live_line("<b>LOADER frame0</b>")
+    w.append_raw("[RAG] diagnostic important")
+    w.begin_phase("Prompt trop long !", "#f59e0b")
+    w.set_live_line("<b>LOADER frame1</b>")
+    w.set_live_line("<b>LOADER frame2</b>")
+    txt = w._text.toPlainText()
+    assert "[RAG] diagnostic important" in txt, txt
+    assert "Prompt trop long !" in txt, txt
+    assert "LOADER frame2" in txt and "frame0" not in txt and "frame1" not in txt, txt
+    w.clear_live_line()
+    txt = w._text.toPlainText()
+    assert "LOADER" not in txt and "Prompt trop long !" in txt, txt
+
+
+TESTS = [test_phase_html_shape, test_widget_api, test_compat_import_studio_view,
+         test_a_line_written_during_the_live_line_survives_the_next_tick]
 
 if __name__ == "__main__":
     passed = 0
     for t in TESTS:
-        t()
+        try:
+            t()
+        except Exception as exc:
+            print(f"FAIL {t.__name__}: {exc!r}")
+            sys.stdout.flush()
+            os._exit(1)
         passed += 1
     print(f"{passed}/{len(TESTS)} tests passed")
     sys.stdout.flush()
